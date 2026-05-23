@@ -13,18 +13,20 @@ import (
 )
 
 type API struct {
-	ldap       *ldap.Client
-	ca         *ca.CA
-	repo       *db.Repository
-	sshCertTTL string
+	ldap           *ldap.Client
+	ca             *ca.CA
+	repo           *db.Repository
+	sshCertTTL     string
+	internalSecret string
 }
 
-func New(ldapClient *ldap.Client, sshCA *ca.CA, repo *db.Repository, sshCertTTL string) *API {
+func New(ldapClient *ldap.Client, sshCA *ca.CA, repo *db.Repository, sshCertTTL string, internalSecret string) *API {
 	return &API{
-		ldap:       ldapClient,
-		ca:         sshCA,
-		repo:       repo,
-		sshCertTTL: sshCertTTL,
+		ldap:           ldapClient,
+		ca:             sshCA,
+		repo:           repo,
+		sshCertTTL:     sshCertTTL,
+		internalSecret: internalSecret,
 	}
 }
 
@@ -81,7 +83,11 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 	})
 
 	r.Route("/internal", func(r chi.Router) {
-		// System role required - added in Phase 10
+		// System role - authenticated via shared secret
+		r.Use(auth.InternalMiddleware(a.internalSecret))
+		r.Get("/sync/state", a.syncState)
+		r.Get("/sync/changes", a.syncChanges)
+		r.Get("/sync/snapshot", a.syncSnapshot)
 	})
 }
 

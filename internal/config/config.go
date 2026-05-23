@@ -24,6 +24,7 @@ type Config struct {
 	LogDir          string
 	OIDCClientSecret string
 	LDAPAdminPass    string
+	InternalSecret   string
 }
 
 func Load() (*Config, error) {
@@ -68,6 +69,12 @@ func (c *Config) loadSecrets() error {
 		return err
 	}
 	c.LDAPAdminPass = ldapPass
+
+	internalSecret, err := readSecretFile(filepath.Join(dir, "internal_secret"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	c.InternalSecret = internalSecret
 
 	return nil
 }

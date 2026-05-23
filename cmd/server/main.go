@@ -16,6 +16,7 @@ import (
 	"github.com/authbox/authbox/internal/db"
 	appldap "github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
+	appsync "github.com/authbox/authbox/internal/sync"
 	"github.com/authbox/authbox/internal/web/api"
 	"github.com/authbox/authbox/internal/web/frontend"
 	"github.com/go-chi/chi/v5"
@@ -99,7 +100,7 @@ func main() {
 
 	// Set up HTTP router
 	repo := db.NewRepository(database)
-	apiHandler := api.New(ldapClient, sshCA, repo, cfg.SSHCertTTL)
+	apiHandler := api.New(ldapClient, sshCA, repo, cfg.SSHCertTTL, cfg.InternalSecret)
 
 	// Session store for web UI
 	sessions := auth.NewSessionStore(30 * time.Minute)
@@ -109,6 +110,11 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(logging.Middleware(log))
 	r.Use(middleware.Recoverer)
+
+	// Replica: reject writes on API routes
+	if cfg.Role == "replica" {
+		r.Use(appsync.RejectWrites())
+	}
 
 	apiHandler.RegisterRoutesWithDeps(r, authMiddleware)
 
@@ -127,6 +133,14 @@ func main() {
 		fe.RegisterRoutes(r)
 	} else {
 		frontend.RegisterRoutesLegacy(r)
+	}
+
+	// Start replica sync loop if replica
+	if cfg.Role == "replica" && cfg.PrimaryHost != "" {
+		syncCtx, syncCancel := context.WithCancel(context.Background())
+		defer syncCancel()
+		rs := appsync.NewReplicaSync(cfg.PrimaryHost, cfg.InternalSecret, repo, log)
+		go rs.Start(syncCtx)
 	}
 
 	tlsCfg := &tls.Config{
