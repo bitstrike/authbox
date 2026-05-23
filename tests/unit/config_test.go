@@ -67,8 +67,9 @@ func TestConfigLoadFromEnv(t *testing.T) {
 func TestConfigLoadSecrets(t *testing.T) {
 	dir := t.TempDir()
 
-	// Write secret files
-	os.WriteFile(filepath.Join(dir, "oidc_client_secret"), []byte("my-secret\n"), 0600)
+	// Write google secrets file (key=value format)
+	os.WriteFile(filepath.Join(dir, "google"), []byte("client_id=google-id-123\nclient_secret=google-secret-456\n"), 0600)
+	// Write ldap password (single value)
 	os.WriteFile(filepath.Join(dir, "ldap_admin_password"), []byte("  admin-pass  \n"), 0600)
 
 	os.Setenv("RUNTIME_SECRETS", dir)
@@ -79,8 +80,11 @@ func TestConfigLoadSecrets(t *testing.T) {
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	if cfg.OIDCClientSecret != "my-secret" {
-		t.Fatalf("expected trimmed secret 'my-secret', got '%s'", cfg.OIDCClientSecret)
+	if cfg.OIDCClientID != "google-id-123" {
+		t.Fatalf("expected client_id 'google-id-123', got '%s'", cfg.OIDCClientID)
+	}
+	if cfg.OIDCClientSecret != "google-secret-456" {
+		t.Fatalf("expected client_secret 'google-secret-456', got '%s'", cfg.OIDCClientSecret)
 	}
 	if cfg.LDAPAdminPass != "admin-pass" {
 		t.Fatalf("expected trimmed password 'admin-pass', got '%s'", cfg.LDAPAdminPass)

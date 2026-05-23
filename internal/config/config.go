@@ -66,35 +66,61 @@ func (c *Config) loadSecrets() error {
 		return nil
 	}
 
-	oidcSecret, err := readSecretFile(filepath.Join(dir, "oidc_client_secret"))
-	if err != nil && !os.IsNotExist(err) {
-		return err
+	// Google OIDC credentials: /etc/secrets/authbox/google
+	// Format: key=value per line (client_id, client_secret)
+	googleCreds, err := readKeyValueFile(filepath.Join(dir, "google"))
+	if err == nil {
+		if v, ok := googleCreds["client_id"]; ok {
+			c.OIDCClientID = v
+		}
+		if v, ok := googleCreds["client_secret"]; ok {
+			c.OIDCClientSecret = v
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("reading google secrets: %w", err)
 	}
-	c.OIDCClientSecret = oidcSecret
 
+	// Entra ID credentials: /etc/secrets/authbox/entra
+	// Same format. Overrides google if both present (only one IdP active).
+	entraCreds, err := readKeyValueFile(filepath.Join(dir, "entra"))
+	if err == nil {
+		if v, ok := entraCreds["client_id"]; ok {
+			c.OIDCClientID = v
+		}
+		if v, ok := entraCreds["client_secret"]; ok {
+			c.OIDCClientSecret = v
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("reading entra secrets: %w", err)
+	}
+
+	// AWS credentials: /etc/secrets/authbox/aws
+	// Format: key=value per line (access_key_id, secret_access_key)
+	awsCreds, err := readKeyValueFile(filepath.Join(dir, "aws"))
+	if err == nil {
+		if v, ok := awsCreds["access_key_id"]; ok {
+			c.AWSAccessKeyID = v
+		}
+		if v, ok := awsCreds["secret_access_key"]; ok {
+			c.AWSSecretAccessKey = v
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("reading aws secrets: %w", err)
+	}
+
+	// LDAP admin password: /etc/secrets/authbox/ldap_admin_password
 	ldapPass, err := readSecretFile(filepath.Join(dir, "ldap_admin_password"))
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("reading ldap_admin_password: %w", err)
 	}
 	c.LDAPAdminPass = ldapPass
 
+	// Internal shared secret: /etc/secrets/authbox/internal_secret
 	internalSecret, err := readSecretFile(filepath.Join(dir, "internal_secret"))
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("reading internal_secret: %w", err)
 	}
 	c.InternalSecret = internalSecret
-
-	awsKeyID, err := readSecretFile(filepath.Join(dir, "aws_access_key_id"))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	c.AWSAccessKeyID = awsKeyID
-
-	awsSecret, err := readSecretFile(filepath.Join(dir, "aws_secret_access_key"))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	c.AWSSecretAccessKey = awsSecret
 
 	return nil
 }
@@ -105,6 +131,28 @@ func readSecretFile(path string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
+}
+
+// readKeyValueFile reads a file with key=value pairs (one per line).
+// Lines starting with # are ignored. Empty lines are skipped.
+func readKeyValueFile(path string) (map[string]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string)
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return result, nil
 }
 
 func getenv(key, fallback string) string {

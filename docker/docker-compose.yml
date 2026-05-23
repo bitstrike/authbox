@@ -19,7 +19,6 @@ services:
       - RUNTIME_SECRETS=/etc/secrets/authbox
       - LDAP_BASE_DN=dc=example,dc=com
       - OIDC_ISSUER_URL=https://accounts.google.com
-      - OIDC_CLIENT_ID=your-client-id
       - INITIAL_ADMIN_EMAIL=admin@example.com
       - TLS_CERT_PATH=/data/tls/cert.pem
       - TLS_KEY_PATH=/data/tls/key.pem
@@ -50,7 +49,6 @@ services:
       - RUNTIME_SECRETS=/etc/secrets/authbox
       - LDAP_BASE_DN=dc=example,dc=com
       - OIDC_ISSUER_URL=https://accounts.google.com
-      - OIDC_CLIENT_ID=your-client-id
       - TLS_CERT_PATH=/data/tls/cert.pem
       - TLS_KEY_PATH=/data/tls/key.pem
       - LOG_LEVEL=info
@@ -65,3 +63,21 @@ volumes:
   ldap-data-replica:
   ldap-config-replica:
   app-data-replica:
+
+# Secrets directory layout (/etc/secrets/authbox/):
+#
+#   google              - Google OIDC (key=value format)
+#                         client_id=<your-google-client-id>
+#                         client_secret=<your-google-client-secret>
+#
+#   entra               - Microsoft Entra ID (key=value format, use instead of google)
+#                         client_id=<your-entra-client-id>
+#                         client_secret=<your-entra-client-secret>
+#
+#   aws                 - AWS credentials for Route53 DNS-01 (key=value format)
+#                         access_key_id=<your-aws-access-key-id>
+#                         secret_access_key=<your-aws-secret-access-key>
+#
+#   ldap_admin_password - Single value: the OpenLDAP admin bind password
+#
+#   internal_secret     - Single value: shared secret for container-to-container auth
