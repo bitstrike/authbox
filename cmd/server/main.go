@@ -10,7 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
+	"github.com/authbox/authbox/internal/db"
+	"github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	"github.com/authbox/authbox/internal/web/api"
 	"github.com/authbox/authbox/internal/web/frontend"
@@ -28,6 +31,45 @@ func main() {
 	log := logging.New(cfg.LogLevel, cfg.LogDir)
 	log.Info("authbox starting", "role", cfg.Role)
 
+	// Initialize SSH CA (loads or generates keypair)
+	sshCA, err := ca.New("/data")
+	if err != nil {
+		log.Error("failed to initialize SSH CA", "err", err)
+		os.Exit(1)
+	}
+	log.Info("SSH CA initialized")
+
+	// Initialize SQLite
+	database, err := db.Open("/data")
+	if err != nil {
+		log.Error("failed to initialize database", "err", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+	log.Info("database initialized")
+
+	// Connect to LDAP and bootstrap if needed
+	ldapClient, err := ldap.NewClient(cfg.LDAPBaseDN, cfg.LDAPAdminPass)
+	if err != nil {
+		log.Error("failed to connect to LDAP", "err", err)
+		os.Exit(1)
+	}
+	defer ldapClient.Close()
+
+	if cfg.Role == "primary" {
+		err = ldap.Bootstrap(ldapClient, ldap.BootstrapConfig{
+			BaseDN:     cfg.LDAPBaseDN,
+			AdminEmail: cfg.InitialAdmin,
+			SchemaPath: "/app/ldif/schema.ldif",
+		})
+		if err != nil {
+			log.Error("LDAP bootstrap failed", "err", err)
+			os.Exit(1)
+		}
+		log.Info("LDAP bootstrap complete")
+	}
+
+	// Set up HTTP router
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
@@ -36,6 +78,8 @@ func main() {
 
 	api.RegisterRoutes(r)
 	frontend.RegisterRoutes(r)
+
+	_ = sshCA // used in Phase 4 when wiring SSH endpoints
 
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
