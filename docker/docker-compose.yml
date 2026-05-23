@@ -4,6 +4,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
+      - "389:389"
       - "636:636"
       - "8443:8443"
     volumes:
@@ -33,6 +34,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
+      - "390:389"
       - "637:636"
       - "8444:8443"
     volumes:

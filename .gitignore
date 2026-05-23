@@ -1,0 +1,39 @@
+# Go
+/bin/
+/authbox
+*.exe
+
+# Dependencies
+/vendor/
+
+# SQLite
+*.db
+*.db-journal
+*.db-wal
+
+# Logs
+/docker/logs/
+*.log
+
+# Secrets
+/etc/secrets/
+*.pem
+*.key
+.env
+.env.*
+
+# TLS certs (generated)
+/data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local dev)
+docker/logs/

@@ -7,7 +7,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=1 go build -o /bin/authbox ./cmd/server
+RUN CGO_ENABLED=0 go build -o /bin/authbox ./cmd/server
 
 # Runtime stage
 FROM alpine:3.20
@@ -40,7 +40,7 @@ RUN chmod +x /entrypoint.sh
 VOLUME ["/data", "/var/lib/openldap", "/etc/openldap/slapd.d"]
 
 # LDAPS (636) and HTTPS API/UI (8443)
-EXPOSE 636 8443
+EXPOSE 389 636 8443
 
 ENTRYPOINT ["tini", "--"]
 CMD ["/entrypoint.sh"]

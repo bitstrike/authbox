@@ -53,8 +53,8 @@ The Go app manages OpenLDAP's `cn=config` directly via LDAP protocol on localhos
 - YubiKey 5C NFC as hardware token
 - PIN entry + physical touch to authenticate
 - Fully offline - no network connectivity required at login time
-- Key registration performed through the platform's web UI (OIDC-authenticated enrollment)
-- Credential mappings (`/etc/u2f_mappings`) synced to hosts when online
+- Key registration: user runs `pamu2fcfg` on their workstation, pastes credential string into web UI
+- Platform stores credential, Ansible syncs to `/etc/u2f_mappings` on hosts
 - Key loss recovery: user boots a live Linux distro, connects to company VPN, contacts admin for re-enrollment
 
 ### API/Automation Access
@@ -77,13 +77,18 @@ The Go app manages OpenLDAP's `cn=config` directly via LDAP protocol on localhos
 | admin | Full CRUD on all users, groups, certs, config, LDAP settings |
 | system | Internal sync endpoints (container-to-container only) |
 
-Roles are assigned to OAuth2 tokens (interactive users via OIDC claims, service accounts at creation time). All authenticated users implicitly have the "self" role.
+Roles are determined by LDAP group membership (groupOfNames):
+- `cn=authbox-viewers,ou=groups` -> viewer
+- `cn=authbox-operators,ou=groups` -> operator
+- `cn=authbox-admins,ou=groups` -> admin
+
+The initial admin user (from `INITIAL_ADMIN_EMAIL`) is added to `cn=authbox-admins` at bootstrap and has full access to all web UI and API features. All authenticated users implicitly have the "self" role. Google OIDC group claims are not used (unavailable without special account types).
 
 ## User Provisioning
 
 - Users must be explicitly provisioned in LDAP by an admin or operator (no auto-creation on OIDC login)
 - Provisioning can be done via web UI (admin/operator) or API (service account with operator or admin role)
-- Bulk import supported via API for onboarding from external systems
+- Bulk import supported via API and web UI (CSV and JSON formats)
 - OIDC login is only permitted for users who already exist in the directory
 
 ### UID/GID Assignment
@@ -139,12 +144,12 @@ List endpoints accept `?offset=0&limit=50` query parameters. Default limit is 50
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/v1/ssh/sign` | Sign a public key, return SSH certificate |
-| `GET /api/v1/ssh/ca.pub` | Return CA public key (for host provisioning) |
+| `GET /api/v1/ssh/ca.pub` | Return CA public key (unauthenticated) |
 | `GET /api/v1/ssh/certs` | List issued certificates (audit) |
 | `POST /api/v1/users` | Create user in LDAP |
 | `GET /api/v1/users` | List users |
 | `PUT /api/v1/users/{uid}` | Update user |
-| `DELETE /api/v1/users/{uid}` | Remove user |
+| `POST /api/v1/users/{uid}/disable` | Disable user |
 | `POST /api/v1/groups` | Create posixGroup or groupOfNames |
 | `GET /api/v1/groups` | List groups |
 | `PUT /api/v1/groups/{cn}` | Update group membership |
@@ -170,9 +175,11 @@ These endpoints are authenticated between containers (mutual TLS or shared secre
 - User and group CRUD
 - LDAP configuration management
 - SSH CA management and cert issuance
-- FIDO2 key enrollment (QR/registration flow)
+- FIDO2 key enrollment (user pastes `pamu2fcfg` output)
 - OIDC provider configuration
 - Export/import for backup and disaster recovery
+
+See [webui.md](webui.md) for full page-by-page interface documentation.
 
 ## OpenLDAP Directory
 
@@ -181,6 +188,9 @@ These endpoints are authenticated between containers (mutual TLS or shared secre
 - groupOfNames objects for role/access group membership
 - Schema managed via `cn=config` by the Go app
 - Replication configurable for multi-container deployments
+- Port 389 exposed externally with mandatory STARTTLS (plaintext rejected)
+- Port 636 LDAPS supported for legacy applications
+- Internal localhost port (3389) for Go app communication (plain, not exposed externally)
 
 ## Host-Side Stack
 
@@ -220,7 +230,8 @@ See [webstack.md](webstack.md) for web framework, libraries, and project layout 
 - All API endpoint connections are logged
 - Application logging via a log class with `info()`, `debug()`, `error()`, `warn()` methods
 - Logs stored on persistent volume mount (`./logs:/app/logs`)
-- Log rotation handled by the application's logging class
+- Log rotation: daily, 90-day default retention
+- Rotation and retention configurable via web UI
 
 ## TLS Certificate Management
 
@@ -260,3 +271,24 @@ Subsequent boots detect existing data and skip initialization.
 - Import endpoint allows rebuilding directory on a fresh container
 - CA private key backed up separately (encrypted, external storage)
 - SQLite database included in export
+- Web UI supports scheduling daily `slapcat` backups
+
+## Design Decisions
+
+### No SSSD
+SSSD was rejected due to widespread reliability issues (cache corruption, silent failures, complex configuration). `nslcd` is simpler, lighter, and more predictable.
+
+### No CLI Tool
+A custom CLI tool for SSH cert retrieval was rejected as feature creep. Users authenticate via browser (OIDC), download cert from web UI or use a simple curl/script against the API.
+
+### No LiteFS
+LiteFS (FUSE-based SQLite replication) was rejected because FUSE requires `SYS_ADMIN` capability, violating least-privilege container security. API-based sync is used instead.
+
+### FIDO2 Over TOTP for Desktop
+FIDO2 (YubiKey) chosen over TOTP for GDM login because it works fully offline without cached credentials or network calls. TOTP would require either local secret storage or API validation.
+
+### SQLite Over Postgres (Initial)
+SQLite keeps the stack to two components (Go app + OpenLDAP). Postgres adds a third service to manage. The data access layer uses interfaces so the swap is a code change when needed.
+
+### Single IdP at a Time
+Supporting both Google and Entra simultaneously adds identity mapping complexity. One active IdP keeps user identity unambiguous.
