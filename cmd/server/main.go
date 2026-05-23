@@ -17,6 +17,7 @@ import (
 	appldap "github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	appsync "github.com/authbox/authbox/internal/sync"
+	apptls "github.com/authbox/authbox/internal/tls"
 	"github.com/authbox/authbox/internal/web/api"
 	"github.com/authbox/authbox/internal/web/frontend"
 	"github.com/go-chi/chi/v5"
@@ -143,8 +144,28 @@ func main() {
 		go rs.Start(syncCtx)
 	}
 
+	// TLS certificate management
+	tlsMgr := apptls.NewManager(apptls.Config{
+		CertPath:        cfg.TLSCertPath,
+		KeyPath:         cfg.TLSKeyPath,
+		Domain:          cfg.TLSDomain,
+		ACMEEmail:       cfg.TLSACMEEmail,
+		AWSAccessKeyID:  cfg.AWSAccessKeyID,
+		AWSSecretKey:    cfg.AWSSecretAccessKey,
+		AWSHostedZoneID: cfg.AWSHostedZoneID,
+	}, log)
+
+	if err := tlsMgr.EnsureCert(context.Background()); err != nil {
+		log.Error("TLS certificate not available", "err", err)
+		os.Exit(1)
+	}
+
+	// Start renewal loop
+	go tlsMgr.StartRenewalLoop(context.Background())
+
 	tlsCfg := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion:     tls.VersionTLS12,
+		GetCertificate: tlsMgr.GetCertificate,
 	}
 
 	srv := &http.Server{
@@ -155,7 +176,7 @@ func main() {
 
 	go func() {
 		log.Info("listening", "addr", srv.Addr)
-		if err := srv.ListenAndServeTLS(cfg.TLSCertPath, cfg.TLSKeyPath); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			log.Error("server error", "err", err)
 			os.Exit(1)
 		}

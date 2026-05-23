@@ -17,14 +17,19 @@ type Config struct {
 	InitialAdmin    string
 	TLSCertPath     string
 	TLSKeyPath      string
+	TLSDomain       string
+	TLSACMEEmail    string
+	AWSHostedZoneID string
 	SSHCertTTL      string
 	UIDRangeStart   string
 	UIDRangeEnd     string
 	LogLevel        string
 	LogDir          string
-	OIDCClientSecret string
-	LDAPAdminPass    string
-	InternalSecret   string
+	OIDCClientSecret   string
+	LDAPAdminPass      string
+	InternalSecret     string
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
 }
 
 func Load() (*Config, error) {
@@ -38,6 +43,9 @@ func Load() (*Config, error) {
 		InitialAdmin:  getenv("INITIAL_ADMIN_EMAIL", ""),
 		TLSCertPath:   getenv("TLS_CERT_PATH", "/data/tls/cert.pem"),
 		TLSKeyPath:    getenv("TLS_KEY_PATH", "/data/tls/key.pem"),
+		TLSDomain:     getenv("TLS_DOMAIN", ""),
+		TLSACMEEmail:  getenv("TLS_ACME_EMAIL", ""),
+		AWSHostedZoneID: getenv("AWS_HOSTED_ZONE_ID", ""),
 		SSHCertTTL:    getenv("SSH_CERT_TTL", "12h"),
 		UIDRangeStart: getenv("UID_RANGE_START", "10000"),
 		UIDRangeEnd:   getenv("UID_RANGE_END", "60000"),
@@ -75,6 +83,18 @@ func (c *Config) loadSecrets() error {
 		return err
 	}
 	c.InternalSecret = internalSecret
+
+	awsKeyID, err := readSecretFile(filepath.Join(dir, "aws_access_key_id"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	c.AWSAccessKeyID = awsKeyID
+
+	awsSecret, err := readSecretFile(filepath.Join(dir, "aws_secret_access_key"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	c.AWSSecretAccessKey = awsSecret
 
 	return nil
 }

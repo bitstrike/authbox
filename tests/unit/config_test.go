@@ -12,10 +12,9 @@ func TestConfigLoadDefaults(t *testing.T) {
 	// Clear any env vars that might interfere
 	os.Unsetenv("ROLE")
 	os.Unsetenv("LDAP_BASE_DN")
-	os.Unsetenv("RUNTIME_SECRETS")
 
-	// Set RUNTIME_SECRETS to empty so it skips file loading
-	os.Setenv("RUNTIME_SECRETS", "")
+	// Point secrets to a nonexistent dir so file reads are skipped
+	os.Setenv("RUNTIME_SECRETS", t.TempDir())
 	defer os.Unsetenv("RUNTIME_SECRETS")
 
 	cfg, err := config.Load()
@@ -41,7 +40,7 @@ func TestConfigLoadFromEnv(t *testing.T) {
 	os.Setenv("ROLE", "replica")
 	os.Setenv("PRIMARY_HOST", "primary-host")
 	os.Setenv("LDAP_BASE_DN", "dc=test,dc=org")
-	os.Setenv("RUNTIME_SECRETS", "")
+	os.Setenv("RUNTIME_SECRETS", t.TempDir())
 	defer func() {
 		os.Unsetenv("ROLE")
 		os.Unsetenv("PRIMARY_HOST")
