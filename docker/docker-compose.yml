@@ -81,4 +81,4 @@ volumes:
 #
 #   ldap_admin_password - Single value: the OpenLDAP admin bind password
 #
-#   internal_secret     - Single value: shared secret for container-to-container auth
+#   replica_sync_password - Single value: shared secret for container-to-container auth

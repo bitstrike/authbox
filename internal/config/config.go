@@ -116,10 +116,10 @@ func (c *Config) loadSecrets() error {
 	}
 	c.LDAPAdminPass = ldapPass
 
-	// Internal shared secret: /etc/secrets/authbox/internal_secret
-	internalSecret, err := readSecretFile(filepath.Join(dir, "internal_secret"))
+	// Internal shared secret: /etc/secrets/authbox/replica_sync_password
+	internalSecret, err := readSecretFile(filepath.Join(dir, "replica_sync_password"))
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("reading internal_secret: %w", err)
+		return fmt.Errorf("reading replica_sync_password: %w", err)
 	}
 	c.InternalSecret = internalSecret
 

@@ -76,7 +76,7 @@ aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 
 Single value. The OpenLDAP admin bind password.
 
-#### `/etc/secrets/authbox/internal_secret`
+#### `/etc/secrets/authbox/replica_sync_password`
 
 Single value. Shared secret for container-to-container sync authentication.
 
