@@ -69,12 +69,17 @@ func (m *Manager) EnsureCert(ctx context.Context) error {
 	}
 
 	// No cert on disk - obtain via ACME if configured
-	if m.cfg.Domain == "" {
-		return fmt.Errorf("no TLS cert at %s and TLS_DOMAIN not set", m.cfg.CertPath)
+	if m.cfg.Domain != "" {
+		m.log.Info("obtaining TLS certificate via ACME", "domain", m.cfg.Domain)
+		return m.obtainCert(ctx)
 	}
 
-	m.log.Info("obtaining TLS certificate via ACME", "domain", m.cfg.Domain)
-	return m.obtainCert(ctx)
+	// No ACME configured - generate self-signed for dev/testing
+	m.log.Warn("no TLS cert found and TLS_DOMAIN not set - generating self-signed certificate")
+	if err := GenerateSelfSigned(m.cfg.CertPath, m.cfg.KeyPath); err != nil {
+		return fmt.Errorf("generating self-signed cert: %w", err)
+	}
+	return m.loadFromDisk()
 }
 
 // StartRenewalLoop checks cert expiry periodically and renews when needed.

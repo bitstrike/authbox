@@ -31,14 +31,30 @@ func (f *Frontend) RegisterRoutes(r chi.Router) {
 	staticContent, _ := fs.Sub(staticFS, "static")
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticContent))))
 
-	// Auth routes (unauthenticated)
-	r.Get("/login", f.authH.HandleLogin)
-	r.Get("/auth/callback", f.authH.HandleCallback)
-	r.Post("/logout", f.authH.HandleLogout)
+	// Auth routes (only when OIDC is configured)
+	if f.authH != nil {
+		r.Get("/login", f.authH.HandleLogin)
+		r.Get("/auth/callback", f.authH.HandleCallback)
+		r.Post("/logout", f.authH.HandleLogout)
+	} else {
+		// Dev mode: login redirects to dashboard
+		r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/", http.StatusFound)
+		})
+		r.Post("/logout", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/", http.StatusFound)
+		})
+	}
+
+	// Session middleware
+	sessionMiddleware := f.requireSession
+	if f.authH == nil {
+		sessionMiddleware = f.devModeSession
+	}
 
 	// Protected routes (require session)
 	r.Group(func(r chi.Router) {
-		r.Use(f.requireSession)
+		r.Use(sessionMiddleware)
 
 		r.Get("/", f.h.dashboard)
 		r.Get("/status", f.h.status)

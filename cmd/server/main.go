@@ -133,7 +133,18 @@ func main() {
 		fe := frontend.NewFrontend(sessions, authHandlers, deps)
 		fe.RegisterRoutes(r)
 	} else {
-		frontend.RegisterRoutesLegacy(r)
+		// Dev mode: no OIDC, auto-create admin session on first request
+		log.Warn("OIDC not configured - running in dev mode with auto-login")
+		deps := &frontend.Deps{
+			LDAP:     ldapClient,
+			CA:       sshCA,
+			Repo:     repo,
+			Config:   cfg,
+			Sessions: sessions,
+			Roles:    nil,
+		}
+		fe := frontend.NewFrontendDevMode(sessions, deps)
+		fe.RegisterRoutes(r)
 	}
 
 	// Start replica sync loop if replica
