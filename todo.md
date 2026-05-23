@@ -145,3 +145,7 @@
 - [ ] Unit tests for OIDC token validation
 - [ ] Unit tests for logging and rotation
 - [ ] Plan integration test suite (tests/integration/)
+
+## Tech Debt
+
+- [ ] Migrate existing hardcoded string literals to `internal/constants/constants.go` (shells, paths, time formats, route strings, defaults scattered across ldap/, web/api/, web/frontend/)
