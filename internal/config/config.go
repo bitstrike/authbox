@@ -85,10 +85,10 @@ func (c *Config) loadSecrets() error {
 	// Overrides google if both present (only one IdP active).
 	entraCreds, err := readKeyValueFile(filepath.Join(dir, "entra"))
 	if err == nil {
-		if v, ok := entraCreds["AZURE_CLIENT_ID"]; ok {
+		if v, ok := entraCreds["azure_client_id"]; ok {
 			c.OIDCClientID = v
 		}
-		if v, ok := entraCreds["AZURE_CLIENT_SECRET"]; ok {
+		if v, ok := entraCreds["azure_client_secret"]; ok {
 			c.OIDCClientSecret = v
 		}
 	} else if !os.IsNotExist(err) {
@@ -136,6 +136,7 @@ func readSecretFile(path string) (string, error) {
 
 // readKeyValueFile reads a file with key=value pairs (one per line).
 // Lines starting with # are ignored. Empty lines are skipped.
+// Key lookup is case-insensitive.
 func readKeyValueFile(path string) (map[string]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -151,7 +152,7 @@ func readKeyValueFile(path string) (map[string]string, error) {
 		if len(parts) != 2 {
 			continue
 		}
-		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		result[strings.ToLower(strings.TrimSpace(parts[0]))] = strings.TrimSpace(parts[1])
 	}
 	return result, nil
 }
