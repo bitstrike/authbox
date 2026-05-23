@@ -34,6 +34,9 @@ func RegisterRoutes(r chi.Router) {
 }
 
 func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Token endpoint (unauthenticated - this IS the auth mechanism for service accounts)
+	r.Post("/oauth/token", a.tokenHandler)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
 		r.Get("/ssh/ca.pub", a.getCAPublicKey)
@@ -69,6 +72,11 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 			// Config
 			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/config/export", a.exportConfig)
 			r.With(auth.RequireRole(auth.RoleAdmin)).Post("/config/import", a.importConfig)
+
+			// Service Accounts
+			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/service-accounts", a.listServiceAccounts)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Post("/service-accounts", a.createServiceAccount)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Delete("/service-accounts", a.deleteServiceAccount)
 		})
 	})
 

@@ -119,6 +119,45 @@ func (r *Repository) DeleteFIDO2CredentialByID(id int) error {
 	return err
 }
 
+func (r *Repository) ListServiceAccounts() ([]ServiceAccount, error) {
+	rows, err := r.db.Query("SELECT id, client_id, description, role, created_at, last_used_at FROM service_accounts")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []ServiceAccount
+	for rows.Next() {
+		var sa ServiceAccount
+		if err := rows.Scan(&sa.ID, &sa.ClientID, &sa.Description, &sa.Role, &sa.CreatedAt, &sa.LastUsedAt); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, sa)
+	}
+	return accounts, rows.Err()
+}
+
+func (r *Repository) GetServiceAccountByClientID(clientID string) (*ServiceAccount, error) {
+	var sa ServiceAccount
+	err := r.db.QueryRow(
+		"SELECT id, client_id, client_secret_hash, description, role, created_at, last_used_at FROM service_accounts WHERE client_id = ?",
+		clientID,
+	).Scan(&sa.ID, &sa.ClientID, &sa.ClientSecretHash, &sa.Description, &sa.Role, &sa.CreatedAt, &sa.LastUsedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &sa, nil
+}
+
+func (r *Repository) DeleteServiceAccount(clientID string) error {
+	_, err := r.db.Exec("DELETE FROM service_accounts WHERE client_id = ?", clientID)
+	return err
+}
+
+func (r *Repository) UpdateServiceAccountLastUsed(clientID string) {
+	r.db.Exec("UPDATE service_accounts SET last_used_at = CURRENT_TIMESTAMP WHERE client_id = ?", clientID)
+}
+
 func (r *Repository) ListSSHCerts(offset, limit int) ([]SSHCert, int, error) {
 	var total int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM ssh_certs").Scan(&total)
