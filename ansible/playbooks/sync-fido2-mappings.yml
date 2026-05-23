@@ -1,0 +1,25 @@
+---
+# Syncs FIDO2 credential mappings from platform to hosts
+- hosts: all
+  become: true
+  vars:
+    platform_url: "https://{{ platform_host }}:8443"
+    api_token: "{{ lookup('env', 'LINUX_AUTH_TOKEN') }}"
+
+  tasks:
+    - name: Fetch all FIDO2 credential mappings
+      uri:
+        url: "{{ platform_url }}/api/v1/fido2/credentials"
+        headers:
+          Authorization: "Bearer {{ api_token }}"
+        return_content: true
+        validate_certs: true
+      register: fido2_creds
+
+    - name: Write u2f_mappings file
+      copy:
+        content: "{{ fido2_creds.content }}"
+        dest: /etc/u2f_mappings
+        owner: root
+        group: root
+        mode: "0644"

@@ -1,0 +1,1 @@
+auth required pam_u2f.so authfile=/etc/u2f_mappings pinverification=1 cue

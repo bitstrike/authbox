@@ -1,0 +1,65 @@
+services:
+  primary:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "636:636"
+      - "8443:8443"
+    volumes:
+      - ldap-data-primary:/var/lib/openldap
+      - ldap-config-primary:/etc/openldap/slapd.d
+      - app-data-primary:/data
+      - ./logs/primary:/app/logs
+      - ../ldif:/app/ldif:ro
+      - /etc/secrets/authbox:/etc/secrets/authbox:ro
+    environment:
+      - ROLE=primary
+      - RUNTIME_SECRETS=/etc/secrets/authbox
+      - LDAP_BASE_DN=dc=example,dc=com
+      - OIDC_ISSUER_URL=https://accounts.google.com
+      - OIDC_CLIENT_ID=your-client-id
+      - INITIAL_ADMIN_EMAIL=admin@example.com
+      - TLS_CERT_PATH=/data/tls/cert.pem
+      - TLS_KEY_PATH=/data/tls/key.pem
+      - SSH_CERT_TTL=12h
+      - UID_RANGE_START=10000
+      - UID_RANGE_END=60000
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+  replica:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "637:636"
+      - "8444:8443"
+    volumes:
+      - ldap-data-replica:/var/lib/openldap
+      - ldap-config-replica:/etc/openldap/slapd.d
+      - app-data-replica:/data
+      - ./logs/replica:/app/logs
+      - ../ldif:/app/ldif:ro
+      - /etc/secrets/authbox:/etc/secrets/authbox:ro
+    environment:
+      - ROLE=replica
+      - PRIMARY_HOST=primary
+      - RUNTIME_SECRETS=/etc/secrets/authbox
+      - LDAP_BASE_DN=dc=example,dc=com
+      - OIDC_ISSUER_URL=https://accounts.google.com
+      - OIDC_CLIENT_ID=your-client-id
+      - TLS_CERT_PATH=/data/tls/cert.pem
+      - TLS_KEY_PATH=/data/tls/key.pem
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    depends_on:
+      - primary
+
+volumes:
+  ldap-data-primary:
+  ldap-config-primary:
+  app-data-primary:
+  ldap-data-replica:
+  ldap-config-replica:
+  app-data-replica:

@@ -1,0 +1,84 @@
+---
+# Enrolls a host to trust the platform's SSH CA and configure FIDO2 + nslcd
+- hosts: all
+  become: true
+  vars:
+    platform_url: "https://{{ platform_host }}:8443"
+    ldap_uri: "ldap://{{ platform_host }}"
+    ldap_base_dn: "dc=example,dc=com"
+
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - nslcd
+          - libpam-u2f
+          - openssh-server
+        state: present
+
+    - name: Fetch SSH CA public key from platform
+      uri:
+        url: "{{ platform_url }}/api/v1/ssh/ca.pub"
+        return_content: true
+        validate_certs: true
+      register: ca_pub
+
+    - name: Deploy SSH CA public key
+      copy:
+        content: "{{ ca_pub.content }}"
+        dest: /etc/ssh/trusted_ca.pub
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart sshd
+
+    - name: Configure sshd to trust CA
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?TrustedUserCAKeys"
+        line: "TrustedUserCAKeys /etc/ssh/trusted_ca.pub"
+      notify: restart sshd
+
+    - name: Configure nslcd
+      template:
+        src: ../templates/nslcd.conf.j2
+        dest: /etc/nslcd.conf
+        owner: root
+        group: nslcd
+        mode: "0640"
+      notify: restart nslcd
+
+    - name: Enable and start nslcd
+      service:
+        name: nslcd
+        state: started
+        enabled: true
+
+    - name: Configure nsswitch for LDAP
+      lineinfile:
+        path: /etc/nsswitch.conf
+        regexp: "^{{ item.db }}:"
+        line: "{{ item.db }}:         files ldap"
+      loop:
+        - { db: passwd }
+        - { db: group }
+        - { db: shadow }
+
+    - name: Configure PAM for FIDO2
+      copy:
+        src: ../files/pam-u2f-auth
+        dest: /etc/pam.d/u2f-auth
+        owner: root
+        group: root
+        mode: "0644"
+
+  handlers:
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: restart nslcd
+      service:
+        name: nslcd
+        state: restarted

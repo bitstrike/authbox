@@ -1,0 +1,86 @@
+# Base schema for Linux Authentication Platform
+# Edit before first boot to customize. Re-bootstrap container to apply changes.
+
+# Load required schemas
+dn: cn=schema,cn=config
+changetype: modify
+add: olcObjectClasses
+
+# Core LDAP schemas (cosine, inetorgperson, nis) are loaded by default.
+# This file defines the directory structure and any custom attributes.
+
+# -------------------------------------------------------------------
+# Base DN and organizational units
+# -------------------------------------------------------------------
+
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Example Organization
+dc: example
+
+dn: ou=people,dc=example,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=example,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=serviceaccounts,dc=example,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: serviceaccounts
+
+# -------------------------------------------------------------------
+# Example user entry (remove or replace during provisioning)
+# -------------------------------------------------------------------
+
+# dn: uid=jsmith,ou=people,dc=example,dc=com
+# objectClass: top
+# objectClass: inetOrgPerson
+# objectClass: posixAccount
+# objectClass: shadowAccount
+# uid: jsmith
+# cn: John Smith
+# sn: Smith
+# givenName: John
+# mail: jsmith@example.com
+# uidNumber: 10001
+# gidNumber: 10001
+# homeDirectory: /home/jsmith
+# loginShell: /bin/bash
+# userPassword: {SSHA}disabled
+
+# -------------------------------------------------------------------
+# Example posixGroup
+# -------------------------------------------------------------------
+
+# dn: cn=developers,ou=groups,dc=example,dc=com
+# objectClass: top
+# objectClass: posixGroup
+# cn: developers
+# gidNumber: 20001
+# memberUid: jsmith
+
+# -------------------------------------------------------------------
+# Example groupOfNames (role-based access group)
+# -------------------------------------------------------------------
+
+# dn: cn=ssh-users,ou=groups,dc=example,dc=com
+# objectClass: top
+# objectClass: groupOfNames
+# cn: ssh-users
+# member: uid=jsmith,ou=people,dc=example,dc=com
+
+# -------------------------------------------------------------------
+# ACLs
+# -------------------------------------------------------------------
+# Applied via cn=config by the Go app at bootstrap time:
+# - Root DN has full access
+# - Authenticated users can read ou=people and ou=groups
+# - Users can modify their own userPassword
+# - Anonymous has no access
