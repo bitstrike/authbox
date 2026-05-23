@@ -74,6 +74,10 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 			// Config
 			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/config/export", a.exportConfig)
 			r.With(auth.RequireRole(auth.RoleAdmin)).Post("/config/import", a.importConfig)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/config/ldap", a.getLDAPConfig)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Put("/config/ldap/acls", a.updateACLs)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Put("/config/ldap/replication", a.configureReplication)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Delete("/config/ldap/replication", a.removeReplication)
 
 			// Service Accounts
 			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/service-accounts", a.listServiceAccounts)
