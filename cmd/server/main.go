@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/authbox/authbox/internal/auth"
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
-	"github.com/authbox/authbox/internal/ldap"
+	appldap "github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	"github.com/authbox/authbox/internal/web/api"
 	"github.com/authbox/authbox/internal/web/frontend"
@@ -31,7 +32,7 @@ func main() {
 	log := logging.New(cfg.LogLevel, cfg.LogDir)
 	log.Info("authbox starting", "role", cfg.Role)
 
-	// Initialize SSH CA (loads or generates keypair)
+	// Initialize SSH CA
 	sshCA, err := ca.New("/data")
 	if err != nil {
 		log.Error("failed to initialize SSH CA", "err", err)
@@ -48,16 +49,17 @@ func main() {
 	defer database.Close()
 	log.Info("database initialized")
 
-	// Connect to LDAP and bootstrap if needed
-	ldapClient, err := ldap.NewClient(cfg.LDAPBaseDN, cfg.LDAPAdminPass)
+	// Connect to LDAP
+	ldapClient, err := appldap.NewClient(cfg.LDAPBaseDN, cfg.LDAPAdminPass)
 	if err != nil {
 		log.Error("failed to connect to LDAP", "err", err)
 		os.Exit(1)
 	}
 	defer ldapClient.Close()
 
+	// Bootstrap LDAP if primary
 	if cfg.Role == "primary" {
-		err = ldap.Bootstrap(ldapClient, ldap.BootstrapConfig{
+		err = appldap.Bootstrap(ldapClient, appldap.BootstrapConfig{
 			BaseDN:     cfg.LDAPBaseDN,
 			AdminEmail: cfg.InitialAdmin,
 			SchemaPath: "/app/ldif/schema.ldif",
@@ -69,17 +71,41 @@ func main() {
 		log.Info("LDAP bootstrap complete")
 	}
 
+	// Set up OIDC auth
+	var authMiddleware func(http.Handler) http.Handler
+	if cfg.OIDCIssuerURL != "" && cfg.OIDCClientID != "" {
+		oidcAuth, err := auth.NewOIDCAuth(context.Background(), auth.OIDCConfig{
+			IssuerURL:    cfg.OIDCIssuerURL,
+			ClientID:     cfg.OIDCClientID,
+			ClientSecret: cfg.OIDCClientSecret,
+			RedirectURL:  fmt.Sprintf("https://localhost:8443/auth/callback"),
+		})
+		if err != nil {
+			log.Error("failed to initialize OIDC", "err", err)
+			os.Exit(1)
+		}
+		roleLookup := appldap.NewRoleLookup(ldapClient)
+		authMiddleware = auth.TokenMiddleware(oidcAuth.Verifier(), roleLookup)
+		log.Info("OIDC authentication configured", "issuer", cfg.OIDCIssuerURL)
+	} else {
+		log.Warn("OIDC not configured - API authentication disabled")
+		authMiddleware = func(next http.Handler) http.Handler {
+			return next
+		}
+	}
+
 	// Set up HTTP router
+	repo := db.NewRepository(database)
+	apiHandler := api.New(ldapClient, sshCA, repo)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(logging.Middleware(log))
 	r.Use(middleware.Recoverer)
 
-	api.RegisterRoutes(r)
+	apiHandler.RegisterRoutesWithDeps(r, authMiddleware)
 	frontend.RegisterRoutes(r)
-
-	_ = sshCA // used in Phase 4 when wiring SSH endpoints
 
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
