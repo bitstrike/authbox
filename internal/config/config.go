@@ -67,7 +67,7 @@ func (c *Config) loadSecrets() error {
 	}
 
 	// Google OIDC credentials: /etc/secrets/authbox/google
-	// Format: key=value per line (client_id, client_secret)
+	// Keys: client_id, client_secret (per Google JSON credential format)
 	googleCreds, err := readKeyValueFile(filepath.Join(dir, "google"))
 	if err == nil {
 		if v, ok := googleCreds["client_id"]; ok {
@@ -81,13 +81,14 @@ func (c *Config) loadSecrets() error {
 	}
 
 	// Entra ID credentials: /etc/secrets/authbox/entra
-	// Same format. Overrides google if both present (only one IdP active).
+	// Keys: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID
+	// Overrides google if both present (only one IdP active).
 	entraCreds, err := readKeyValueFile(filepath.Join(dir, "entra"))
 	if err == nil {
-		if v, ok := entraCreds["client_id"]; ok {
+		if v, ok := entraCreds["AZURE_CLIENT_ID"]; ok {
 			c.OIDCClientID = v
 		}
-		if v, ok := entraCreds["client_secret"]; ok {
+		if v, ok := entraCreds["AZURE_CLIENT_SECRET"]; ok {
 			c.OIDCClientSecret = v
 		}
 	} else if !os.IsNotExist(err) {
@@ -95,13 +96,13 @@ func (c *Config) loadSecrets() error {
 	}
 
 	// AWS credentials: /etc/secrets/authbox/aws
-	// Format: key=value per line (access_key_id, secret_access_key)
+	// Keys: aws_access_key_id, aws_secret_access_key (per ~/.aws/credentials format)
 	awsCreds, err := readKeyValueFile(filepath.Join(dir, "aws"))
 	if err == nil {
-		if v, ok := awsCreds["access_key_id"]; ok {
+		if v, ok := awsCreds["aws_access_key_id"]; ok {
 			c.AWSAccessKeyID = v
 		}
-		if v, ok := awsCreds["secret_access_key"]; ok {
+		if v, ok := awsCreds["aws_secret_access_key"]; ok {
 			c.AWSSecretAccessKey = v
 		}
 	} else if !os.IsNotExist(err) {

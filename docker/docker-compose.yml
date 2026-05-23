@@ -66,17 +66,18 @@ volumes:
 
 # Secrets directory layout (/etc/secrets/authbox/):
 #
-#   google              - Google OIDC (key=value format)
+#   google              - Google OIDC (key=value format, per Google JSON credential)
 #                         client_id=<your-google-client-id>
 #                         client_secret=<your-google-client-secret>
 #
-#   entra               - Microsoft Entra ID (key=value format, use instead of google)
-#                         client_id=<your-entra-client-id>
-#                         client_secret=<your-entra-client-secret>
+#   entra               - Microsoft Entra ID (key=value format, per Azure SDK convention)
+#                         AZURE_CLIENT_ID=<your-entra-client-id>
+#                         AZURE_CLIENT_SECRET=<your-entra-client-secret>
+#                         AZURE_TENANT_ID=<your-tenant-id>
 #
-#   aws                 - AWS credentials for Route53 DNS-01 (key=value format)
-#                         access_key_id=<your-aws-access-key-id>
-#                         secret_access_key=<your-aws-secret-access-key>
+#   aws                 - AWS credentials (key=value format, per ~/.aws/credentials)
+#                         aws_access_key_id=<your-aws-access-key-id>
+#                         aws_secret_access_key=<your-aws-secret-access-key>
 #
 #   ldap_admin_password - Single value: the OpenLDAP admin bind password
 #
