@@ -204,7 +204,38 @@ func ScheduledBackup(slapcatPath, backupDir string, retentionDays int) error {
 	}
 
 	// Clean old backups
-	return cleanOldBackups(backupDir, retentionDays)
+	return CleanOldBackups(backupDir, retentionDays)
+}
+
+// CreateExportFromState generates an export archive from app state only (no slapcat).
+// Used for testing and environments without slapd.
+func CreateExportFromState(w io.Writer, repo *db.Repository) error {
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	tw := tar.NewWriter(gz)
+	defer tw.Close()
+
+	hostname, _ := os.Hostname()
+	meta := Export{
+		Version:   exportVersion,
+		CreatedAt: time.Now(),
+		Hostname:  hostname,
+	}
+
+	state, err := exportAppState(repo, meta)
+	if err != nil {
+		return err
+	}
+	stateJSON, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := addToTar(tw, appStateFile, stateJSON); err != nil {
+		return err
+	}
+
+	metaJSON, _ := json.MarshalIndent(meta, "", "  ")
+	return addToTar(tw, metaFile, metaJSON)
 }
 
 func runSlapcat(slapcatPath, base string) ([]byte, error) {
@@ -258,7 +289,7 @@ func addToTar(tw *tar.Writer, name string, data []byte) error {
 	return err
 }
 
-func cleanOldBackups(dir string, retentionDays int) error {
+func CleanOldBackups(dir string, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
