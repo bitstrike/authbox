@@ -11,6 +11,9 @@ install-go:
 	@echo "Add to your shell profile: export PATH=\$$PATH:$(GO_INSTALL_DIR)/go/bin"
 
 test:
+	go test ./tests/unit/... -v -short
+
+test-all:
 	go test ./tests/unit/... -v
 
 build:

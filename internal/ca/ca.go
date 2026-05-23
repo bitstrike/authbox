@@ -121,8 +121,13 @@ func (ca *CA) loadFromDisk(keyPath string) error {
 		return fmt.Errorf("parsing private key: %w", err)
 	}
 
-	priv, ok := rawKey.(ed25519.PrivateKey)
-	if !ok {
+	var priv ed25519.PrivateKey
+	switch k := rawKey.(type) {
+	case ed25519.PrivateKey:
+		priv = k
+	case *ed25519.PrivateKey:
+		priv = *k
+	default:
 		return fmt.Errorf("expected ed25519 private key, got %T", rawKey)
 	}
 

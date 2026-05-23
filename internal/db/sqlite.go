@@ -20,7 +20,15 @@ func Open(dataDir string) (*DB, error) {
 	}
 
 	dbPath := filepath.Join(dbDir, "authbox.db")
-	conn, err := sql.Open("sqlite", dbPath)
+	return openDB(dbPath)
+}
+
+func OpenMemory() (*DB, error) {
+	return openDB(":memory:")
+}
+
+func openDB(dsn string) (*DB, error) {
+	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite: %w", err)
 	}
