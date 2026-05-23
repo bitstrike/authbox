@@ -1,0 +1,100 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">Settings</h1>
+
+<div class="space-y-6 max-w-3xl">
+  <!-- OIDC Provider -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">OIDC Provider</h2>
+    <form method="POST" action="/settings/oidc">
+      <div class="space-y-3">
+        <div>
+          <label class="label" for="issuer">Issuer URL</label>
+          <input type="url" id="issuer" name="issuer_url" class="input" value="{{.Content.OIDCIssuer}}">
+        </div>
+        <div>
+          <label class="label" for="client-id">Client ID</label>
+          <input type="text" id="client-id" name="client_id" class="input" value="{{.Content.OIDCClientID}}">
+        </div>
+        <div>
+          <label class="label">Client Secret</label>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {{if .Content.OIDCSecretConfigured}}Configured (read from secrets volume){{else}}Not configured{{end}}
+          </p>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-4">Save</button>
+    </form>
+  </div>
+
+  <!-- Session -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Session</h2>
+    <form method="POST" action="/settings/session">
+      <div>
+        <label class="label" for="timeout">Session Timeout (minutes)</label>
+        <input type="number" id="timeout" name="timeout_minutes" class="input w-32" value="{{.Content.SessionTimeout}}" min="5" max="480">
+      </div>
+      <button type="submit" class="btn btn-primary mt-4">Save</button>
+    </form>
+  </div>
+
+  <!-- UID/GID Range -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">UID/GID Range</h2>
+    <form method="POST" action="/settings/uid-range">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="uid-start">Range Start</label>
+          <input type="number" id="uid-start" name="range_start" class="input" value="{{.Content.UIDRangeStart}}">
+        </div>
+        <div>
+          <label class="label" for="uid-end">Range End</label>
+          <input type="number" id="uid-end" name="range_end" class="input" value="{{.Content.UIDRangeEnd}}">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-4">Save</button>
+    </form>
+  </div>
+
+  <!-- SSH CA -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">SSH CA</h2>
+    <div class="space-y-3">
+      <div>
+        <label class="label">CA Public Key</label>
+        <textarea class="input font-mono text-xs" rows="3" readonly>{{.Content.CAPublicKey}}</textarea>
+      </div>
+      <form method="POST" action="/settings/ssh-ttl">
+        <label class="label" for="cert-ttl">Default Certificate TTL</label>
+        <div class="flex space-x-2">
+          <input type="text" id="cert-ttl" name="cert_ttl" class="input w-32" value="{{.Content.SSHCertTTL}}">
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Logging -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Logging</h2>
+    <form method="POST" action="/settings/logging">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="log-level">Log Level</label>
+          <select id="log-level" name="log_level" class="input">
+            <option value="debug" {{if eq .Content.LogLevel "debug"}}selected{{end}}>Debug</option>
+            <option value="info" {{if eq .Content.LogLevel "info"}}selected{{end}}>Info</option>
+            <option value="warn" {{if eq .Content.LogLevel "warn"}}selected{{end}}>Warn</option>
+            <option value="error" {{if eq .Content.LogLevel "error"}}selected{{end}}>Error</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="retention">Retention (days)</label>
+          <input type="number" id="retention" name="retention_days" class="input" value="{{.Content.LogRetention}}" min="1" max="365">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-4">Save</button>
+    </form>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,42 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">System Status</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Services</h2>
+    <div class="space-y-3" id="status-services" hx-get="/partials/status/services" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">TLS Certificate</h2>
+    <div id="status-tls" hx-get="/partials/status/tls" hx-trigger="load" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Replication</h2>
+    <div id="status-replication" hx-get="/partials/status/replication" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Storage</h2>
+    <div id="status-storage" hx-get="/partials/status/storage" hx-trigger="load" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+</div>
+
+{{if .IsAdmin}}
+<div class="card mt-6">
+  <h2 class="text-lg font-semibold mb-4">Warnings and Errors</h2>
+  <div id="status-alerts" hx-get="/partials/status/alerts" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+  </div>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,65 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">Backup</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
+  <!-- Export -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Export</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      Exports LDAP directory, cn=config, FIDO2 mappings, and SQLite state.
+    </p>
+    <a href="/api/v1/config/export" class="btn btn-primary">Export Now</a>
+
+    <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+    <h3 class="font-semibold mb-3">Scheduled Backup</h3>
+    <form method="POST" action="/settings/backup-schedule">
+      <div class="space-y-3">
+        <label class="flex items-center space-x-2">
+          <input type="checkbox" name="enabled" {{if .Content.BackupEnabled}}checked{{end}}>
+          <span class="text-sm">Enable daily slapcat backup</span>
+        </label>
+        <div>
+          <label class="label" for="backup-time">Backup Time</label>
+          <input type="time" id="backup-time" name="time" class="input w-32" value="{{.Content.BackupTime}}">
+        </div>
+        <div>
+          <label class="label" for="backup-retention">Retention (days)</label>
+          <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.Content.BackupRetention}}" min="1">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-4">Save Schedule</button>
+    </form>
+  </div>
+
+  <!-- Import -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Import</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      Upload a previously exported archive to restore the directory.
+      This will overwrite the current directory.
+    </p>
+    <form method="POST" action="/backup/import" enctype="multipart/form-data" id="import-backup-form">
+      <div class="mb-4">
+        <input type="file" name="archive" class="input" required>
+      </div>
+      <div class="mb-4">
+        <label class="label">Type "yesiagree" to confirm</label>
+        <input type="text" name="confirm" class="input" placeholder="yesiagree" required>
+      </div>
+      <button type="submit" class="btn btn-danger">Import (Overwrites Current Data)</button>
+    </form>
+
+    <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+    <h3 class="font-semibold mb-3">CA Key Backup</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      The CA private key is NOT included in standard exports.
+      Back it up separately from <code>/data/ca/</code>.
+    </p>
+    {{if .Content.CAFingerprint}}
+    <p class="text-sm mt-2 font-mono">Fingerprint: {{.Content.CAFingerprint}}</p>
+    {{end}}
+  </div>
+</div>
+{{end}}

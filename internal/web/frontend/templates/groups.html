@@ -1,0 +1,25 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-semibold">Groups</h1>
+  {{if .IsAdmin}}
+  <a href="/groups/new" class="btn btn-primary">Create Group</a>
+  {{end}}
+</div>
+
+<div class="card">
+  <div class="mb-4">
+    <select name="type" class="input w-48"
+      hx-get="/partials/groups/list"
+      hx-trigger="change"
+      hx-target="#group-list">
+      <option value="">All Types</option>
+      <option value="posixGroup">posixGroup</option>
+      <option value="groupOfNames">groupOfNames</option>
+    </select>
+  </div>
+
+  <div id="group-list" hx-get="/partials/groups/list" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+  </div>
+</div>
+{{end}}

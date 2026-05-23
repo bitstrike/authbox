@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} - Authbox</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <div class="min-h-full">
+    <!-- Navigation -->
+    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-14">
+          <div class="flex items-center space-x-6">
+            <a href="/" class="font-semibold text-lg">Authbox</a>
+            <a href="/" class="nav-link{{if eq .CurrentPath "/"}} active{{end}}">Dashboard</a>
+            {{if or .IsAdmin .IsOperator .IsViewer}}
+            <a href="/users" class="nav-link{{if eq .CurrentPath "/users"}} active{{end}}">Users</a>
+            <a href="/groups" class="nav-link{{if eq .CurrentPath "/groups"}} active{{end}}">Groups</a>
+            <a href="/ssh" class="nav-link{{if eq .CurrentPath "/ssh"}} active{{end}}">SSH</a>
+            <a href="/fido2" class="nav-link{{if eq .CurrentPath "/fido2"}} active{{end}}">FIDO2</a>
+            {{end}}
+            {{if .IsAdmin}}
+            <a href="/service-accounts" class="nav-link{{if eq .CurrentPath "/service-accounts"}} active{{end}}">Service Accounts</a>
+            <a href="/logs" class="nav-link{{if eq .CurrentPath "/logs"}} active{{end}}">Logs</a>
+            <a href="/settings" class="nav-link{{if eq .CurrentPath "/settings"}} active{{end}}">Settings</a>
+            <a href="/backup" class="nav-link{{if eq .CurrentPath "/backup"}} active{{end}}">Backup</a>
+            {{end}}
+          </div>
+          <div class="flex items-center space-x-4">
+            <a href="/status" id="status-indicator" class="status-dot green" title="System status"></a>
+            <button onclick="toggleTheme()" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Toggle theme">
+              <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+              <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </button>
+            <span class="text-sm text-gray-600 dark:text-gray-400">{{.Email}}</span>
+            <form method="POST" action="/logout" class="inline">
+              <button type="submit" class="text-sm text-red-600 hover:text-red-800 dark:text-red-400">Logout</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {{if .Flash}}
+      <div class="mb-4 p-3 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm">
+        {{.Flash}}
+      </div>
+      {{end}}
+      {{template "content" .}}
+    </main>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      var html = document.documentElement;
+      html.classList.toggle('dark');
+      localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+    }
+  </script>
+</body>
+</html>

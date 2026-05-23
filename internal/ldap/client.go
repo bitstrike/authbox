@@ -61,6 +61,21 @@ func (c *Client) BaseDN() string {
 	return c.baseDN
 }
 
+// Ping checks if the LDAP connection is alive.
+func (c *Client) Ping() error {
+	req := goldap.NewSearchRequest(
+		"",
+		goldap.ScopeBaseObject,
+		goldap.NeverDerefAliases,
+		1, 0, false,
+		"(objectClass=*)",
+		[]string{"1.1"},
+		nil,
+	)
+	_, err := c.conn.Search(req)
+	return err
+}
+
 func (c *Client) IsEmpty() (bool, error) {
 	req := goldap.NewSearchRequest(
 		c.baseDN,

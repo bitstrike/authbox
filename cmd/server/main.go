@@ -115,10 +115,18 @@ func main() {
 	// Frontend with OIDC login flow
 	if oidcAuth != nil {
 		authHandlers := frontend.NewAuthHandlers(oidcAuth, sessions, roleLookup)
-		fe := frontend.NewFrontend(sessions, authHandlers)
+		deps := &frontend.Deps{
+			LDAP:     ldapClient,
+			CA:       sshCA,
+			Repo:     repo,
+			Config:   cfg,
+			Sessions: sessions,
+			Roles:    roleLookup,
+		}
+		fe := frontend.NewFrontend(sessions, authHandlers, deps)
 		fe.RegisterRoutes(r)
 	} else {
-		frontend.RegisterRoutes(r)
+		frontend.RegisterRoutesLegacy(r)
 	}
 
 	tlsCfg := &tls.Config{

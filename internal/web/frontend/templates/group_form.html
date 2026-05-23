@@ -1,0 +1,63 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">{{if .Content.IsEdit}}Edit Group{{else}}Create Group{{end}}</h1>
+
+<div class="card max-w-2xl">
+  <form method="POST" action="{{.Content.Action}}">
+    <div class="space-y-4">
+      <div>
+        <label class="label" for="cn">Group Name (cn)</label>
+        <input type="text" id="cn" name="cn" value="{{.Content.Group.CN}}" class="input" {{if .Content.IsEdit}}readonly{{end}} required>
+      </div>
+      {{if not .Content.IsEdit}}
+      <div>
+        <label class="label" for="type">Type</label>
+        <select id="type" name="type" class="input" required>
+          <option value="posixGroup">posixGroup</option>
+          <option value="groupOfNames">groupOfNames</option>
+        </select>
+      </div>
+      <div>
+        <label class="label" for="gidNumber">GID Number (blank for auto, posixGroup only)</label>
+        <input type="number" id="gidNumber" name="gidNumber" class="input">
+      </div>
+      {{end}}
+      {{if .Content.IsEdit}}
+      <div>
+        <label class="label">Members</label>
+        <div class="border rounded dark:border-gray-700 p-3 max-h-48 overflow-y-auto" id="member-list">
+          {{range .Content.Members}}
+          <div class="flex justify-between items-center py-1">
+            <span class="text-sm">{{.}}</span>
+            <button type="button" class="text-red-500 text-xs hover:text-red-700"
+              hx-delete="/groups/{{$.Content.Group.CN}}/members/{{.}}"
+              hx-target="#member-list"
+              hx-confirm="Remove this member?">Remove</button>
+          </div>
+          {{else}}
+          <p class="text-sm text-gray-500 dark:text-gray-400">No members</p>
+          {{end}}
+        </div>
+        <div class="mt-2 flex space-x-2">
+          <input type="text" name="new_member" placeholder="Add member (uid)" class="input flex-1">
+          <button type="button" class="btn btn-secondary"
+            hx-post="/groups/{{.Content.Group.CN}}/members"
+            hx-include="[name='new_member']"
+            hx-target="#member-list">Add</button>
+        </div>
+      </div>
+      {{end}}
+    </div>
+
+    {{if .Content.Error}}
+    <div class="mt-4 p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+      {{.Content.Error}}
+    </div>
+    {{end}}
+
+    <div class="mt-6 flex space-x-3">
+      <button type="submit" class="btn btn-primary">{{if .Content.IsEdit}}Update{{else}}Create{{end}}</button>
+      <a href="/groups" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{{end}}

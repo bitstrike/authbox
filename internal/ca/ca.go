@@ -30,6 +30,14 @@ func (ca *CA) PublicKey() []byte {
 	return ssh.MarshalAuthorizedKey(ca.publicKey)
 }
 
+func (ca *CA) PublicKeyString() string {
+	return string(ssh.MarshalAuthorizedKey(ca.publicKey))
+}
+
+func (ca *CA) Fingerprint() string {
+	return ssh.FingerprintSHA256(ca.publicKey)
+}
+
 func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uint64) ([]byte, error) {
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
 	if err != nil {

@@ -1,0 +1,35 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-semibold">Users</h1>
+  <div class="flex space-x-2">
+    {{if or .IsAdmin .IsOperator}}
+    <a href="/users/import" class="btn btn-secondary">Bulk Import</a>
+    <a href="/users/new" class="btn btn-primary">Create User</a>
+    {{end}}
+  </div>
+</div>
+
+<div class="card">
+  <div class="mb-4 flex space-x-2">
+    <input type="text" name="q" placeholder="Search users..."
+      class="input flex-1"
+      hx-get="/partials/users/list"
+      hx-trigger="keyup changed delay:300ms"
+      hx-target="#user-list"
+      hx-include="[name='status']">
+    <select name="status" class="input w-40"
+      hx-get="/partials/users/list"
+      hx-trigger="change"
+      hx-target="#user-list"
+      hx-include="[name='q']">
+      <option value="">All</option>
+      <option value="active">Active</option>
+      <option value="disabled">Disabled</option>
+    </select>
+  </div>
+
+  <div id="user-list" hx-get="/partials/users/list" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+  </div>
+</div>
+{{end}}

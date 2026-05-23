@@ -1,0 +1,57 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">{{if .Content.IsEdit}}Edit User{{else}}Create User{{end}}</h1>
+
+<div class="card max-w-2xl">
+  <form method="POST" action="{{.Content.Action}}">
+    <div class="space-y-4">
+      <div>
+        <label class="label" for="uid">Username (uid)</label>
+        <input type="text" id="uid" name="uid" value="{{.Content.User.UID}}" class="input" {{if .Content.IsEdit}}readonly{{end}} required>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="givenName">First Name</label>
+          <input type="text" id="givenName" name="givenName" value="{{.Content.User.GivenName}}" class="input" required>
+        </div>
+        <div>
+          <label class="label" for="sn">Last Name</label>
+          <input type="text" id="sn" name="sn" value="{{.Content.User.SN}}" class="input" required>
+        </div>
+      </div>
+      <div>
+        <label class="label" for="mail">Email</label>
+        <input type="email" id="mail" name="mail" value="{{.Content.User.Mail}}" class="input" required>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="uidNumber">UID Number (blank for auto)</label>
+          <input type="number" id="uidNumber" name="uidNumber" value="{{if .Content.User.UIDNumber}}{{.Content.User.UIDNumber}}{{end}}" class="input">
+        </div>
+        <div>
+          <label class="label" for="gidNumber">GID Number (blank for auto)</label>
+          <input type="number" id="gidNumber" name="gidNumber" value="{{if .Content.User.GIDNumber}}{{.Content.User.GIDNumber}}{{end}}" class="input">
+        </div>
+      </div>
+      <div>
+        <label class="label" for="homeDirectory">Home Directory</label>
+        <input type="text" id="homeDirectory" name="homeDirectory" value="{{.Content.User.HomeDirectory}}" class="input" placeholder="/home/username">
+      </div>
+      <div>
+        <label class="label" for="loginShell">Login Shell</label>
+        <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
+      </div>
+    </div>
+
+    {{if .Content.Error}}
+    <div class="mt-4 p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+      {{.Content.Error}}
+    </div>
+    {{end}}
+
+    <div class="mt-6 flex space-x-3">
+      <button type="submit" class="btn btn-primary">{{if .Content.IsEdit}}Update{{else}}Create{{end}}</button>
+      <a href="/users" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{{end}}

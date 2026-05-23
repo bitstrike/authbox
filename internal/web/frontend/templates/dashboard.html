@@ -1,0 +1,29 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">Dashboard</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
+    <div class="text-2xl font-bold" id="stat-total-users">-</div>
+  </div>
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Active Users</div>
+    <div class="text-2xl font-bold" id="stat-active-users">-</div>
+  </div>
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Groups</div>
+    <div class="text-2xl font-bold" id="stat-groups">-</div>
+  </div>
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Certs Issued Today</div>
+    <div class="text-2xl font-bold" id="stat-certs-today">-</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="text-lg font-semibold mb-4">Recent Activity</h2>
+  <div id="recent-activity" hx-get="/partials/dashboard/activity" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+  </div>
+</div>
+{{end}}

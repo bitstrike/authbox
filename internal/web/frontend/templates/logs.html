@@ -1,0 +1,63 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">Logs</h1>
+
+<div class="card">
+  <div class="flex justify-between items-center mb-4">
+    <div class="flex space-x-2">
+      <select name="level" class="input w-32"
+        hx-get="/partials/logs/view"
+        hx-trigger="change"
+        hx-target="#log-content"
+        hx-include="[name='file'],[name='search']">
+        <option value="">All Levels</option>
+        <option value="error">Error</option>
+        <option value="warn">Warn</option>
+        <option value="info">Info</option>
+        <option value="debug">Debug</option>
+      </select>
+      <input type="text" name="search" placeholder="Search logs..."
+        class="input w-64"
+        hx-get="/partials/logs/view"
+        hx-trigger="keyup changed delay:500ms"
+        hx-target="#log-content"
+        hx-include="[name='level'],[name='file']">
+    </div>
+    <div class="flex space-x-2">
+      <select name="file" class="input w-48"
+        hx-get="/partials/logs/view"
+        hx-trigger="change"
+        hx-target="#log-content"
+        hx-include="[name='level'],[name='search']">
+        <option value="current">Current</option>
+      </select>
+      <button id="tail-btn" class="btn btn-secondary text-sm" onclick="toggleTail()">Live Tail</button>
+    </div>
+  </div>
+
+  <div id="log-content" class="font-mono text-xs bg-gray-900 text-green-400 p-4 rounded max-h-[600px] overflow-y-auto"
+    hx-get="/partials/logs/view" hx-trigger="load" hx-swap="innerHTML">
+    Loading...
+  </div>
+</div>
+
+<script>
+  var tailInterval = null;
+  function toggleTail() {
+    var btn = document.getElementById('tail-btn');
+    if (tailInterval) {
+      clearInterval(tailInterval);
+      tailInterval = null;
+      btn.textContent = 'Live Tail';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    } else {
+      tailInterval = setInterval(function() {
+        htmx.trigger('#log-content', 'load');
+      }, 2000);
+      btn.textContent = 'Stop Tail';
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+    }
+  }
+</script>
+{{end}}

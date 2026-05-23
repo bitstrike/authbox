@@ -1,0 +1,38 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">FIDO2 Keys</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Register key -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Register Key</h2>
+    <div class="mb-4 p-3 rounded bg-blue-50 dark:bg-blue-900/30 text-sm">
+      <p class="font-medium mb-1">Instructions:</p>
+      <p>On your workstation, run:</p>
+      <code class="block mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs">pamu2fcfg -n</code>
+      <p class="mt-2">Paste the output below.</p>
+    </div>
+    <form method="POST" action="/fido2/register">
+      {{if or .IsAdmin .IsOperator}}
+      <div class="mb-4">
+        <label class="label" for="fido2-uid">User (uid)</label>
+        <input type="text" id="fido2-uid" name="uid" class="input" placeholder="Leave blank for yourself">
+      </div>
+      {{end}}
+      <div class="mb-4">
+        <label class="label" for="credential">Credential String</label>
+        <textarea id="credential" name="credential" rows="3" class="input font-mono text-xs"
+          placeholder="Paste pamu2fcfg output here" required></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Register</button>
+    </form>
+  </div>
+
+  <!-- Key list -->
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-4">Registered Keys</h2>
+    <div id="fido2-list" hx-get="/partials/fido2/list" hx-trigger="load" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+</div>
+{{end}}

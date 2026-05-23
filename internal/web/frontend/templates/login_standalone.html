@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Authbox</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+  <div class="w-full max-w-sm p-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <h1 class="text-2xl font-semibold text-center mb-6 text-gray-900 dark:text-gray-100">Authbox</h1>
+    <p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sign in to continue</p>
+    <a href="/login" class="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+      Sign in with SSO
+    </a>
+  </div>
+</body>
+</html>

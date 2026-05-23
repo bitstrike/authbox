@@ -1,0 +1,32 @@
+{{define "content"}}
+<h1 class="text-2xl font-semibold mb-6">Bulk Import Users</h1>
+
+<div class="card max-w-3xl">
+  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+    Upload a CSV or JSON file. CSV columns: uid, givenName, sn, mail, uidNumber (optional), gidNumber (optional), homeDirectory, loginShell
+  </p>
+
+  <form method="POST" action="/users/import" enctype="multipart/form-data" id="import-form">
+    <div class="mb-4">
+      <label class="label" for="file">Select file (CSV or JSON)</label>
+      <input type="file" id="file" name="file" accept=".csv,.json" class="input" required>
+    </div>
+
+    <div id="import-preview" class="mb-4 hidden">
+      <h3 class="font-semibold mb-2">Preview</h3>
+      <div class="overflow-x-auto max-h-64 overflow-y-auto border rounded dark:border-gray-700">
+        <table class="table" id="preview-table"></table>
+      </div>
+    </div>
+
+    <div id="import-errors" class="mb-4 hidden">
+      <div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm"></div>
+    </div>
+
+    <div class="flex space-x-3">
+      <button type="submit" class="btn btn-primary">Import</button>
+      <a href="/users" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{{end}}
