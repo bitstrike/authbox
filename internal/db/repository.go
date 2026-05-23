@@ -104,6 +104,21 @@ func (r *Repository) DeleteFIDO2Credentials(uid string) error {
 	return err
 }
 
+func (r *Repository) GetFIDO2CredentialByID(id int) (*FIDO2Credential, error) {
+	var c FIDO2Credential
+	err := r.db.QueryRow("SELECT id, uid, credential_data, registered_at FROM fido2_credentials WHERE id = ?", id).
+		Scan(&c.ID, &c.UID, &c.CredentialData, &c.RegisteredAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *Repository) DeleteFIDO2CredentialByID(id int) error {
+	_, err := r.db.Exec("DELETE FROM fido2_credentials WHERE id = ?", id)
+	return err
+}
+
 func (r *Repository) ListSSHCerts(offset, limit int) ([]SSHCert, int, error) {
 	var total int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM ssh_certs").Scan(&total)

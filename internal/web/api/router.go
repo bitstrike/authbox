@@ -64,6 +64,7 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 			r.With(auth.RequireRole(auth.RoleSelf)).Post("/fido2/register", a.registerFIDO2)
 			r.With(auth.RequireRole(auth.RoleSelf)).Get("/fido2/credentials/{uid}", a.getFIDO2Credentials)
 			r.With(auth.RequireRole(auth.RoleViewer)).Get("/fido2/credentials", a.getAllFIDO2Credentials)
+			r.With(auth.RequireRole(auth.RoleSelf)).Delete("/fido2/credentials/{id}", a.deleteFIDO2Credential)
 
 			// Config
 			r.With(auth.RequireRole(auth.RoleAdmin)).Get("/config/export", a.exportConfig)

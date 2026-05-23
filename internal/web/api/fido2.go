@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/authbox/authbox/internal/auth"
@@ -42,9 +43,8 @@ func (a *API) registerFIDO2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic format validation (pamu2fcfg output contains colons and commas)
-	if !strings.Contains(body.CredentialData, ",") {
-		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "credential_data format invalid (expected pamu2fcfg output)")
+	if err := validatePamU2FCredential(body.CredentialData); err != nil {
+		respondError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
 
@@ -96,4 +96,62 @@ func (a *API) getAllFIDO2Credentials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, creds)
+}
+
+func (a *API) deleteFIDO2Credential(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid credential id")
+		return
+	}
+
+	claims := auth.GetClaims(r.Context())
+	cred, err := a.repo.GetFIDO2CredentialByID(id)
+	if err != nil || cred == nil {
+		respondError(w, http.StatusNotFound, "NOT_FOUND", "credential not found")
+		return
+	}
+
+	// Self can only delete own credentials
+	if cred.UID != emailToUID(claims.Email) && !auth.HasRole(r.Context(), auth.RoleOperator) {
+		respondError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
+		return
+	}
+
+	if err := a.repo.DeleteFIDO2CredentialByID(id); err != nil {
+		respondError(w, http.StatusInternalServerError, "INTERNAL", "failed to delete credential")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// validatePamU2FCredential checks that the credential data looks like pamu2fcfg output.
+// Expected format: <credential_id>,<public_key>,<key_type>,<options>
+// Example: ABCdef123...,DEFabc456...,es256,+presence
+func validatePamU2FCredential(data string) error {
+	data = strings.TrimSpace(data)
+	if data == "" {
+		return fmt.Errorf("credential_data is empty")
+	}
+
+	parts := strings.Split(data, ",")
+	if len(parts) < 2 {
+		return fmt.Errorf("credential_data format invalid: expected at least credential_id,public_key separated by commas")
+	}
+
+	// Credential ID should be a base64-like string (alphanumeric, +, /, =)
+	credID := parts[0]
+	if len(credID) < 10 {
+		return fmt.Errorf("credential_id too short (expected base64url-encoded value)")
+	}
+
+	// Public key should also be base64-like
+	pubKey := parts[1]
+	if len(pubKey) < 10 {
+		return fmt.Errorf("public_key too short (expected base64url-encoded value)")
+	}
+
+	return nil
 }
