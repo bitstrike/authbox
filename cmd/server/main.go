@@ -73,8 +73,11 @@ func main() {
 
 	// Set up OIDC auth
 	var authMiddleware func(http.Handler) http.Handler
+	var oidcAuth *auth.OIDCAuth
+	var roleLookup *appldap.RoleLookup
+
 	if cfg.OIDCIssuerURL != "" && cfg.OIDCClientID != "" {
-		oidcAuth, err := auth.NewOIDCAuth(context.Background(), auth.OIDCConfig{
+		oidcAuth, err = auth.NewOIDCAuth(context.Background(), auth.OIDCConfig{
 			IssuerURL:    cfg.OIDCIssuerURL,
 			ClientID:     cfg.OIDCClientID,
 			ClientSecret: cfg.OIDCClientSecret,
@@ -84,7 +87,7 @@ func main() {
 			log.Error("failed to initialize OIDC", "err", err)
 			os.Exit(1)
 		}
-		roleLookup := appldap.NewRoleLookup(ldapClient)
+		roleLookup = appldap.NewRoleLookup(ldapClient)
 		authMiddleware = auth.TokenMiddleware(oidcAuth.Verifier(), roleLookup)
 		log.Info("OIDC authentication configured", "issuer", cfg.OIDCIssuerURL)
 	} else {
@@ -98,6 +101,9 @@ func main() {
 	repo := db.NewRepository(database)
 	apiHandler := api.New(ldapClient, sshCA, repo, cfg.SSHCertTTL)
 
+	// Session store for web UI
+	sessions := auth.NewSessionStore(30 * time.Minute)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
@@ -105,7 +111,15 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	apiHandler.RegisterRoutesWithDeps(r, authMiddleware)
-	frontend.RegisterRoutes(r)
+
+	// Frontend with OIDC login flow
+	if oidcAuth != nil {
+		authHandlers := frontend.NewAuthHandlers(oidcAuth, sessions, roleLookup)
+		fe := frontend.NewFrontend(sessions, authHandlers)
+		fe.RegisterRoutes(r)
+	} else {
+		frontend.RegisterRoutes(r)
+	}
 
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
