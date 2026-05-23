@@ -13,16 +13,18 @@ import (
 )
 
 type API struct {
-	ldap *ldap.Client
-	ca   *ca.CA
-	repo *db.Repository
+	ldap       *ldap.Client
+	ca         *ca.CA
+	repo       *db.Repository
+	sshCertTTL string
 }
 
-func New(ldapClient *ldap.Client, sshCA *ca.CA, repo *db.Repository) *API {
+func New(ldapClient *ldap.Client, sshCA *ca.CA, repo *db.Repository, sshCertTTL string) *API {
 	return &API{
-		ldap: ldapClient,
-		ca:   sshCA,
-		repo: repo,
+		ldap:       ldapClient,
+		ca:         sshCA,
+		repo:       repo,
+		sshCertTTL: sshCertTTL,
 	}
 }
 

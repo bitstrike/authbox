@@ -96,7 +96,7 @@ func main() {
 
 	// Set up HTTP router
 	repo := db.NewRepository(database)
-	apiHandler := api.New(ldapClient, sshCA, repo)
+	apiHandler := api.New(ldapClient, sshCA, repo, cfg.SSHCertTTL)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
