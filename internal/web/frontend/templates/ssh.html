@@ -22,7 +22,7 @@
   {{if or .IsAdmin .IsViewer}}
   <div class="card">
     <h2 class="text-lg font-semibold mb-4">Issued Certificates</h2>
-    <div id="cert-list" hx-get="/partials/ssh/certs" hx-trigger="load, cert-issued from:body" hx-swap="innerHTML">
+    <div id="cert-list" class="table-container" hx-get="/partials/ssh/certs" hx-trigger="load, cert-issued from:body" hx-swap="innerHTML">
       <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
     </div>
   </div>

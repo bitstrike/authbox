@@ -1,0 +1,199 @@
+package frontend
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+)
+
+const (
+	defaultPageSize = 25
+	maxPageSize     = 100
+	filterDelay     = "300ms"
+	arrowUp         = " &#9650;"
+	arrowDown       = " &#9660;"
+	emptyMessage    = "No results"
+)
+
+var defaultPageSizes = []int{10, 25, 50, 100}
+
+// Column defines a table column.
+type Column struct {
+	Key      string
+	Label    string
+	Sortable bool
+}
+
+// TableConfig defines the table's static configuration.
+type TableConfig struct {
+	Columns    []Column
+	PartialURL string
+	Filterable bool
+	Exportable bool
+	PageSizes  []int
+}
+
+// TableState holds the current request state for a table.
+type TableState struct {
+	Sort   string
+	Order  string
+	Offset int
+	Limit  int
+	Query  string
+	Total  int
+}
+
+// ParseTableState extracts table state from query parameters.
+func ParseTableState(r *http.Request, defaultSort string) TableState {
+	s := TableState{
+		Sort:  r.URL.Query().Get("sort"),
+		Order: r.URL.Query().Get("order"),
+		Query: r.URL.Query().Get("q"),
+	}
+	s.Offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
+	s.Limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+
+	if s.Sort == "" {
+		s.Sort = defaultSort
+	}
+	if s.Order != "asc" && s.Order != "desc" {
+		s.Order = "desc"
+	}
+	if s.Limit <= 0 || s.Limit > maxPageSize {
+		s.Limit = defaultPageSize
+	}
+	if s.Offset < 0 {
+		s.Offset = 0
+	}
+	return s
+}
+
+// TableRenderer writes standardized table HTML.
+type TableRenderer struct {
+	cfg   TableConfig
+	state TableState
+	w     io.Writer
+}
+
+// NewTableRenderer creates a renderer for the given config and state.
+func NewTableRenderer(w io.Writer, cfg TableConfig, state TableState) *TableRenderer {
+	if len(cfg.PageSizes) == 0 {
+		cfg.PageSizes = defaultPageSizes
+	}
+	return &TableRenderer{cfg: cfg, state: state, w: w}
+}
+
+// RenderHeader writes the filter input, loading indicator, and table header row.
+func (tr *TableRenderer) RenderHeader() {
+	// Filter and controls bar
+	if tr.cfg.Filterable || tr.cfg.Exportable {
+		fmt.Fprint(tr.w, `<div class="flex justify-between items-center mb-3">`)
+		if tr.cfg.Filterable {
+			fmt.Fprintf(tr.w,
+				`<div class="flex items-center space-x-2"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`+
+					`<input type="text" name="q" value="%s" placeholder="Filter..." class="input flex-1" hx-get="%s" hx-trigger="keyup changed delay:%s" hx-target="closest .table-container" hx-include="[name='limit']" hx-indicator=".table-loading"></div>`,
+				escHTML(tr.state.Query), tr.cfg.PartialURL, filterDelay,
+			)
+		} else {
+			fmt.Fprint(tr.w, `<div></div>`)
+		}
+		rightControls := ""
+		if tr.cfg.Exportable {
+			rightControls = fmt.Sprintf(`<a href="%s?format=csv&q=%s&sort=%s&order=%s" class="btn btn-secondary text-xs">Export CSV</a>`,
+				tr.cfg.PartialURL, tr.state.Query, tr.state.Sort, tr.state.Order)
+		}
+		fmt.Fprintf(tr.w, `<div class="flex items-center space-x-2">%s</div>`, rightControls)
+		fmt.Fprint(tr.w, `</div>`)
+	}
+
+	// Loading indicator
+	fmt.Fprint(tr.w, `<div class="table-loading htmx-indicator text-center text-sm text-gray-500 py-2">Loading...</div>`)
+
+	// Table open + thead
+	fmt.Fprint(tr.w, `<table class="table"><thead><tr>`)
+	for _, col := range tr.cfg.Columns {
+		if col.Sortable {
+			nextOrder := "asc"
+			indicator := ""
+			if col.Key == tr.state.Sort {
+				if tr.state.Order == "asc" {
+					nextOrder = "desc"
+					indicator = arrowUp
+				} else {
+					nextOrder = "asc"
+					indicator = arrowDown
+				}
+			}
+			fmt.Fprintf(tr.w,
+				`<th><a href="#" class="hover:text-blue-600" hx-get="%s?sort=%s&order=%s&limit=%d&q=%s" hx-target="closest .table-container" hx-swap="innerHTML">%s%s</a></th>`,
+				tr.cfg.PartialURL, col.Key, nextOrder, tr.state.Limit, tr.state.Query, col.Label, indicator,
+			)
+		} else {
+			fmt.Fprintf(tr.w, `<th>%s</th>`, col.Label)
+		}
+	}
+	fmt.Fprint(tr.w, `</tr></thead><tbody>`)
+}
+
+// RenderEmpty writes a "no results" row spanning all columns.
+func (tr *TableRenderer) RenderEmpty(msg string) {
+	if msg == "" {
+		msg = emptyMessage
+	}
+	fmt.Fprintf(tr.w, `<tr><td colspan="%d" class="text-center text-gray-500 dark:text-gray-400 text-sm py-4">%s</td></tr>`,
+		len(tr.cfg.Columns), msg)
+}
+
+// RenderFooter writes pagination controls, page size selector, and row count.
+func (tr *TableRenderer) RenderFooter() {
+	fmt.Fprint(tr.w, `</tbody></table>`)
+
+	end := tr.state.Offset + tr.state.Limit
+	if end > tr.state.Total {
+		end = tr.state.Total
+	}
+
+	fmt.Fprint(tr.w, `<div class="flex justify-between items-center mt-3 text-sm text-gray-500 dark:text-gray-400">`)
+
+	// Row count
+	if tr.state.Total > 0 {
+		fmt.Fprintf(tr.w, `<span>Showing %d-%d of %d</span>`, tr.state.Offset+1, end, tr.state.Total)
+	} else {
+		fmt.Fprint(tr.w, `<span></span>`)
+	}
+
+	// Page size + navigation
+	fmt.Fprint(tr.w, `<div class="flex items-center space-x-3">`)
+
+	// Page size selector
+	fmt.Fprint(tr.w, `<select name="limit" class="input w-20 text-xs" hx-get="`)
+	fmt.Fprint(tr.w, tr.cfg.PartialURL)
+	fmt.Fprint(tr.w, `" hx-trigger="change" hx-target="closest .table-container" hx-include="[name='q']">`)
+	for _, size := range tr.cfg.PageSizes {
+		selected := ""
+		if size == tr.state.Limit {
+			selected = " selected"
+		}
+		fmt.Fprintf(tr.w, `<option value="%d"%s>%d</option>`, size, selected, size)
+	}
+	fmt.Fprint(tr.w, `</select>`)
+
+	// Prev/Next
+	fmt.Fprint(tr.w, `<div class="flex space-x-2">`)
+	if tr.state.Offset > 0 {
+		prev := tr.state.Offset - tr.state.Limit
+		if prev < 0 {
+			prev = 0
+		}
+		fmt.Fprintf(tr.w, `<button class="btn btn-secondary text-xs" hx-get="%s?offset=%d&limit=%d&sort=%s&order=%s&q=%s" hx-target="closest .table-container">Prev</button>`,
+			tr.cfg.PartialURL, prev, tr.state.Limit, tr.state.Sort, tr.state.Order, tr.state.Query)
+	}
+	if end < tr.state.Total {
+		fmt.Fprintf(tr.w, `<button class="btn btn-secondary text-xs" hx-get="%s?offset=%d&limit=%d&sort=%s&order=%s&q=%s" hx-target="closest .table-container">Next</button>`,
+			tr.cfg.PartialURL, end, tr.state.Limit, tr.state.Sort, tr.state.Order, tr.state.Query)
+	}
+	fmt.Fprint(tr.w, `</div>`)
+
+	fmt.Fprint(tr.w, `</div></div>`)
+}

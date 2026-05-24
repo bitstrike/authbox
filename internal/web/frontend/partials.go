@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/db"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -48,25 +49,38 @@ func (h *handlers) partialDashboardActivity(w http.ResponseWriter, r *http.Reque
 
 // partialUserList returns paginated user table HTML fragment.
 func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	status := r.URL.Query().Get("status")
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	limit := 50
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "uid", Label: "Username", Sortable: true},
+			{Key: "cn", Label: "Name", Sortable: true},
+			{Key: "mail", Label: "Email", Sortable: true},
+			{Key: "uidNumber", Label: "UID", Sortable: true},
+			{Key: "status", Label: "Status", Sortable: false},
+			{Key: "_actions", Label: "", Sortable: false},
+		},
+		PartialURL: "/partials/users/list",
+		Filterable: true,
+	}
 
-	users, total, err := h.deps.LDAP.ListUsers(0, 1000)
+	state := ParseTableState(r, "uid")
+	status := r.URL.Query().Get("status")
+
+	users, _, err := h.deps.LDAP.ListUsers(0, 1000)
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load users</p>`))
 		return
 	}
 
 	// Filter
-	var filtered []struct {
+	type userRow struct {
 		UID       string
 		CN        string
 		Mail      string
 		UIDNumber int
 		Disabled  bool
 	}
+	var filtered []userRow
+	q := strings.ToLower(state.Query)
 	for _, u := range users {
 		if status == "active" && u.Disabled {
 			continue
@@ -75,260 +89,337 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if q != "" {
-			lower := strings.ToLower(q)
-			if !strings.Contains(strings.ToLower(u.UID), lower) &&
-				!strings.Contains(strings.ToLower(u.CN), lower) &&
-				!strings.Contains(strings.ToLower(u.Mail), lower) {
+			if !strings.Contains(strings.ToLower(u.UID), q) &&
+				!strings.Contains(strings.ToLower(u.CN), q) &&
+				!strings.Contains(strings.ToLower(u.Mail), q) {
 				continue
 			}
 		}
-		filtered = append(filtered, struct {
-			UID       string
-			CN        string
-			Mail      string
-			UIDNumber int
-			Disabled  bool
-		}{u.UID, u.CN, u.Mail, u.UIDNumber, u.Disabled})
+		filtered = append(filtered, userRow{u.UID, u.CN, u.Mail, u.UIDNumber, u.Disabled})
 	}
 
-	_ = total
-	total = len(filtered)
-	end := offset + limit
+	total := len(filtered)
+	end := state.Offset + state.Limit
 	if end > total {
 		end = total
 	}
-	if offset > total {
-		offset = total
+	if state.Offset > total {
+		state.Offset = total
 	}
-	page := filtered[offset:end]
+	page := filtered[state.Offset:end]
+	state.Total = total
 
 	w.Header().Set("Content-Type", "text/html")
-	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>UID</th><th>Status</th><th></th></tr></thead><tbody>`)
-	for _, u := range page {
-		statusBadge := `<span class="text-green-800">active</span>`
-		if u.Disabled {
-			statusBadge = `<span class="text-red-600">disabled</span>`
-		}
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
-			escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), u.UIDNumber, statusBadge, escHTML(u.UID),
-		))
-	}
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
 	if len(page) == 0 {
-		sb.WriteString(`<tr><td colspan="6" class="text-center text-gray-500 text-sm">No users found</td></tr>`)
-	}
-	sb.WriteString(`</tbody></table>`)
-
-	// Pagination
-	if total > limit {
-		sb.WriteString(`<div class="mt-4 flex justify-between items-center text-sm">`)
-		sb.WriteString(fmt.Sprintf(`<span>Showing %d-%d of %d</span>`, offset+1, end, total))
-		sb.WriteString(`<div class="space-x-2">`)
-		if offset > 0 {
-			prev := offset - limit
-			if prev < 0 {
-				prev = 0
+		tr.RenderEmpty("No users found")
+	} else {
+		for _, u := range page {
+			statusBadge := `<span class="text-green-800 dark:text-green-400">active</span>`
+			if u.Disabled {
+				statusBadge = `<span class="text-red-600 dark:text-red-400">disabled</span>`
 			}
-			sb.WriteString(fmt.Sprintf(`<button class="btn btn-secondary" hx-get="/partials/users/list?offset=%d" hx-target="#user-list" hx-include="[name='q'],[name='status']">Prev</button>`, prev))
+			fmt.Fprintf(w,
+				`<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
+				escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), u.UIDNumber, statusBadge, escHTML(u.UID),
+			)
 		}
-		if end < total {
-			sb.WriteString(fmt.Sprintf(`<button class="btn btn-secondary" hx-get="/partials/users/list?offset=%d" hx-target="#user-list" hx-include="[name='q'],[name='status']">Next</button>`, end))
-		}
-		sb.WriteString(`</div></div>`)
 	}
 
-	w.Write([]byte(sb.String()))
+	tr.RenderFooter()
 }
 
 // partialGroupList returns group table HTML fragment.
 func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "cn", Label: "Name", Sortable: true},
+			{Key: "type", Label: "Type", Sortable: false},
+			{Key: "gidNumber", Label: "GID", Sortable: true},
+			{Key: "members", Label: "Members", Sortable: false},
+			{Key: "_actions", Label: "", Sortable: false},
+		},
+		PartialURL: "/partials/groups/list",
+		Filterable: true,
+	}
+
+	state := ParseTableState(r, "cn")
+	state.Order = "asc"
 	typeFilter := r.URL.Query().Get("type")
+
 	groups, _, err := h.deps.LDAP.ListGroups(0, 500)
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load groups</p>`))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>Name</th><th>Type</th><th>GID</th><th>Members</th><th></th></tr></thead><tbody>`)
-	count := 0
 	isAdmin := auth.HasRole(r.Context(), auth.RoleAdmin)
+	q := strings.ToLower(state.Query)
+
+	type groupRow struct {
+		CN        string
+		Type      string
+		GIDNumber int
+		Members   int
+	}
+	var filtered []groupRow
 	for _, g := range groups {
 		if typeFilter != "" && g.Type != typeFilter {
 			continue
 		}
-		gid := "-"
-		if g.GIDNumber > 0 {
-			gid = strconv.Itoa(g.GIDNumber)
+		if q != "" && !strings.Contains(strings.ToLower(g.CN), q) {
+			continue
 		}
-		editLink := ""
-		if isAdmin {
-			editLink = fmt.Sprintf(`<a href="/groups/%s/edit" class="text-blue-600 text-sm">Edit</a>`, escHTML(g.CN))
+		filtered = append(filtered, groupRow{g.CN, g.Type, g.GIDNumber, len(g.Members)})
+	}
+
+	total := len(filtered)
+	end := state.Offset + state.Limit
+	if end > total {
+		end = total
+	}
+	page := filtered[state.Offset:end]
+	state.Total = total
+
+	w.Header().Set("Content-Type", "text/html")
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(page) == 0 {
+		tr.RenderEmpty("No groups found")
+	} else {
+		for _, g := range page {
+			gid := "-"
+			if g.GIDNumber > 0 {
+				gid = strconv.Itoa(g.GIDNumber)
+			}
+			editLink := ""
+			if isAdmin {
+				editLink = fmt.Sprintf(`<a href="/groups/%s/edit" class="text-blue-600 text-sm">Edit</a>`, escHTML(g.CN))
+			}
+			fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`,
+				escHTML(g.CN), g.Type, gid, g.Members, editLink,
+			)
 		}
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`,
-			escHTML(g.CN), g.Type, gid, len(g.Members), editLink,
-		))
-		count++
 	}
-	if count == 0 {
-		sb.WriteString(`<tr><td colspan="5" class="text-center text-gray-500 text-sm">No groups found</td></tr>`)
-	}
-	sb.WriteString(`</tbody></table>`)
-	w.Write([]byte(sb.String()))
+
+	tr.RenderFooter()
 }
 
 // partialSSHCerts returns SSH cert list HTML fragment.
 func (h *handlers) partialSSHCerts(w http.ResponseWriter, r *http.Request) {
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	sortCol := r.URL.Query().Get("sort")
-	sortOrder := r.URL.Query().Get("order")
-	if sortCol == "" {
-		sortCol = "issued_at"
-	}
-	if sortOrder == "" {
-		sortOrder = "desc"
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "username", Label: "User", Sortable: true},
+			{Key: "serial", Label: "Serial", Sortable: true},
+			{Key: "issued_at", Label: "Issued", Sortable: true},
+			{Key: "expires_at", Label: "Expires", Sortable: true},
+		},
+		PartialURL: "/partials/ssh/certs",
+		Filterable: true,
+		Exportable: false,
 	}
 
-	certs, total, err := h.deps.Repo.ListSSHCertsSorted(offset, 20, sortCol, sortOrder)
+	state := ParseTableState(r, "issued_at")
+
+	certs, total, err := h.deps.Repo.ListSSHCertsSorted(state.Offset, state.Limit, state.Sort, state.Order)
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load certificates</p>`))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	var sb strings.Builder
-
-	// Sortable header helper
-	headerLink := func(col, label string) string {
-		nextOrder := "asc"
-		indicator := ""
-		if col == sortCol {
-			if sortOrder == "asc" {
-				nextOrder = "desc"
-				indicator = " &#9650;"
-			} else {
-				nextOrder = "asc"
-				indicator = " &#9660;"
+	// Filter by query
+	if state.Query != "" {
+		q := strings.ToLower(state.Query)
+		var filtered []db.SSHCert
+		for _, c := range certs {
+			if strings.Contains(strings.ToLower(c.Username), q) ||
+				strings.Contains(strings.ToLower(c.Serial), q) ||
+				strings.Contains(c.IssuedAt.Format("2006-01-02 15:04"), q) ||
+				strings.Contains(c.ExpiresAt.Format("2006-01-02 15:04"), q) {
+				filtered = append(filtered, c)
 			}
 		}
-		return fmt.Sprintf(
-			`<th><a href="#" class="hover:text-blue-600" hx-get="/partials/ssh/certs?sort=%s&order=%s" hx-target="#cert-list" hx-swap="innerHTML">%s%s</a></th>`,
-			col, nextOrder, label, indicator,
-		)
+		certs = filtered
+		total = len(filtered)
 	}
 
-	sb.WriteString(`<table class="table"><thead><tr>`)
-	sb.WriteString(headerLink("username", "User"))
-	sb.WriteString(headerLink("serial", "Serial"))
-	sb.WriteString(headerLink("issued_at", "Issued"))
-	sb.WriteString(headerLink("expires_at", "Expires"))
-	sb.WriteString(`</tr></thead><tbody>`)
-	for _, c := range certs {
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td>%s</td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td></tr>`,
-			escHTML(c.Username), escHTML(c.Serial),
-			c.IssuedAt.Format("2006-01-02 15:04"),
-			c.ExpiresAt.Format("2006-01-02 15:04"),
-		))
-	}
+	state.Total = total
+	w.Header().Set("Content-Type", "text/html")
+
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
 	if len(certs) == 0 {
-		sb.WriteString(`<tr><td colspan="4" class="text-center text-gray-500 text-sm">No certificates issued</td></tr>`)
+		tr.RenderEmpty("No certificates issued")
+	} else {
+		for _, c := range certs {
+			fmt.Fprintf(w, `<tr><td>%s</td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td></tr>`,
+				escHTML(c.Username), escHTML(c.Serial),
+				c.IssuedAt.Format("2006-01-02 15:04"),
+				c.ExpiresAt.Format("2006-01-02 15:04"),
+			)
+		}
 	}
-	sb.WriteString(`</tbody></table>`)
 
-	if total > 20 {
-		sb.WriteString(fmt.Sprintf(`<p class="mt-2 text-xs text-gray-500">Showing %d of %d</p>`, len(certs), total))
-	}
-	w.Write([]byte(sb.String()))
+	tr.RenderFooter()
 }
 
 // partialFIDO2List returns FIDO2 credential list HTML fragment.
 func (h *handlers) partialFIDO2List(w http.ResponseWriter, r *http.Request) {
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "uid", Label: "User", Sortable: false},
+			{Key: "registered_at", Label: "Registered", Sortable: false},
+			{Key: "_actions", Label: "", Sortable: false},
+		},
+		PartialURL: "/partials/fido2/list",
+		Filterable: true,
+	}
+
+	state := ParseTableState(r, "registered_at")
 	claims := auth.GetClaims(r.Context())
 	isAdmin := auth.HasRole(r.Context(), auth.RoleAdmin)
 
-	var creds []struct {
+	type credRow struct {
 		ID           int
 		UID          string
 		RegisteredAt string
 	}
+	var all []credRow
 
 	if isAdmin {
-		all, err := h.deps.Repo.GetAllFIDO2Credentials()
+		creds, err := h.deps.Repo.GetAllFIDO2Credentials()
 		if err == nil {
-			for _, c := range all {
-				creds = append(creds, struct {
-					ID           int
-					UID          string
-					RegisteredAt string
-				}{c.ID, c.UID, c.RegisteredAt.Format("2006-01-02")})
+			for _, c := range creds {
+				all = append(all, credRow{c.ID, c.UID, c.RegisteredAt.Format("2006-01-02")})
 			}
 		}
 	} else if claims != nil {
 		uid := emailToUID(claims.Email)
-		userCreds, err := h.deps.Repo.GetFIDO2Credentials(uid)
+		creds, err := h.deps.Repo.GetFIDO2Credentials(uid)
 		if err == nil {
-			for _, c := range userCreds {
-				creds = append(creds, struct {
-					ID           int
-					UID          string
-					RegisteredAt string
-				}{c.ID, c.UID, c.RegisteredAt.Format("2006-01-02")})
+			for _, c := range creds {
+				all = append(all, credRow{c.ID, c.UID, c.RegisteredAt.Format("2006-01-02")})
 			}
 		}
 	}
 
+	// Filter
+	q := strings.ToLower(state.Query)
+	var filtered []credRow
+	for _, c := range all {
+		if q != "" && !strings.Contains(strings.ToLower(c.UID), q) && !strings.Contains(c.RegisteredAt, q) {
+			continue
+		}
+		filtered = append(filtered, c)
+	}
+
+	total := len(filtered)
+	end := state.Offset + state.Limit
+	if end > total {
+		end = total
+	}
+	page := filtered[state.Offset:end]
+	state.Total = total
+
 	w.Header().Set("Content-Type", "text/html")
-	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>User</th><th>Registered</th><th></th></tr></thead><tbody>`)
-	for _, c := range creds {
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/fido2/credentials/%d" hx-target="#fido2-list" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
-			escHTML(c.UID), c.RegisteredAt, c.ID,
-		))
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(page) == 0 {
+		tr.RenderEmpty("No keys registered")
+	} else {
+		for _, c := range page {
+			fmt.Fprintf(w,
+				`<tr><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/fido2/credentials/%d" hx-target="closest .table-container" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
+				escHTML(c.UID), c.RegisteredAt, c.ID,
+			)
+		}
 	}
-	if len(creds) == 0 {
-		sb.WriteString(`<tr><td colspan="3" class="text-center text-gray-500 text-sm">No keys registered</td></tr>`)
-	}
-	sb.WriteString(`</tbody></table>`)
+
+	tr.RenderFooter()
 
 	// Warn if only 1 key
-	if len(creds) == 1 {
-		sb.WriteString(`<p class="mt-2 text-xs text-yellow-800 dark:text-yellow-200">Only 1 key registered. Consider adding a backup key.</p>`)
+	if total == 1 {
+		fmt.Fprint(w, `<p class="mt-2 text-xs text-yellow-800 dark:text-yellow-200">Only 1 key registered. Consider adding a backup key.</p>`)
 	}
-	w.Write([]byte(sb.String()))
 }
 
 // partialServiceAccountList returns service account table HTML fragment.
 func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Request) {
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "client_id", Label: "Client ID", Sortable: false},
+			{Key: "description", Label: "Description", Sortable: false},
+			{Key: "role", Label: "Role", Sortable: false},
+			{Key: "created_at", Label: "Created", Sortable: false},
+			{Key: "last_used", Label: "Last Used", Sortable: false},
+			{Key: "_actions", Label: "", Sortable: false},
+		},
+		PartialURL: "/partials/service-accounts/list",
+		Filterable: true,
+	}
+
+	state := ParseTableState(r, "created_at")
+
 	accounts, err := h.deps.Repo.ListServiceAccounts()
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load service accounts</p>`))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>Client ID</th><th>Description</th><th>Role</th><th>Created</th><th>Last Used</th><th></th></tr></thead><tbody>`)
+	// Filter
+	q := strings.ToLower(state.Query)
+	type saRow struct {
+		ClientID    string
+		Description string
+		Role        string
+		CreatedAt   string
+		LastUsedAt  string
+	}
+	var filtered []saRow
 	for _, sa := range accounts {
 		lastUsed := "-"
 		if sa.LastUsedAt != nil {
 			lastUsed = sa.LastUsedAt.Format("2006-01-02")
 		}
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/service-accounts?client_id=%s" hx-target="#sa-list" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
-			escHTML(sa.ClientID), escHTML(sa.Description), sa.Role,
-			sa.CreatedAt.Format("2006-01-02"), lastUsed, escHTML(sa.ClientID),
-		))
+		row := saRow{sa.ClientID, sa.Description, sa.Role, sa.CreatedAt.Format("2006-01-02"), lastUsed}
+		if q != "" {
+			combined := strings.ToLower(row.ClientID + row.Description + row.Role)
+			if !strings.Contains(combined, q) {
+				continue
+			}
+		}
+		filtered = append(filtered, row)
 	}
-	if len(accounts) == 0 {
-		sb.WriteString(`<tr><td colspan="6" class="text-center text-gray-500 text-sm">No service accounts</td></tr>`)
+
+	total := len(filtered)
+	end := state.Offset + state.Limit
+	if end > total {
+		end = total
 	}
-	sb.WriteString(`</tbody></table>`)
-	w.Write([]byte(sb.String()))
+	page := filtered[state.Offset:end]
+	state.Total = total
+
+	w.Header().Set("Content-Type", "text/html")
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(page) == 0 {
+		tr.RenderEmpty("No service accounts")
+	} else {
+		for _, sa := range page {
+			fmt.Fprintf(w,
+				`<tr><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/service-accounts?client_id=%s" hx-target="closest .table-container" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
+				escHTML(sa.ClientID), escHTML(sa.Description), sa.Role, sa.CreatedAt, sa.LastUsedAt, escHTML(sa.ClientID),
+			)
+		}
+	}
+
+	tr.RenderFooter()
 }
 
 // partialLogsView returns log content HTML fragment.

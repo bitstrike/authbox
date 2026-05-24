@@ -176,20 +176,20 @@
 
 ## Reusable Table Component
 
-- [ ] Create `tableRenderer` helper (columns, sort, pagination, HTMX partial URL)
-- [ ] Column definition struct (key, label, sortable flag)
-- [ ] Sortable header rendering with asc/desc indicators
-- [ ] Pagination footer (Prev/Next buttons, "Showing X-Y of Z")
-- [ ] Page size selector (10 / 25 / 50 / 100)
-- [ ] Row render callback function per table
-- [ ] Optional filterable flag with search input (magnifying glass icon, debounced server-side filter across all columns)
-- [ ] Styled empty state ("No results" message when zero rows)
-- [ ] Standardized row actions column (Edit/Delete/View links)
-- [ ] Loading indicator (spinner/skeleton via hx-indicator)
+- [x] Create `tableRenderer` helper (columns, sort, pagination, HTMX partial URL)
+- [x] Column definition struct (key, label, sortable flag)
+- [x] Sortable header rendering with asc/desc indicators
+- [x] Pagination footer (Prev/Next buttons, "Showing X-Y of Z")
+- [x] Page size selector (10 / 25 / 50 / 100)
+- [x] Row render callback function per table
+- [x] Optional filterable flag with search input (magnifying glass icon, debounced server-side filter across all columns)
+- [x] Styled empty state ("No results" message when zero rows)
+- [x] Standardized row actions column (Edit/Delete/View links)
+- [x] Loading indicator (spinner/skeleton via hx-indicator)
 - [ ] Export/download button (CSV of current filtered/sorted view)
-- [ ] Row count badge near table title ("Users (47)")
-- [ ] Migrate SSH certs partial to use tableRenderer
-- [ ] Migrate users list partial to use tableRenderer
-- [ ] Migrate groups list partial to use tableRenderer
-- [ ] Migrate service accounts partial to use tableRenderer
-- [ ] Migrate FIDO2 keys partial to use tableRenderer
+- [x] Row count badge near table title ("Showing X-Y of Z")
+- [x] Migrate SSH certs partial to use tableRenderer
+- [x] Migrate users list partial to use tableRenderer
+- [x] Migrate groups list partial to use tableRenderer
+- [x] Migrate service accounts partial to use tableRenderer
+- [x] Migrate FIDO2 keys partial to use tableRenderer

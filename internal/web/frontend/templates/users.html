@@ -10,25 +10,7 @@
 </div>
 
 <div class="card">
-  <div class="mb-4 flex space-x-2">
-    <input type="text" name="q" placeholder="Search users..."
-      class="input flex-1"
-      hx-get="/partials/users/list"
-      hx-trigger="keyup changed delay:300ms"
-      hx-target="#user-list"
-      hx-include="[name='status']">
-    <select name="status" class="input w-32"
-      hx-get="/partials/users/list"
-      hx-trigger="change"
-      hx-target="#user-list"
-      hx-include="[name='q']">
-      <option value="">All</option>
-      <option value="active">Active</option>
-      <option value="disabled">Disabled</option>
-    </select>
-  </div>
-
-  <div id="user-list" hx-get="/partials/users/list" hx-trigger="load" hx-swap="innerHTML">
+  <div id="user-list" class="table-container" hx-get="/partials/users/list" hx-trigger="load" hx-swap="innerHTML">
     <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
   </div>
 </div>

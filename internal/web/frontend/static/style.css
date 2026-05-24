@@ -273,3 +273,6 @@ hr { border: none; border-top: 1px solid #e5e7eb; }
 code { font-family: ui-monospace, monospace; font-size: 0.875em; }
 pre { margin: 0; }
 .whitespace-pre { white-space: pre; }
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: block; }
+.htmx-request.htmx-indicator { display: block; }
