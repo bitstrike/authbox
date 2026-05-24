@@ -1,7 +1,8 @@
 GO_VERSION := 1.22.5
 GO_INSTALL_DIR := /usr/local
+COMPOSE := docker compose -f docker/docker-compose.yml
 
-.PHONY: install-go test build clean
+.PHONY: install-go test build clean docker-build run run-clean stop logs
 
 install-go:
 	curl -fsSL https://go.dev/dl/go$(GO_VERSION).linux-amd64.tar.gz -o /tmp/go.tar.gz
@@ -21,3 +22,20 @@ build:
 
 clean:
 	rm -rf bin/
+
+docker-build:
+	$(COMPOSE) build primary
+
+run: docker-build
+	$(COMPOSE) up primary
+
+run-clean:
+	$(COMPOSE) down -v
+	$(COMPOSE) build primary
+	$(COMPOSE) up primary
+
+stop:
+	$(COMPOSE) down
+
+logs:
+	$(COMPOSE) logs -f primary
