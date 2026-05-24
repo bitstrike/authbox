@@ -11,22 +11,30 @@ if [ -f "/etc/secrets/authbox/ldap_admin_password" ]; then
     LDAP_ADMIN_PASS=$(cat /etc/secrets/authbox/ldap_admin_password | tr -d '\n')
 fi
 
-# Generate self-signed TLS cert if none exists and ACME is not configured
-if [ ! -f "$TLS_CERT" ] && [ -z "${TLS_DOMAIN:-}" ]; then
-    echo "Generating self-signed TLS certificate"
+# Obtain TLS certificate
+if [ ! -f "$TLS_CERT" ]; then
     mkdir -p "$(dirname "$TLS_CERT")"
-    if ! openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
-        -keyout "$TLS_KEY" -out "$TLS_CERT" \
-        -days 365 -nodes -subj "/CN=authbox" \
-        -addext "subjectAltName=DNS:localhost,DNS:authbox,IP:127.0.0.1" 2>&1; then
-        echo "ERROR: failed to generate TLS cert" >&2
-        exit 1
+    if [ -n "${TLS_DOMAIN:-}" ]; then
+        # Obtain Let's Encrypt cert via DNS-01 (blocks until complete)
+        echo "Obtaining Let's Encrypt certificate for ${TLS_DOMAIN}..."
+        if ! /usr/local/bin/authbox --obtain-cert; then
+            echo "ERROR: failed to obtain LE certificate" >&2
+            exit 1
+        fi
+        echo "Let's Encrypt certificate obtained"
+    else
+        # No domain configured - generate self-signed for dev/testing
+        echo "Generating self-signed TLS certificate (no TLS_DOMAIN set)"
+        if ! openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+            -keyout "$TLS_KEY" -out "$TLS_CERT" \
+            -days 365 -nodes -subj "/CN=authbox" \
+            -addext "subjectAltName=DNS:localhost,DNS:authbox,IP:127.0.0.1" 2>&1; then
+            echo "ERROR: failed to generate TLS cert" >&2
+            exit 1
+        fi
     fi
     chmod 640 "$TLS_KEY"
     chown ldap:ldap "$TLS_CERT" "$TLS_KEY"
-elif [ ! -f "$TLS_CERT" ] && [ -n "${TLS_DOMAIN:-}" ]; then
-    echo "TLS_DOMAIN set - Go app will obtain cert via ACME"
-    mkdir -p "$(dirname "$TLS_CERT")"
 fi
 
 # Bootstrap cn=config if slapd.d is empty (first boot)
@@ -40,17 +48,8 @@ dn: cn=config
 objectClass: olcGlobal
 cn: config
 olcPidFile: /var/run/openldap/slapd.pid
-EOF
-
-    # Add TLS config only if cert exists
-    if [ -f "$TLS_CERT" ]; then
-        cat >> /tmp/init-config.ldif <<EOF
 olcTLSCertificateFile: ${TLS_CERT}
 olcTLSCertificateKeyFile: ${TLS_KEY}
-EOF
-    fi
-
-    cat >> /tmp/init-config.ldif <<EOF
 
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
@@ -109,10 +108,7 @@ echo "Starting slapd..."
 mkdir -p /var/run/openldap
 chown ldap:ldap /var/run/openldap
 
-SLAPD_URLS="ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/"
-if [ -f "$TLS_CERT" ]; then
-    SLAPD_URLS="$SLAPD_URLS ldaps://0.0.0.0:636/"
-fi
+SLAPD_URLS="ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/"
 
 slapd -u ldap -g ldap -h "$SLAPD_URLS" -F "$SLAPD_CONF_DIR" -d 0 2>&1 &
 SLAPD_PID=$!

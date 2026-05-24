@@ -32,6 +32,27 @@ func main() {
 	}
 
 	log := logging.New(cfg.LogLevel, cfg.LogDir)
+
+	// --obtain-cert mode: get TLS cert and exit (used by entrypoint before slapd)
+	if len(os.Args) > 1 && os.Args[1] == "--obtain-cert" {
+		log.Info("obtaining TLS certificate", "domain", cfg.TLSDomain)
+		tlsMgr := apptls.NewManager(apptls.Config{
+			CertPath:        cfg.TLSCertPath,
+			KeyPath:         cfg.TLSKeyPath,
+			Domain:          cfg.TLSDomain,
+			ACMEEmail:       cfg.TLSACMEEmail,
+			AWSAccessKeyID:  cfg.AWSAccessKeyID,
+			AWSSecretKey:    cfg.AWSSecretAccessKey,
+			AWSHostedZoneID: cfg.AWSHostedZoneID,
+		}, log)
+		if err := tlsMgr.EnsureCert(context.Background()); err != nil {
+			log.Error("failed to obtain TLS certificate", "err", err)
+			os.Exit(1)
+		}
+		log.Info("TLS certificate ready", "path", cfg.TLSCertPath)
+		os.Exit(0)
+	}
+
 	log.Info("authbox starting", "role", cfg.Role)
 
 	// Initialize SSH CA
