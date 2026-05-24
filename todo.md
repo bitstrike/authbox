@@ -196,9 +196,18 @@
 
 ## Dashboard Page
 
-- [ ] Stat cards show real counts (total users, active users, groups, certs issued today)
-- [ ] Dashboard handler queries LDAP/SQLite for stats and passes to template
+- [ ] Stat cards show real counts:
+  - Total Users
+  - Active Users
+  - Disabled Users
+  - Groups (total, with "X posix / Y role" subtitle)
+  - Certs Active Now (unexpired)
+  - FIDO2 Keys (total registered)
+  - Warnings Today (count of WARN in today's log, yellow-tinted when > 0)
+  - Errors Today (count of ERROR in today's log, red-tinted when > 0)
+- [ ] Dashboard handler queries LDAP/SQLite/logs for stats and passes to template
 - [ ] System status panel inline on dashboard (LDAP connection, TLS expiry, replication state)
 - [ ] Status panel auto-refreshes every 30s via HTMX
 - [ ] Recent activity table uses reusable table component (sortable, filterable, paginated)
 - [ ] Green dot in nav still links to /status for detailed view
+- [ ] Future: customizable widget selection with drag-to-reorder (localStorage)
