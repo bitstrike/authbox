@@ -20,31 +20,35 @@ func Bootstrap(client *Client, cfg BootstrapConfig) error {
 	if err != nil {
 		return fmt.Errorf("checking if directory is empty: %w", err)
 	}
-	if !empty {
-		return nil
-	}
 
-	if err := createBaseDN(client, cfg.BaseDN); err != nil {
-		return fmt.Errorf("creating base DN: %w", err)
-	}
+	if empty {
+		if err := createBaseDN(client, cfg.BaseDN); err != nil {
+			return fmt.Errorf("creating base DN: %w", err)
+		}
 
-	if err := createOUs(client, cfg.BaseDN); err != nil {
-		return fmt.Errorf("creating OUs: %w", err)
-	}
+		if err := createOUs(client, cfg.BaseDN); err != nil {
+			return fmt.Errorf("creating OUs: %w", err)
+		}
 
-	if err := createRoleGroups(client, cfg.BaseDN, cfg.AdminEmail); err != nil {
-		return fmt.Errorf("creating role groups: %w", err)
-	}
+		if err := createRoleGroups(client, cfg.BaseDN, cfg.AdminEmail); err != nil {
+			return fmt.Errorf("creating role groups: %w", err)
+		}
 
-	if cfg.AdminEmail != "" {
-		if err := createInitialAdmin(client, cfg.BaseDN, cfg.AdminEmail); err != nil {
-			return fmt.Errorf("creating initial admin: %w", err)
+		if cfg.SchemaPath != "" {
+			if err := applyLDIF(client, cfg.SchemaPath, cfg.BaseDN); err != nil {
+				return fmt.Errorf("applying schema LDIF: %w", err)
+			}
 		}
 	}
 
-	if cfg.SchemaPath != "" {
-		if err := applyLDIF(client, cfg.SchemaPath, cfg.BaseDN); err != nil {
-			return fmt.Errorf("applying schema LDIF: %w", err)
+	// Always ensure admin user exists if configured
+	if cfg.AdminEmail != "" {
+		uid := emailToUID(cfg.AdminEmail)
+		existing, _ := client.GetUser(uid)
+		if existing == nil {
+			if err := createInitialAdmin(client, cfg.BaseDN, cfg.AdminEmail); err != nil {
+				return fmt.Errorf("creating initial admin: %w", err)
+			}
 		}
 	}
 
@@ -156,6 +160,9 @@ func applyLDIF(client *Client, path, baseDN string) error {
 		if currentDN != "" && strings.Contains(line, ": ") {
 			parts := strings.SplitN(line, ": ", 2)
 			key := parts[0]
+			if key == "changetype" {
+				continue
+			}
 			val := strings.ReplaceAll(parts[1], "dc=example,dc=com", baseDN)
 			attrs[key] = append(attrs[key], val)
 		}
