@@ -91,8 +91,7 @@ func (tr *TableRenderer) RenderHeader() {
 		fmt.Fprint(tr.w, `<div class="flex justify-between items-center mb-3">`)
 		if tr.cfg.Filterable {
 			fmt.Fprintf(tr.w,
-				`<div class="flex items-center space-x-2"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`+
-					`<input type="text" name="q" value="%s" placeholder="Filter..." class="input flex-1" hx-get="%s" hx-trigger="keyup changed delay:%s" hx-target="closest .table-container" hx-include="[name='limit']" hx-indicator=".table-loading"></div>`,
+				`<input type="text" name="q" value="%s" placeholder="&#128269; Filter..." class="input flex-1" hx-get="%s" hx-trigger="keyup changed delay:%s" hx-target="closest .table-container" hx-include="[name='limit']" hx-indicator=".table-loading">`,
 				escHTML(tr.state.Query), tr.cfg.PartialURL, filterDelay,
 			)
 		} else {
