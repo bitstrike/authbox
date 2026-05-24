@@ -181,6 +181,7 @@
 - [ ] Sortable header rendering with asc/desc indicators
 - [ ] Pagination footer (Prev/Next buttons, "Showing X-Y of Z")
 - [ ] Row render callback function per table
+- [ ] Optional filterable flag with search input (magnifying glass icon, debounced server-side filter across all columns)
 - [ ] Migrate SSH certs partial to use tableRenderer
 - [ ] Migrate users list partial to use tableRenderer
 - [ ] Migrate groups list partial to use tableRenderer
