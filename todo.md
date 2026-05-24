@@ -150,3 +150,16 @@
 ## Tech Debt
 
 - [ ] Migrate existing hardcoded string literals to `internal/constants/constants.go` (shells, paths, time formats, route strings, defaults scattered across ldap/, web/api/, web/frontend/)
+
+## SSH Cert Signing Page
+
+- [x] HTMX inline signing (no page redirect)
+- [x] Styled result box with principal, TTL, cert type
+- [x] Copy to clipboard and download buttons
+- [x] Cert recorded in SQLite audit log on sign
+- [x] Issued Certificates table auto-refreshes after signing
+- [x] Sortable table headers (user, serial, issued, expires) with asc/desc toggle
+- [x] Button disabled during request (prevents double-click)
+- [x] Daily background cleanup of expired cert records (90-day retention)
+- [ ] Rate limiting (10 certs per user per hour)
+- [ ] Visible counter showing remaining signs this hour
