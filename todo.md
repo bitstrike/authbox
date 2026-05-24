@@ -180,8 +180,14 @@
 - [ ] Column definition struct (key, label, sortable flag)
 - [ ] Sortable header rendering with asc/desc indicators
 - [ ] Pagination footer (Prev/Next buttons, "Showing X-Y of Z")
+- [ ] Page size selector (10 / 25 / 50 / 100)
 - [ ] Row render callback function per table
 - [ ] Optional filterable flag with search input (magnifying glass icon, debounced server-side filter across all columns)
+- [ ] Styled empty state ("No results" message when zero rows)
+- [ ] Standardized row actions column (Edit/Delete/View links)
+- [ ] Loading indicator (spinner/skeleton via hx-indicator)
+- [ ] Export/download button (CSV of current filtered/sorted view)
+- [ ] Row count badge near table title ("Users (47)")
 - [ ] Migrate SSH certs partial to use tableRenderer
 - [ ] Migrate users list partial to use tableRenderer
 - [ ] Migrate groups list partial to use tableRenderer
