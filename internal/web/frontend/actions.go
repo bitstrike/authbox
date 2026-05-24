@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/authbox/authbox/internal/auth"
 	"github.com/authbox/authbox/internal/db"
@@ -292,7 +293,17 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 
 	certStr := strings.TrimSpace(string(cert))
 
+	// Record in audit log
+	serial := generateRandomHex(8)
+	h.deps.Repo.CreateSSHCert(&db.SSHCert{
+		Username:  principal,
+		Serial:    serial,
+		Principal: principal,
+		ExpiresAt: time.Now().Add(12 * time.Hour),
+	})
+
 	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("HX-Trigger", "cert-issued")
 	var sb strings.Builder
 	sb.WriteString(`<div class="p-4 border rounded dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-3">`)
 	sb.WriteString(`<h3 class="font-semibold text-sm">Certificate Issued</h3>`)
