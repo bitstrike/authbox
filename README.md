@@ -1,6 +1,6 @@
 # Authbox
 
-<img src="images/authbox.png" alt="Authbox" width="70%">
+<img src="images/authbox.png" alt="Authbox" width="40%">
 
 Centralized authentication and authorization for Linux systems. OIDC-delegated identity, OpenLDAP for POSIX data, SSH certificate authority, FIDO2 key management.
 
