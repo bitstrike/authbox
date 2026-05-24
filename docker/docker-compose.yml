@@ -15,20 +15,20 @@ services:
       - ../ldif:/app/ldif:ro
       - /etc/secrets/authbox:/etc/secrets/authbox:ro
     environment:
-      - ROLE=primary
-      - RUNTIME_SECRETS=/etc/secrets/authbox
-      - LDAP_BASE_DN=dc=your,dc=domain
-      - OIDC_ISSUER_URL=https://accounts.google.com
-      - INITIAL_ADMIN_EMAIL=admin@your-domain
-      - TLS_CERT_PATH=/data/tls/cert.pem
-      - TLS_KEY_PATH=/data/tls/key.pem
-      - SSH_CERT_TTL=12h
-      - UID_RANGE_START=10000
-      - UID_RANGE_END=60000
-      - LOG_LEVEL=info
-      - TLS_DOMAIN=auth.your-domain
-      - TLS_ACME_EMAIL=authbox@your-domain
-      - AWS_HOSTED_ZONE_ID=your-zone-id
+      - ROLE=${ROLE:-primary}
+      - RUNTIME_SECRETS=${RUNTIME_SECRETS:-/etc/secrets/authbox}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=com}
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-https://accounts.google.com}
+      - INITIAL_ADMIN_EMAIL=${INITIAL_ADMIN_EMAIL:-admin@example.com}
+      - TLS_CERT_PATH=${TLS_CERT_PATH:-/data/tls/cert.pem}
+      - TLS_KEY_PATH=${TLS_KEY_PATH:-/data/tls/key.pem}
+      - TLS_DOMAIN=${TLS_DOMAIN:-}
+      - TLS_ACME_EMAIL=${TLS_ACME_EMAIL:-}
+      - AWS_HOSTED_ZONE_ID=${AWS_HOSTED_ZONE_ID:-}
+      - SSH_CERT_TTL=${SSH_CERT_TTL:-12h}
+      - UID_RANGE_START=${UID_RANGE_START:-10000}
+      - UID_RANGE_END=${UID_RANGE_END:-60000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     restart: unless-stopped
 
   replica:
@@ -48,13 +48,16 @@ services:
       - /etc/secrets/authbox:/etc/secrets/authbox:ro
     environment:
       - ROLE=replica
-      - PRIMARY_HOST=primary
-      - RUNTIME_SECRETS=/etc/secrets/authbox
-      - LDAP_BASE_DN=dc=example,dc=com
-      - OIDC_ISSUER_URL=https://accounts.google.com
-      - TLS_CERT_PATH=/data/tls/cert.pem
-      - TLS_KEY_PATH=/data/tls/key.pem
-      - LOG_LEVEL=info
+      - PRIMARY_HOST=${PRIMARY_HOST:-primary}
+      - RUNTIME_SECRETS=${RUNTIME_SECRETS:-/etc/secrets/authbox}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=com}
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-https://accounts.google.com}
+      - TLS_CERT_PATH=${TLS_CERT_PATH:-/data/tls/cert.pem}
+      - TLS_KEY_PATH=${TLS_KEY_PATH:-/data/tls/key.pem}
+      - TLS_DOMAIN=${TLS_DOMAIN:-}
+      - TLS_ACME_EMAIL=${TLS_ACME_EMAIL:-}
+      - AWS_HOSTED_ZONE_ID=${AWS_HOSTED_ZONE_ID:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     restart: unless-stopped
     depends_on:
       - primary
