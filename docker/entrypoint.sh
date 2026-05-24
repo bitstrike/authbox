@@ -94,8 +94,13 @@ chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
 
 # Start slapd
 echo "Starting slapd..."
-if ! slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/ ldapi:///" -F "$SLAPD_CONF_DIR" 2>&1; then
-    echo "ERROR: slapd failed to start" >&2
+slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/ ldapi:///" -F "$SLAPD_CONF_DIR" -d 0 2>&1 &
+SLAPD_PID=$!
+sleep 2
+
+if ! kill -0 "$SLAPD_PID" 2>/dev/null; then
+    echo "ERROR: slapd exited immediately. Trying with debug:" >&2
+    slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldapi:///" -F "$SLAPD_CONF_DIR" -d 1 2>&1 | head -50
     exit 1
 fi
 
