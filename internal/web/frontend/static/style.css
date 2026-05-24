@@ -271,3 +271,5 @@ body {
 hr { border: none; border-top: 1px solid #e5e7eb; }
 .dark hr { border-color: #374151; }
 code { font-family: ui-monospace, monospace; font-size: 0.875em; }
+pre { margin: 0; }
+.whitespace-pre { white-space: pre; }

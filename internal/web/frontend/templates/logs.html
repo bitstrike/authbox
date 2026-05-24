@@ -23,6 +23,10 @@
         hx-include="[name='level'],[name='file']">
     </div>
     <div class="flex space-x-2">
+      <label class="flex items-center space-x-2 text-sm">
+        <input type="checkbox" id="wrap-toggle" onchange="toggleWrap()">
+        <span>Word wrap</span>
+      </label>
       <select name="file" class="input w-48"
         hx-get="/partials/logs/view"
         hx-trigger="change"
@@ -34,10 +38,8 @@
     </div>
   </div>
 
-  <div id="log-content" class="font-mono text-xs bg-gray-900 text-green-400 p-4 rounded max-h-[600px] overflow-y-auto"
-    hx-get="/partials/logs/view" hx-trigger="load" hx-swap="innerHTML">
-    Loading...
-  </div>
+  <pre id="log-content" class="font-mono text-xs bg-gray-900 text-green-400 p-4 rounded max-h-[600px] overflow-y-auto overflow-x-auto whitespace-pre"
+    hx-get="/partials/logs/view" hx-trigger="load" hx-swap="innerHTML">Loading...</pre>
 </div>
 
 <script>
@@ -57,6 +59,16 @@
       btn.textContent = 'Stop Tail';
       btn.classList.remove('btn-secondary');
       btn.classList.add('btn-primary');
+    }
+  }
+  function toggleWrap() {
+    var el = document.getElementById('log-content');
+    if (document.getElementById('wrap-toggle').checked) {
+      el.style.whiteSpace = 'pre-wrap';
+      el.style.wordBreak = 'break-all';
+    } else {
+      el.style.whiteSpace = 'pre';
+      el.style.wordBreak = 'normal';
     }
   }
 </script>
