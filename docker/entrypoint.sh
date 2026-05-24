@@ -11,8 +11,8 @@ if [ -f "/etc/secrets/authbox/ldap_admin_password" ]; then
     LDAP_ADMIN_PASS=$(cat /etc/secrets/authbox/ldap_admin_password | tr -d '\n')
 fi
 
-# Generate self-signed TLS cert if none exists
-if [ ! -f "$TLS_CERT" ]; then
+# Generate self-signed TLS cert if none exists and ACME is not configured
+if [ ! -f "$TLS_CERT" ] && [ -z "${TLS_DOMAIN:-}" ]; then
     echo "Generating self-signed TLS certificate"
     mkdir -p "$(dirname "$TLS_CERT")"
     if ! openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
@@ -24,6 +24,9 @@ if [ ! -f "$TLS_CERT" ]; then
     fi
     chmod 640 "$TLS_KEY"
     chown ldap:ldap "$TLS_CERT" "$TLS_KEY"
+elif [ ! -f "$TLS_CERT" ] && [ -n "${TLS_DOMAIN:-}" ]; then
+    echo "TLS_DOMAIN set - Go app will obtain cert via ACME"
+    mkdir -p "$(dirname "$TLS_CERT")"
 fi
 
 # Bootstrap cn=config if slapd.d is empty (first boot)
@@ -37,8 +40,17 @@ dn: cn=config
 objectClass: olcGlobal
 cn: config
 olcPidFile: /var/run/openldap/slapd.pid
+EOF
+
+    # Add TLS config only if cert exists
+    if [ -f "$TLS_CERT" ]; then
+        cat >> /tmp/init-config.ldif <<EOF
 olcTLSCertificateFile: ${TLS_CERT}
 olcTLSCertificateKeyFile: ${TLS_KEY}
+EOF
+    fi
+
+    cat >> /tmp/init-config.ldif <<EOF
 
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
@@ -96,7 +108,13 @@ chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
 echo "Starting slapd..."
 mkdir -p /var/run/openldap
 chown ldap:ldap /var/run/openldap
-slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/" -F "$SLAPD_CONF_DIR" -d 0 2>&1 &
+
+SLAPD_URLS="ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/"
+if [ -f "$TLS_CERT" ]; then
+    SLAPD_URLS="$SLAPD_URLS ldaps://0.0.0.0:636/"
+fi
+
+slapd -u ldap -g ldap -h "$SLAPD_URLS" -F "$SLAPD_CONF_DIR" -d 0 2>&1 &
 SLAPD_PID=$!
 sleep 2
 
