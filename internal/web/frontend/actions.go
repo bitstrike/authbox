@@ -288,6 +288,7 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	allowed, remaining, resetIn := h.signLimiter.allow(principal)
 	if !allowed {
 		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("HX-Retarget", "#ssh-error")
 		w.Write([]byte(fmt.Sprintf(
 			`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Rate limit exceeded (max %d per hour). Try again in %d minutes.</div>`,
 			maxCertsPerHour, int(resetIn.Minutes())+1,
