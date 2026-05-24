@@ -23,14 +23,16 @@ type Deps struct {
 
 // handlers holds all page handler methods.
 type handlers struct {
-	deps     *Deps
-	renderer *templateRenderer
+	deps        *Deps
+	renderer    *templateRenderer
+	signLimiter *rateLimiter
 }
 
 func newHandlers(deps *Deps) *handlers {
 	return &handlers{
-		deps:     deps,
-		renderer: newRenderer(),
+		deps:        deps,
+		renderer:    newRenderer(),
+		signLimiter: newRateLimiter(),
 	}
 }
 

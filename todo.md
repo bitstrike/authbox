@@ -161,5 +161,5 @@
 - [x] Sortable table headers (user, serial, issued, expires) with asc/desc toggle
 - [x] Button disabled during request (prevents double-click)
 - [x] Daily background cleanup of expired cert records (90-day retention)
-- [ ] Rate limiting (10 certs per user per hour)
-- [ ] Visible counter showing remaining signs this hour
+- [x] Rate limiting (10 certs per user per hour)
+- [x] Visible counter showing remaining signs this hour

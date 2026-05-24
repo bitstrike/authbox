@@ -284,6 +284,17 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	}
 	principal := emailToUID(claims.Email)
 
+	// Rate limit check
+	allowed, remaining, resetIn := h.signLimiter.allow(principal)
+	if !allowed {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(
+			`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Rate limit exceeded (max %d per hour). Try again in %d minutes.</div>`,
+			maxCertsPerHour, int(resetIn.Minutes())+1,
+		)))
+		return
+	}
+
 	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principal, 43200) // 12h default
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html")
@@ -301,6 +312,8 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 		Principal: principal,
 		ExpiresAt: time.Now().Add(12 * time.Hour),
 	})
+	h.signLimiter.record(principal)
+	remaining = h.signLimiter.remaining(principal)
 
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("HX-Trigger", "cert-issued")
@@ -317,7 +330,9 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(`<div class="flex space-x-2">`)
 	sb.WriteString(`<button onclick="navigator.clipboard.writeText(document.getElementById('ssh-cert-output').value)" class="btn btn-primary text-sm">Copy to Clipboard</button>`)
 	sb.WriteString(`<a href="data:text/plain,` + certStr + `" download="id_ed25519-cert.pub" class="btn btn-secondary text-sm">Download</a>`)
-	sb.WriteString(`</div></div>`)
+	sb.WriteString(`</div>`)
+	sb.WriteString(fmt.Sprintf(`<p class="text-xs text-gray-500 dark:text-gray-400">%d of %d signs remaining this hour</p>`, remaining, maxCertsPerHour))
+	sb.WriteString(`</div>`)
 	w.Write([]byte(sb.String()))
 }
 
