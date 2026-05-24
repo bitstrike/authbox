@@ -2,7 +2,10 @@
 
 <img src="images/authbox.png" alt="Authbox" width="40%">
 
-Centralized authentication and authorization for Linux systems. OIDC-delegated identity, OpenLDAP for POSIX data, SSH certificate authority, FIDO2 key management.
+Authbox is a centralized authentication and authorization container for Linux systems built on OpenLDAP and Go. A web frontend provides dashboard and management of users and groups through Google (tested) or Microsoft Entra ID (untested) OIDC authentication.
+
+If not already obvious, there was a bit of AI assistance used to create this.
+I'm still working out some of the details. Centralized password authentication on Linux isn't great. There are a lot of options but all of them have one drawback or another. Some options like SSSD work fine until they break for some reason. This project is intended to experiment with some other ways of maybe doing it. 
 
 ## Quick Start
 
