@@ -193,3 +193,12 @@
 - [x] Migrate groups list partial to use tableRenderer
 - [x] Migrate service accounts partial to use tableRenderer
 - [x] Migrate FIDO2 keys partial to use tableRenderer
+
+## Dashboard Page
+
+- [ ] Stat cards show real counts (total users, active users, groups, certs issued today)
+- [ ] Dashboard handler queries LDAP/SQLite for stats and passes to template
+- [ ] System status panel inline on dashboard (LDAP connection, TLS expiry, replication state)
+- [ ] Status panel auto-refreshes every 30s via HTMX
+- [ ] Recent activity table uses reusable table component (sortable, filterable, paginated)
+- [ ] Green dot in nav still links to /status for detailed view
