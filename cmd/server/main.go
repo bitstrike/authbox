@@ -54,7 +54,7 @@ func main() {
 	// Connect to LDAP
 	ldapClient, err := appldap.NewClient(cfg.LDAPBaseDN, cfg.LDAPAdminPass)
 	if err != nil {
-		log.Error("failed to connect to LDAP", "err", err, "pass_len", len(cfg.LDAPAdminPass), "secrets_dir", cfg.RuntimeSecrets)
+		log.Error("failed to connect to LDAP", "err", err)
 		os.Exit(1)
 	}
 	defer ldapClient.Close()
