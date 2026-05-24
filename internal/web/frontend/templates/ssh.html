@@ -5,7 +5,7 @@
   <!-- Issue cert -->
   <div class="card">
     <h2 class="text-lg font-semibold mb-4">Issue Certificate</h2>
-    <form method="POST" action="/ssh/sign" id="ssh-sign-form">
+    <form hx-post="/ssh/sign" hx-target="#ssh-result" hx-swap="innerHTML">
       <div class="mb-4">
         <label class="label" for="pubkey">Public Key</label>
         <textarea id="pubkey" name="pubkey" rows="4" class="input font-mono text-xs"
@@ -14,11 +14,7 @@
       <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Certificate will be valid for the configured TTL.</p>
       <button type="submit" class="btn btn-primary">Sign Key</button>
     </form>
-    <div id="ssh-result" class="mt-4 hidden">
-      <label class="label">Signed Certificate</label>
-      <textarea id="ssh-cert-output" rows="4" class="input font-mono text-xs" readonly></textarea>
-      <button onclick="navigator.clipboard.writeText(document.getElementById('ssh-cert-output').value)" class="btn btn-secondary mt-2 text-sm">Copy</button>
-    </div>
+    <div id="ssh-result" class="mt-4"></div>
   </div>
 
   <!-- Cert list -->

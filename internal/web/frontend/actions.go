@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -269,25 +270,44 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	pubkey := r.FormValue("pubkey")
 	if pubkey == "" {
-		http.Error(w, "public key required", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Public key required</div>`))
 		return
 	}
 
 	claims := auth.GetClaims(r.Context())
 	if claims == nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Unauthorized</div>`))
 		return
 	}
 	principal := emailToUID(claims.Email)
 
 	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principal, 43200) // 12h default
 	if err != nil {
-		http.Error(w, "signing failed: "+err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Signing failed: %s</div>`, escHTML(err.Error()))))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(cert)
+	certStr := strings.TrimSpace(string(cert))
+
+	w.Header().Set("Content-Type", "text/html")
+	var sb strings.Builder
+	sb.WriteString(`<div class="p-4 border rounded dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-3">`)
+	sb.WriteString(`<h3 class="font-semibold text-sm">Certificate Issued</h3>`)
+	sb.WriteString(`<div class="grid grid-cols-2 gap-2 text-sm">`)
+	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">Principal:</span> <strong>%s</strong></div>`, escHTML(principal)))
+	sb.WriteString(`<div><span class="text-gray-500">TTL:</span> <strong>12 hours</strong></div>`)
+	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">Type:</span> <strong>%s</strong></div>`, escHTML(strings.SplitN(certStr, " ", 2)[0])))
+	sb.WriteString(`</div>`)
+	sb.WriteString(`<div><label class="label">Signed Certificate</label>`)
+	sb.WriteString(fmt.Sprintf(`<textarea id="ssh-cert-output" rows="4" class="input font-mono text-xs" readonly>%s</textarea></div>`, escHTML(certStr)))
+	sb.WriteString(`<div class="flex space-x-2">`)
+	sb.WriteString(`<button onclick="navigator.clipboard.writeText(document.getElementById('ssh-cert-output').value)" class="btn btn-primary text-sm">Copy to Clipboard</button>`)
+	sb.WriteString(`<a href="data:text/plain,` + certStr + `" download="id_ed25519-cert.pub" class="btn btn-secondary text-sm">Download</a>`)
+	sb.WriteString(`</div></div>`)
+	w.Write([]byte(sb.String()))
 }
 
 func (h *handlers) actionRegisterFIDO2(w http.ResponseWriter, r *http.Request) {
