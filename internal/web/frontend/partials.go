@@ -183,7 +183,16 @@ func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
 // partialSSHCerts returns SSH cert list HTML fragment.
 func (h *handlers) partialSSHCerts(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	certs, total, err := h.deps.Repo.ListSSHCerts(offset, 20)
+	sortCol := r.URL.Query().Get("sort")
+	sortOrder := r.URL.Query().Get("order")
+	if sortCol == "" {
+		sortCol = "issued_at"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	certs, total, err := h.deps.Repo.ListSSHCertsSorted(offset, 20, sortCol, sortOrder)
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load certificates</p>`))
 		return
@@ -191,7 +200,32 @@ func (h *handlers) partialSSHCerts(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>User</th><th>Serial</th><th>Issued</th><th>Expires</th></tr></thead><tbody>`)
+
+	// Sortable header helper
+	headerLink := func(col, label string) string {
+		nextOrder := "asc"
+		indicator := ""
+		if col == sortCol {
+			if sortOrder == "asc" {
+				nextOrder = "desc"
+				indicator = " &#9650;"
+			} else {
+				nextOrder = "asc"
+				indicator = " &#9660;"
+			}
+		}
+		return fmt.Sprintf(
+			`<th><a href="#" class="hover:text-blue-600" hx-get="/partials/ssh/certs?sort=%s&order=%s" hx-target="#cert-list" hx-swap="innerHTML">%s%s</a></th>`,
+			col, nextOrder, label, indicator,
+		)
+	}
+
+	sb.WriteString(`<table class="table"><thead><tr>`)
+	sb.WriteString(headerLink("username", "User"))
+	sb.WriteString(headerLink("serial", "Serial"))
+	sb.WriteString(headerLink("issued_at", "Issued"))
+	sb.WriteString(headerLink("expires_at", "Expires"))
+	sb.WriteString(`</tr></thead><tbody>`)
 	for _, c := range certs {
 		sb.WriteString(fmt.Sprintf(
 			`<tr><td>%s</td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td></tr>`,

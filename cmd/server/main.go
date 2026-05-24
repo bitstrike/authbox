@@ -176,6 +176,19 @@ func main() {
 		go rs.Start(syncCtx)
 	}
 
+	// Background cleanup of expired cert records (daily, 90-day retention)
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		for range ticker.C {
+			deleted, err := repo.CleanExpiredCerts(90)
+			if err != nil {
+				log.Error("cert cleanup failed", "err", err)
+			} else if deleted > 0 {
+				log.Info("cleaned expired certs", "deleted", deleted)
+			}
+		}
+	}()
+
 	// TLS certificate management
 	tlsMgr := apptls.NewManager(apptls.Config{
 		CertPath:        cfg.TLSCertPath,

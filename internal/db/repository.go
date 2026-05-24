@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -183,4 +184,56 @@ func (r *Repository) ListSSHCerts(offset, limit int) ([]SSHCert, int, error) {
 		certs = append(certs, c)
 	}
 	return certs, total, rows.Err()
+}
+
+// ListSSHCertsSorted returns certs with configurable sort column and order.
+func (r *Repository) ListSSHCertsSorted(offset, limit int, sortCol, sortOrder string) ([]SSHCert, int, error) {
+	// Whitelist sort columns to prevent SQL injection
+	allowedCols := map[string]bool{
+		"username": true, "serial": true, "issued_at": true, "expires_at": true,
+	}
+	if !allowedCols[sortCol] {
+		sortCol = "issued_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+
+	var total int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM ssh_certs").Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := fmt.Sprintf(
+		"SELECT id, username, serial, principal, issued_at, expires_at FROM ssh_certs ORDER BY %s %s LIMIT ? OFFSET ?",
+		sortCol, sortOrder,
+	)
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var certs []SSHCert
+	for rows.Next() {
+		var c SSHCert
+		if err := rows.Scan(&c.ID, &c.Username, &c.Serial, &c.Principal, &c.IssuedAt, &c.ExpiresAt); err != nil {
+			return nil, 0, err
+		}
+		certs = append(certs, c)
+	}
+	return certs, total, rows.Err()
+}
+
+// CleanExpiredCerts removes cert records that expired more than retentionDays ago.
+func (r *Repository) CleanExpiredCerts(retentionDays int) (int64, error) {
+	result, err := r.db.Exec(
+		"DELETE FROM ssh_certs WHERE expires_at < datetime('now', ? || ' days')",
+		fmt.Sprintf("-%d", retentionDays),
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
