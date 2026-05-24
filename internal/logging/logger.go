@@ -78,7 +78,7 @@ func (l *Logger) log(level Level, msg string, args ...any) {
 
 func (l *Logger) writer() io.Writer {
 	if l.file != nil {
-		return l.file
+		return io.MultiWriter(l.file, os.Stdout)
 	}
 	return os.Stdout
 }

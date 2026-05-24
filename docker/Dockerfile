@@ -25,7 +25,8 @@ RUN apk add --no-cache \
 RUN mkdir -p /var/lib/openldap/openldap-data \
     /etc/openldap/slapd.d \
     /var/run/openldap \
-    /data
+    /data \
+    /app/logs
 
 # Copy Go binary
 COPY --from=builder /bin/authbox /usr/local/bin/authbox
