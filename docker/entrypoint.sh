@@ -3,11 +3,25 @@ set -e
 
 SLAPD_CONF_DIR="/etc/openldap/slapd.d"
 SLAPD_DATA_DIR="/var/lib/openldap/openldap-data"
+TLS_CERT="${TLS_CERT_PATH:-/data/tls/cert.pem}"
+TLS_KEY="${TLS_KEY_PATH:-/data/tls/key.pem}"
 LDAP_ADMIN_PASS="${LDAP_ADMIN_PASS:-admin}"
 
 # Read LDAP admin password from secrets if available
 if [ -f "/etc/secrets/authbox/ldap_admin_password" ]; then
     LDAP_ADMIN_PASS=$(cat /etc/secrets/authbox/ldap_admin_password | tr -d '\n')
+fi
+
+# Generate self-signed TLS cert if none exists
+if [ ! -f "$TLS_CERT" ]; then
+    echo "Generating self-signed TLS certificate"
+    mkdir -p "$(dirname "$TLS_CERT")"
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -keyout "$TLS_KEY" -out "$TLS_CERT" \
+        -days 365 -nodes -subj "/CN=authbox" \
+        -addext "subjectAltName=DNS:localhost,DNS:authbox,IP:127.0.0.1" 2>/dev/null
+    chmod 640 "$TLS_KEY"
+    chown ldap:ldap "$TLS_CERT" "$TLS_KEY"
 fi
 
 # Bootstrap cn=config if slapd.d is empty (first boot)
@@ -21,6 +35,8 @@ dn: cn=config
 objectClass: olcGlobal
 cn: config
 olcPidFile: /var/run/openldap/slapd.pid
+olcTLSCertificateFile: ${TLS_CERT}
+olcTLSCertificateKeyFile: ${TLS_KEY}
 
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
@@ -65,7 +81,6 @@ EOF
     slapadd -n 0 -F "$SLAPD_CONF_DIR" -l /tmp/init-config.ldif
     rm /tmp/init-config.ldif
 
-    # Fix permissions
     chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
 fi
 

@@ -17,6 +17,7 @@ RUN apk add --no-cache \
     openldap-back-mdb \
     openldap-overlay-syncprov \
     openldap-clients \
+    openssl \
     ca-certificates \
     tini
 
