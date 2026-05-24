@@ -38,7 +38,8 @@ func newHandlers(deps *Deps) *handlers {
 
 // Dashboard
 func (h *handlers) dashboard(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "Dashboard", nil)
+	stats := h.gatherDashboardStats()
+	data := pageDataFromRequest(r, "Dashboard", stats)
 	h.renderer.renderPage(w, "dashboard", data)
 }
 

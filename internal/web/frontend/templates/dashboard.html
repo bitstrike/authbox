@@ -1,28 +1,63 @@
 {{define "content"}}
 <h1 class="text-2xl font-semibold mb-6">Dashboard</h1>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<!-- Stat cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
   <div class="card">
     <div class="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
-    <div class="text-2xl font-bold" id="stat-total-users">-</div>
+    <div class="text-2xl font-bold">{{.Content.TotalUsers}}</div>
   </div>
   <div class="card">
     <div class="text-sm text-gray-500 dark:text-gray-400">Active Users</div>
-    <div class="text-2xl font-bold" id="stat-active-users">-</div>
+    <div class="text-2xl font-bold">{{.Content.ActiveUsers}}</div>
+  </div>
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Disabled Users</div>
+    <div class="text-2xl font-bold">{{.Content.DisabledUsers}}</div>
   </div>
   <div class="card">
     <div class="text-sm text-gray-500 dark:text-gray-400">Groups</div>
-    <div class="text-2xl font-bold" id="stat-groups">-</div>
+    <div class="text-2xl font-bold">{{.Content.GroupsTotal}}</div>
+    <div class="text-xs text-gray-400">{{.Content.GroupsPosix}} posix / {{.Content.GroupsRole}} role</div>
   </div>
   <div class="card">
-    <div class="text-sm text-gray-500 dark:text-gray-400">Certs Issued Today</div>
-    <div class="text-2xl font-bold" id="stat-certs-today">-</div>
+    <div class="text-sm text-gray-500 dark:text-gray-400">Certs Active Now</div>
+    <div class="text-2xl font-bold">{{.Content.CertsActive}}</div>
+  </div>
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">FIDO2 Keys</div>
+    <div class="text-2xl font-bold">{{.Content.FIDO2Keys}}</div>
+  </div>
+  <div class="card{{if gt .Content.WarningsToday 0}} border-yellow-400{{end}}">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Warnings Today</div>
+    <div class="text-2xl font-bold{{if gt .Content.WarningsToday 0}} text-yellow-600{{end}}">{{.Content.WarningsToday}}</div>
+  </div>
+  <div class="card{{if gt .Content.ErrorsToday 0}} border-red-400{{end}}">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Errors Today</div>
+    <div class="text-2xl font-bold{{if gt .Content.ErrorsToday 0}} text-red-600{{end}}">{{.Content.ErrorsToday}}</div>
   </div>
 </div>
 
+<!-- System status -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-3">System Status</h2>
+    <div hx-get="/partials/status/services" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="text-lg font-semibold mb-3">Replication</h2>
+    <div hx-get="/partials/status/replication" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Recent activity -->
 <div class="card">
-  <h2 class="text-lg font-semibold mb-4">Recent Activity</h2>
-  <div id="recent-activity" hx-get="/partials/dashboard/activity" hx-trigger="load" hx-swap="innerHTML">
+  <h2 class="text-lg font-semibold mb-3">Recent Activity</h2>
+  <div class="table-container" hx-get="/partials/dashboard/activity" hx-trigger="load" hx-swap="innerHTML">
     <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
   </div>
 </div>

@@ -2,6 +2,7 @@
 /bin/
 /authbox
 *.exe
+.env
 
 # Dependencies
 /vendor/

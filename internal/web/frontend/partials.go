@@ -29,22 +29,54 @@ func (f *Frontend) registerPartials(r chi.Router) {
 
 // partialDashboardActivity returns recent activity HTML fragment.
 func (h *handlers) partialDashboardActivity(w http.ResponseWriter, r *http.Request) {
-	certs, _, _ := h.deps.Repo.ListSSHCerts(0, 20)
-	w.Header().Set("Content-Type", "text/html")
-	if len(certs) == 0 {
-		w.Write([]byte(`<p class="text-sm text-gray-500 dark:text-gray-400">No recent activity</p>`))
-		return
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "username", Label: "User", Sortable: true},
+			{Key: "action", Label: "Action", Sortable: false},
+			{Key: "issued_at", Label: "Time", Sortable: true},
+		},
+		PartialURL: "/partials/dashboard/activity",
+		Filterable: true,
 	}
-	var sb strings.Builder
-	sb.WriteString(`<table class="table"><thead><tr><th>User</th><th>Action</th><th>Time</th></tr></thead><tbody>`)
+
+	state := ParseTableState(r, "issued_at")
+	certs, total, _ := h.deps.Repo.ListSSHCertsSorted(state.Offset, state.Limit, state.Sort, state.Order)
+
+	// Filter
+	q := strings.ToLower(state.Query)
+	type activityRow struct {
+		Username string
+		Action   string
+		Time     string
+	}
+	var filtered []activityRow
 	for _, c := range certs {
-		sb.WriteString(fmt.Sprintf(
-			`<tr><td>%s</td><td>SSH cert issued</td><td>%s</td></tr>`,
-			escHTML(c.Username), c.IssuedAt.Format("2006-01-02 15:04"),
-		))
+		row := activityRow{c.Username, "SSH cert issued", c.IssuedAt.Format("2006-01-02 15:04")}
+		if q != "" && !strings.Contains(strings.ToLower(row.Username), q) && !strings.Contains(row.Time, q) {
+			continue
+		}
+		filtered = append(filtered, row)
 	}
-	sb.WriteString(`</tbody></table>`)
-	w.Write([]byte(sb.String()))
+
+	if q != "" {
+		total = len(filtered)
+	}
+	state.Total = total
+
+	w.Header().Set("Content-Type", "text/html")
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(filtered) == 0 {
+		tr.RenderEmpty("No recent activity")
+	} else {
+		for _, row := range filtered {
+			fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				escHTML(row.Username), row.Action, row.Time)
+		}
+	}
+
+	tr.RenderFooter()
 }
 
 // partialUserList returns paginated user table HTML fragment.
