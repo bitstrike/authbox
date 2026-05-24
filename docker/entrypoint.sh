@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 SLAPD_CONF_DIR="/etc/openldap/slapd.d"
 SLAPD_DATA_DIR="/var/lib/openldap/openldap-data"
@@ -16,10 +15,13 @@ fi
 if [ ! -f "$TLS_CERT" ]; then
     echo "Generating self-signed TLS certificate"
     mkdir -p "$(dirname "$TLS_CERT")"
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+    if ! openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
         -keyout "$TLS_KEY" -out "$TLS_CERT" \
         -days 365 -nodes -subj "/CN=authbox" \
-        -addext "subjectAltName=DNS:localhost,DNS:authbox,IP:127.0.0.1" 2>/dev/null
+        -addext "subjectAltName=DNS:localhost,DNS:authbox,IP:127.0.0.1" 2>&1; then
+        echo "ERROR: failed to generate TLS cert" >&2
+        exit 1
+    fi
     chmod 640 "$TLS_KEY"
     chown ldap:ldap "$TLS_CERT" "$TLS_KEY"
 fi
@@ -78,7 +80,10 @@ olcDbIndex: memberUid eq
 EOF
 
     mkdir -p "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR"
-    slapadd -n 0 -F "$SLAPD_CONF_DIR" -l /tmp/init-config.ldif
+    if ! slapadd -n 0 -F "$SLAPD_CONF_DIR" -l /tmp/init-config.ldif 2>&1; then
+        echo "ERROR: slapadd failed" >&2
+        exit 1
+    fi
     rm /tmp/init-config.ldif
 
     chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
@@ -88,22 +93,26 @@ fi
 chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
 
 # Start slapd
-# External: 389 (STARTTLS), 636 (LDAPS)
-# Internal: 3389 on localhost (plain, for Go app), ldapi for local socket
-slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/ ldapi:///" -F "$SLAPD_CONF_DIR"
+echo "Starting slapd..."
+if ! slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/ ldapi:///" -F "$SLAPD_CONF_DIR" 2>&1; then
+    echo "ERROR: slapd failed to start" >&2
+    exit 1
+fi
 
 # Wait for slapd to be ready
+echo "Waiting for slapd..."
 for i in $(seq 1 30); do
     if ldapsearch -x -H ldap://127.0.0.1:3389 -b "" -s base namingContexts >/dev/null 2>&1; then
         echo "slapd ready"
         break
     fi
     if [ "$i" -eq 30 ]; then
-        echo "slapd failed to start" >&2
+        echo "ERROR: slapd not responding after 30s" >&2
         exit 1
     fi
     sleep 1
 done
 
 # Start the Go application
+echo "Starting authbox..."
 exec /usr/local/bin/authbox
