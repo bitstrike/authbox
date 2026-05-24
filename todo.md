@@ -163,3 +163,26 @@
 - [x] Daily background cleanup of expired cert records (90-day retention)
 - [x] Rate limiting (10 certs per user per hour)
 - [x] Visible counter showing remaining signs this hour
+
+## Hardening: Drop Root Privileges
+
+- [ ] Add `authbox` user in Dockerfile (`adduser -D -H authbox`)
+- [ ] Install `su-exec` in Dockerfile (`apk add --no-cache su-exec`)
+- [ ] In entrypoint.sh, chown `/data` and `/app/logs` to `authbox` before exec
+- [ ] Change final exec to `exec su-exec authbox /usr/local/bin/authbox`
+- [ ] Ensure secrets mount is readable by `authbox` (group read via `chgrp`)
+- [ ] Verify LDAP client operations still work as unprivileged user
+- [ ] Verify TLS cert renewal still works (writes to /data/tls/)
+
+## Reusable Table Component
+
+- [ ] Create `tableRenderer` helper (columns, sort, pagination, HTMX partial URL)
+- [ ] Column definition struct (key, label, sortable flag)
+- [ ] Sortable header rendering with asc/desc indicators
+- [ ] Pagination footer (Prev/Next buttons, "Showing X-Y of Z")
+- [ ] Row render callback function per table
+- [ ] Migrate SSH certs partial to use tableRenderer
+- [ ] Migrate users list partial to use tableRenderer
+- [ ] Migrate groups list partial to use tableRenderer
+- [ ] Migrate service accounts partial to use tableRenderer
+- [ ] Migrate FIDO2 keys partial to use tableRenderer

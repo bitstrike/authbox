@@ -42,7 +42,31 @@ Without OIDC configured, the app runs in dev mode with auto-login as admin.
 
 ### Secrets Directory
 
-All secrets are stored as files under `RUNTIME_SECRETS` (default `/etc/secrets/authbox/`).
+Secrets are plain files on the **Docker host** at `/etc/secrets/authbox/`. The container bind-mounts this directory read-only (see `docker-compose.yml`).
+
+Create the directory and populate it before starting the container:
+
+```bash
+sudo mkdir -p /etc/secrets/authbox
+sudo chmod 750 /etc/secrets/authbox
+
+# Create each file with appropriate content (see below)
+sudo tee /etc/secrets/authbox/ldap_admin_password <<< "your-ldap-password"
+sudo tee /etc/secrets/authbox/replica_sync_password <<< "your-sync-secret"
+# ... google, entra, aws as needed
+
+sudo chmod 640 /etc/secrets/authbox/*
+```
+
+Expected layout on the host:
+
+```
+/etc/secrets/authbox/
+  aws                    - AWS credentials (optional, for Let's Encrypt DNS-01)
+  google                 - Google OIDC credentials
+  ldap_admin_password    - OpenLDAP admin bind password
+  replica_sync_password  - Shared secret for replica sync
+```
 
 #### `/etc/secrets/authbox/google`
 
