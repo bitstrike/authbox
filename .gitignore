@@ -37,3 +37,5 @@ Thumbs.db
 
 # Docker volumes (local dev)
 docker/logs/
+
+bitcrash.sh

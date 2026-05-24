@@ -17,15 +17,18 @@ services:
     environment:
       - ROLE=primary
       - RUNTIME_SECRETS=/etc/secrets/authbox
-      - LDAP_BASE_DN=dc=example,dc=com
+      - LDAP_BASE_DN=dc=your,dc=domain
       - OIDC_ISSUER_URL=https://accounts.google.com
-      - INITIAL_ADMIN_EMAIL=admin@example.com
+      - INITIAL_ADMIN_EMAIL=admin@your-domain
       - TLS_CERT_PATH=/data/tls/cert.pem
       - TLS_KEY_PATH=/data/tls/key.pem
       - SSH_CERT_TTL=12h
       - UID_RANGE_START=10000
       - UID_RANGE_END=60000
       - LOG_LEVEL=info
+      - TLS_DOMAIN=auth.your-domain
+      - TLS_ACME_EMAIL=authbox@your-domain
+      - AWS_HOSTED_ZONE_ID=your-zone-id
     restart: unless-stopped
 
   replica:
