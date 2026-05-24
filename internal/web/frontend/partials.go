@@ -456,11 +456,11 @@ func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Requ
 
 // partialLogsView returns log content HTML fragment.
 func (h *handlers) partialLogsView(w http.ResponseWriter, r *http.Request) {
-	// Read from log directory
 	w.Header().Set("Content-Type", "text/html")
 	logDir := h.deps.Config.LogDir
 
-	entries, err := readLogTail(logDir, 100)
+	// Read full log file (not just tail) so filters work across all entries
+	entries, err := readLogFull(logDir)
 	if err != nil {
 		w.Write([]byte(fmt.Sprintf(`<p>Error reading logs: %s</p>`, escHTML(err.Error()))))
 		return
@@ -469,19 +469,32 @@ func (h *handlers) partialLogsView(w http.ResponseWriter, r *http.Request) {
 	level := r.URL.Query().Get("level")
 	search := r.URL.Query().Get("search")
 
-	var sb strings.Builder
+	// Filter
+	var filtered []string
 	for _, line := range entries {
-		if level != "" && !strings.Contains(strings.ToLower(line), level) {
+		if level != "" && !strings.Contains(strings.ToLower(line), "["+level+"]") {
 			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(search)) {
 			continue
 		}
-		sb.WriteString(escHTML(line))
-		sb.WriteString("\n")
+		filtered = append(filtered, line)
 	}
-	if sb.Len() == 0 {
+
+	// Show last 500 matching lines
+	const maxDisplay = 500
+	if len(filtered) > maxDisplay {
+		filtered = filtered[len(filtered)-maxDisplay:]
+	}
+
+	var sb strings.Builder
+	if len(filtered) == 0 {
 		sb.WriteString("No log entries matching filter")
+	} else {
+		for _, line := range filtered {
+			sb.WriteString(escHTML(line))
+			sb.WriteString("\n")
+		}
 	}
 	w.Write([]byte(sb.String()))
 }
