@@ -107,8 +107,48 @@ make build
 # Run tests
 make test
 
-# Build container
-docker compose -f docker/docker-compose.yml build primary
+# Build and start container (clean first boot)
+make run-clean
+
+# Build and start (preserves volumes)
+make run
+
+# Stop
+make stop
+
+# Tail logs
+make logs
+```
+
+## Testing LDAP
+
+Verify STARTTLS on port 389 (use `LDAPTLS_REQCERT=never` for self-signed cert):
+
+```bash
+# Anonymous base search
+LDAPTLS_REQCERT=never ldapsearch -ZZ -H ldap://localhost:389 -x \
+  -b "dc=example,dc=com" -s base
+
+# Authenticated search for users
+LDAPTLS_REQCERT=never ldapsearch -ZZ -H ldap://localhost:389 -x \
+  -D "cn=admin,dc=example,dc=com" \
+  -w "$(sudo cat /etc/secrets/authbox/ldap_admin_password)" \
+  -b "ou=people,dc=example,dc=com"
+
+# Via LDAPS (port 636)
+LDAPTLS_REQCERT=never ldapsearch -H ldaps://localhost:636 -x \
+  -D "cn=admin,dc=example,dc=com" \
+  -w "$(sudo cat /etc/secrets/authbox/ldap_admin_password)" \
+  -b "ou=people,dc=example,dc=com"
+```
+
+Replace `dc=example,dc=com` with your `LDAP_BASE_DN`.
+
+## Testing the API
+
+```bash
+# SSH CA public key (unauthenticated)
+curl -sk https://localhost:8443/api/v1/ssh/ca.pub
 ```
 
 ## Architecture
