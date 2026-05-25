@@ -127,6 +127,17 @@ Single value. Shared secret for container-to-container sync authentication.
 | 636 | LDAPS | Legacy LDAP over TLS |
 | 8443 | HTTPS | Web UI and REST API |
 
+## TLS Certificates
+
+Authbox automatically manages TLS certificates. On first boot:
+
+- If `TLS_DOMAIN` is set: obtains a Let's Encrypt certificate via DNS-01 challenge before starting services. No inbound connectivity required.
+- If `TLS_DOMAIN` is empty: generates a self-signed certificate for development/testing.
+
+Certificates are stored on the persistent `/data` volume and reused across restarts. Renewal runs automatically 30 days before expiry.
+
+**DNS provider:** Currently uses AWS Route53 for DNS-01 challenges. Requires `AWS_HOSTED_ZONE_ID` env var and AWS credentials in `/etc/secrets/authbox/aws`. Planned conversion to the [lego](https://github.com/go-acme/lego) library to support Cloudflare, Google Cloud DNS, and 100+ other providers.
+
 ## Development
 
 ```bash
