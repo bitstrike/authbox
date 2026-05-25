@@ -228,3 +228,35 @@ curl -sk https://localhost:8443/api/v1/ssh/ca.pub
 See [project.md](project.md) for full architecture documentation.
 See [webstack.md](webstack.md) for web framework details.
 See [webui.md](webui.md) for UI page specifications.
+
+## Troubleshooting
+
+### `redirect_uri_mismatch` on Google login
+
+Google rejects the OIDC callback with "Error 400: redirect_uri_mismatch".
+
+**Cause:** The redirect URI registered in Google Cloud Console doesn't match what Authbox sends. Authbox derives the redirect URI from `TLS_DOMAIN`:
+
+```
+https://<TLS_DOMAIN>:8443/auth/callback
+```
+
+**Fix:**
+1. In Google Cloud Console, go to APIs and Services, then Credentials
+2. Edit your OAuth 2.0 Client ID
+3. Add `https://your-domain:8443/auth/callback` to Authorized redirect URIs
+4. Wait 5-30 minutes for Google to propagate the change
+
+**Note:** Newly added redirect URIs can take up to 30 minutes to become active. If the URI is correct but login still fails, wait and retry.
+
+### `invalid state` after OIDC callback
+
+**Cause:** The `oauth_state` cookie was set on a different hostname than the callback arrived on. This happens when you access Authbox via one hostname (e.g., `localhost`) but the callback redirects to another (e.g., your domain).
+
+**Fix:** Access Authbox using the same hostname as `TLS_DOMAIN`. Don't mix `localhost` and your domain in the same session.
+
+### `user not found in directory`
+
+**Cause:** OIDC login succeeded but the user doesn't exist in LDAP. Users must be provisioned before they can log in.
+
+**Fix:** Ensure `INITIAL_ADMIN_EMAIL` matches the Google/Entra email you're logging in with. On first boot, this user is created automatically. Additional users must be created via the web UI or API.
