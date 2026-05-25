@@ -211,3 +211,12 @@
 - [x] Recent activity table uses reusable table component (sortable, filterable, paginated)
 - [x] Green dot in nav still links to /status for detailed view
 - [ ] Future: customizable widget selection with drag-to-reorder (localStorage)
+
+## DNS Provider Abstraction (TLS/ACME)
+
+- [ ] Define DNSSolver interface (CreateTXTRecord, DeleteTXTRecord, WaitForPropagation)
+- [ ] Refactor Route53 client to implement DNSSolver interface
+- [ ] Add Cloudflare DNS solver (API token-based TXT record management)
+- [ ] Auto-select provider based on which credentials are present (AWS = Route53, Cloudflare token = Cloudflare)
+- [ ] Add `/etc/secrets/authbox/cloudflare` secret file (CLOUDFLARE_API_TOKEN)
+- [ ] Consider replacing custom solvers with `lego` library (supports 100+ providers)
