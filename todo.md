@@ -214,9 +214,11 @@
 
 ## DNS Provider Abstraction (TLS/ACME)
 
-- [ ] Define DNSSolver interface (CreateTXTRecord, DeleteTXTRecord, WaitForPropagation)
-- [ ] Refactor Route53 client to implement DNSSolver interface
-- [ ] Add Cloudflare DNS solver (API token-based TXT record management)
-- [ ] Auto-select provider based on which credentials are present (AWS = Route53, Cloudflare token = Cloudflare)
-- [ ] Add `/etc/secrets/authbox/cloudflare` secret file (CLOUDFLARE_API_TOKEN)
-- [ ] Consider replacing custom solvers with `lego` library (supports 100+ providers)
+- [ ] Replace custom ACME/Route53 code with `github.com/go-acme/lego/v4`
+- [ ] Delete `internal/tls/route53.go` (custom SigV4, XML building)
+- [ ] Rewrite `obtainCert()` in `manager.go` to use lego client
+- [ ] Lego auto-detects provider from env vars (AWS_ACCESS_KEY_ID for Route53, CLOUDFLARE_DNS_API_TOKEN for Cloudflare, etc.)
+- [ ] Pass secrets as env vars to lego (read from secrets files, export before calling lego)
+- [ ] Verify Route53 still works after conversion
+- [ ] Test Cloudflare provider
+- [ ] Document supported DNS providers in README
