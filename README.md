@@ -154,6 +154,23 @@ Certificates are stored on the persistent `/data` volume and reused across resta
 
 Planned conversion to the [lego](https://github.com/go-acme/lego) library to support Cloudflare, Google Cloud DNS, and 100+ other providers.
 
+**Provisioning the IAM user with OpenTofu:**
+
+The `terraform/` directory contains an OpenTofu configuration that creates the IAM user, policy, and access key. Store variables in `pass` then run:
+
+```bash
+pass insert authbox/terraform/region
+pass insert authbox/terraform/hosted_zone
+pass insert authbox/terraform/domain_name
+pass insert authbox/terraform/iam_user_name
+```
+
+Then:
+```bash
+./terraform/tf-launch.sh plan
+./terraform/tf-launch.sh apply
+```
+
 ## Development
 
 ```bash
