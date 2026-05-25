@@ -104,7 +104,7 @@ func main() {
 			IssuerURL:    cfg.OIDCIssuerURL,
 			ClientID:     cfg.OIDCClientID,
 			ClientSecret: cfg.OIDCClientSecret,
-			RedirectURL:  fmt.Sprintf("https://localhost:8443/auth/callback"),
+			RedirectURL:  buildRedirectURL(cfg.TLSDomain),
 		})
 		if err != nil {
 			log.Error("failed to initialize OIDC", "err", err)
@@ -237,4 +237,12 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error("shutdown error", "err", err)
 	}
+}
+
+func buildRedirectURL(domain string) string {
+	host := "localhost"
+	if domain != "" {
+		host = domain
+	}
+	return fmt.Sprintf("https://%s:8443/auth/callback", host)
 }
