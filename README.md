@@ -139,7 +139,20 @@ Authbox automatically manages TLS certificates. On first boot:
 
 Certificates are stored on the persistent `/data` volume and reused across restarts. Renewal runs automatically 30 days before expiry.
 
-**DNS provider:** Currently uses AWS Route53 for DNS-01 challenges. Requires `AWS_HOSTED_ZONE_ID` env var and AWS credentials in `/etc/secrets/authbox/aws`. Planned conversion to the [lego](https://github.com/go-acme/lego) library to support Cloudflare, Google Cloud DNS, and 100+ other providers.
+**DNS provider:** Currently uses AWS Route53 for DNS-01 challenges. Requires `AWS_HOSTED_ZONE_ID` env var and AWS credentials in `/etc/secrets/authbox/aws`. The IAM user/role needs only:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "route53:ChangeResourceRecordSets",
+    "route53:GetChange"
+  ],
+  "Resource": "arn:aws:route53:::hostedzone/YOUR_ZONE_ID"
+}
+```
+
+Planned conversion to the [lego](https://github.com/go-acme/lego) library to support Cloudflare, Google Cloud DNS, and 100+ other providers.
 
 ## Development
 
