@@ -1,6 +1,9 @@
 GO_VERSION := 1.22.5
 GO_INSTALL_DIR := /usr/local
-COMPOSE := docker compose -f docker/docker-compose.yml
+
+# Devuan daedalus uses older docker so add fall back to docker-compose V1
+COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
+COMPOSE := $(COMPOSE) -f docker/docker-compose.yml
 
 .PHONY: install-go test build clean docker-build run run-clean stop logs
 
