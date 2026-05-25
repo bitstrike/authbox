@@ -47,9 +47,9 @@ Without OIDC configured, the app runs in dev mode with auto-login as admin.
 
 ### Secrets Directory
 
-Secrets are plain files on the **Docker host** at `/etc/secrets/authbox/`. The container bind-mounts this directory read-only (see `docker-compose.yml`).
+Secrets are plain files on the **Docker host** at `/etc/secrets/authbox/`. The container bind-mounts this directory read-only (see `docker-compose.yml`). We don't pass these to docker as arguments since that can expose the secrets to docker inspect or other processes within the container.
 
-Create the directory and populate it before starting the container:
+Create the directory and populate it before starting the container. The container currently runs as root but planned TODO is dropping privs from the entrypoint so group read may be needed. For now, `root:root` is best:
 
 ```bash
 sudo mkdir -p /etc/secrets/authbox
@@ -60,7 +60,10 @@ sudo tee /etc/secrets/authbox/ldap_admin_password <<< "your-ldap-password"
 sudo tee /etc/secrets/authbox/replica_sync_password <<< "your-sync-secret"
 # ... google, entra, aws as needed
 
-sudo chmod 640 /etc/secrets/authbox/*
+# make sure things are adequately permissioned
+sudo chown -R root:root /etc/secrets/authbox
+sudo find /etc/secrets/authbox -type d -exec chmod 750 {} \;
+sudo find /etc/secrets/authbox -type f -exec chmod 640 {} \;
 ```
 
 Expected layout on the host:
