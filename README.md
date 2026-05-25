@@ -97,7 +97,7 @@ AZURE_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 #### `/etc/secrets/authbox/aws`
 
-AWS credentials for Route53 DNS-01 Let's Encrypt automation. Key names follow `~/.aws/credentials` format.
+AWS credentials for Route53 DNS-01 Let's Encrypt automation (see project `terraform` directory).  Key names follow `~/.aws/credentials` format.
 
 ```
 aws_access_key_id=AKIAIOSFODNN7EXAMPLE
@@ -155,7 +155,7 @@ Certificates are stored on the persistent `/data` volume and reused across resta
 Planned conversion to the [lego](https://github.com/go-acme/lego) library to support Cloudflare, Google Cloud DNS, and 100+ other providers.
 
 **Provisioning the IAM user with OpenTofu:**
-If you don't want to click around the AWS console to create the needed IAM stuff, I've included a `terraform/` directory that contains an OpenTofu configuration that probably creates the IAM user, policy, and access key. I say "probably" because this is a stripped down copy of the terraform I used to configure my user. `main.tf` is the same but I'm not including my `tfvars` so adapted a launch script that will get your variables out of `pass` which is what I advocate for. The days of clear-text internal secrets is over so get used to it. Store variables in `pass` then run:
+If you don't want to click around the AWS console to create the needed IAM stuff, I've included a `terraform/` directory that contains an OpenTofu configuration that probably creates the IAM user, policy, and access key. I say "probably" because this is a stripped down copy of the terraform I used to configure my IAM. `main.tf` is the same but I'm not including my `tfvars` so adapted a launch script that will get your variables out of `pass` which is what I advocate for. You can use the included `tf-launch` script or launch `tf` by hanhd. The days of clear-text internal secrets is over so get used to it. Store variables in `pass` then run:
 
 ```bash
 pass insert authbox/terraform/region
