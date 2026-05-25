@@ -7,7 +7,11 @@ COMPOSE := $(COMPOSE) -f docker/docker-compose.yml
 
 .PHONY: install-go test build clean docker-build run run-clean stop logs
 
-# These targets are mostly for development. see authbox.sh for a more generalized launcher template
+# These targets are mostly for development.
+#
+# NOTE: if you haven't exported/customized any of the variables from docker-compose, you'll end up running with defaults
+#       so look there for options and export the variables before running.
+#       See authbox-launch.sh for a more generalized launcher template.
 
 install-go:
 	curl -fsSL https://go.dev/dl/go$(GO_VERSION).linux-amd64.tar.gz -o /tmp/go.tar.gz
