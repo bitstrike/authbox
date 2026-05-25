@@ -12,5 +12,5 @@ export TF_VAR_iam_user_name=$(pass show authbox/terraform/iam_user_name)
 
 cd "$(dirname "$0")"
 
-tofu init -input=false
-tofu "$ACTION" -input=false
+tofu init
+tofu "$ACTION"
