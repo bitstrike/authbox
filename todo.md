@@ -222,3 +222,12 @@
 - [ ] Verify Route53 still works after conversion
 - [ ] Test Cloudflare provider
 - [ ] Document supported DNS providers in README
+
+## User Enable/Disable Toggle in Edit Form
+
+- [ ] Add status indicator to `user_form.html` (visible only in edit mode)
+- [ ] Add toggle button: POST to `/users/{uid}/disable` or `/users/{uid}/enable`
+- [ ] Include `confirm=yesiagree` hidden field with `hx-confirm` prompt on both actions
+- [ ] Conditionally show Disable (operators+) or Enable (admin only) based on role
+- [ ] Pass `Disabled` and role info to template via handler content struct
+- [ ] No backend changes needed (routes and handlers already exist)
