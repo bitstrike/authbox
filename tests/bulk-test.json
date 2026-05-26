@@ -1,0 +1,22 @@
+[
+  {
+    "uid": "charlie",
+    "givenName": "Charlie",
+    "sn": "Day",
+    "mail": "charlie@example.com",
+    "uidNumber": 10020,
+    "gidNumber": 10020,
+    "homeDirectory": "/home/charlie",
+    "loginShell": "/bin/bash"
+  },
+  {
+    "uid": "dana",
+    "givenName": "Dana",
+    "sn": "Scully",
+    "mail": "dana@example.com",
+    "uidNumber": 10021,
+    "gidNumber": 10021,
+    "homeDirectory": "/home/dana",
+    "loginShell": "/bin/bash"
+  }
+]

@@ -1,0 +1,3 @@
+uid,givenName,sn,mail,uidNumber,gidNumber,homeDirectory,loginShell
+bill,Bill,Murray,bill@example.com,10010,10010,/home/bill,/bin/bash
+alice,Alice,Cooper,alice@example.com,10011,10011,/home/alice,/bin/bash
