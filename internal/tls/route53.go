@@ -1,3 +1,6 @@
+// route53.go implements a minimal AWS Route53 client for creating and deleting
+// TXT records used in ACME DNS-01 challenges. Handles AWS Signature V4 signing
+// and polls for change propagation. Planned for replacement by the lego library.
 package tls
 
 import (

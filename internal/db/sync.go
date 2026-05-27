@@ -1,3 +1,7 @@
+// sync.go implements the sync log for primary-to-replica replication. Records
+// changes (insert/update/delete) with version numbers, provides GetSyncState,
+// GetChangesSince for incremental polling, and GetSnapshot for full initial
+// sync. Used by the replica sync loop and the /internal/sync/* API endpoints.
 package db
 
 import (

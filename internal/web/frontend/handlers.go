@@ -1,3 +1,7 @@
+// handlers.go contains the GET handlers that render full HTML pages. Each
+// handler fetches data from LDAP/SQLite, builds a content struct, and calls
+// renderPage with the appropriate template name. The Deps struct holds all
+// injected dependencies (LDAP client, CA, repository, config, sessions).
 package frontend
 
 import (

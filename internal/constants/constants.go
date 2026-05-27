@@ -1,3 +1,7 @@
+// constants.go defines shared string constants used across the application:
+// shell paths, filesystem prefixes, confirmation words, time formats, frontend
+// route paths, and numeric defaults. Intended to replace scattered hardcoded
+// literals throughout the codebase.
 package constants
 
 // Shells

@@ -1,3 +1,6 @@
+// users.go implements the REST API handlers for user management: list, create,
+// update, disable, enable, and bulk import. Validates UID/GID uniqueness,
+// applies defaults, and delegates to the LDAP client for persistence.
 package api
 
 import (

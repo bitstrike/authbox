@@ -1,3 +1,6 @@
+// devmode.go provides development mode support when OIDC is not configured.
+// Auto-creates an admin session for any request, granting all roles without
+// requiring authentication. Used for local development and testing.
 package frontend
 
 import (

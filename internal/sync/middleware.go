@@ -1,3 +1,6 @@
+// middleware.go provides HTTP middleware that rejects mutating requests on
+// replica containers. GET/HEAD/OPTIONS pass through; all other methods return
+// 503 with a REPLICA_READ_ONLY error directing clients to the primary.
 package sync
 
 import (

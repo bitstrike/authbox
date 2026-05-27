@@ -1,3 +1,7 @@
+// manager.go handles TLS certificate lifecycle: loading certs from disk,
+// obtaining new certs via ACME DNS-01 challenges (Let's Encrypt + Route53),
+// generating self-signed certs as fallback, and auto-renewing 30 days before
+// expiry. Provides GetCertificate for use in tls.Config.
 package tls
 
 import (

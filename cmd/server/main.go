@@ -1,3 +1,9 @@
+// main.go is the application entrypoint. Loads configuration, initializes all
+// subsystems (SSH CA, SQLite, LDAP, OIDC, TLS), bootstraps the LDAP directory
+// on first boot, wires up the chi router with API and frontend routes, starts
+// background workers (replica sync, cert cleanup, TLS renewal), and serves
+// HTTPS on port 8443. Supports a --obtain-cert mode for pre-start TLS
+// provisioning from the container entrypoint.
 package main
 
 import (

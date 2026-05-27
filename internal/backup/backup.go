@@ -1,3 +1,8 @@
+// backup.go implements full platform export and import. Export produces a
+// gzipped tar containing LDAP directory LDIF (via slapcat), cn=config LDIF,
+// and application state (FIDO2 credentials, service accounts, SSH certs) as
+// JSON. Import parses the archive and restores via slapadd and SQLite inserts.
+// Also provides scheduled backup and old backup cleanup.
 package backup
 
 import (

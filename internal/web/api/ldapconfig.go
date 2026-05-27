@@ -1,3 +1,6 @@
+// ldapconfig.go implements the REST API handlers for managing OpenLDAP's
+// cn=config: reading current configuration, updating ACLs, and configuring
+// or removing syncrepl replication between primary and replica nodes.
 package api
 
 import (

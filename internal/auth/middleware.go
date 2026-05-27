@@ -1,3 +1,6 @@
+// middleware.go provides HTTP middleware that validates OIDC bearer tokens on
+// API requests, extracts email claims, resolves the user's roles via LDAP
+// group membership, and populates the request context with claims and roles.
 package auth
 
 import (

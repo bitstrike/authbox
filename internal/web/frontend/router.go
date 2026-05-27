@@ -1,3 +1,7 @@
+// router.go defines the Frontend struct and registers all web UI routes on the
+// chi router. Handles static file serving, OIDC login/logout routes, session
+// middleware, and role-gated route groups (viewer, operator, admin). This is
+// the entry point for wiring the frontend into the application server.
 package frontend
 
 import (

@@ -1,3 +1,6 @@
+// roles.go defines the role constants (self, viewer, operator, admin, system),
+// context helpers for storing/retrieving claims and roles, HasRole for
+// permission checks, and RequireRole middleware for route protection.
 package auth
 
 import (

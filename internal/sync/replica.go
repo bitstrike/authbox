@@ -1,3 +1,8 @@
+// replica.go implements the sync loop for replica containers. On startup it
+// fetches a full snapshot from the primary, then polls for incremental changes
+// at a regular interval. Applies FIDO2, service account, and SSH cert deltas
+// to the local SQLite database. Falls back to a full re-snapshot if it falls
+// too far behind.
 package sync
 
 import (

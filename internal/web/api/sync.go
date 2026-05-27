@@ -1,3 +1,7 @@
+// sync.go implements the internal replication endpoints used by replica
+// containers to synchronize SQLite state from the primary. Provides current
+// state version, incremental changes since a version, and full snapshot for
+// initial sync or recovery. Authenticated via shared secret (system role).
 package api
 
 import (

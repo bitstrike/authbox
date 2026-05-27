@@ -1,3 +1,7 @@
+// dashboard.go gathers statistics for the dashboard page. Queries LDAP for
+// user/group counts, SQLite for active SSH certs and FIDO2 keys, and parses
+// today's log file for warning/error counts. Returns a DashboardStats struct
+// rendered by the dashboard template.
 package frontend
 
 import (

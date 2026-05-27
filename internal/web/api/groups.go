@@ -1,3 +1,6 @@
+// groups.go implements the REST API handlers for group management: list,
+// create, update membership, and delete. Supports both posixGroup and
+// groupOfNames types with GID uniqueness validation.
 package api
 
 import (

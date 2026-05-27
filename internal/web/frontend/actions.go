@@ -1,3 +1,8 @@
+// actions.go contains POST handlers for form submissions and mutating
+// operations: creating/updating/disabling users, managing groups, signing SSH
+// keys, registering FIDO2 credentials, bulk import, and service account
+// creation. Each action validates input, calls the appropriate backend
+// (LDAP/SQLite/CA), and redirects or re-renders the form on error.
 package frontend
 
 import (

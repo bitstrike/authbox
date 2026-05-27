@@ -1,3 +1,7 @@
+// session.go implements an in-memory session store for the web UI. Sessions
+// are created after OIDC login, stored by random ID, refreshed on access,
+// and expired after a configurable timeout. Provides cookie set/clear helpers
+// and a background goroutine for periodic cleanup of expired sessions.
 package auth
 
 import (

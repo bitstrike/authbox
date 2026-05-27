@@ -1,3 +1,6 @@
+// helpers.go provides utility functions used across the frontend package:
+// email-to-uid extraction and log file reading (tail and full). These are
+// shared helpers that don't belong to a specific handler or component.
 package frontend
 
 import (

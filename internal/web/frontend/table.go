@@ -1,3 +1,9 @@
+// table.go provides a reusable HTML table renderer for HTMX-powered partial
+// responses. Define a TableConfig with columns and a partial URL, parse the
+// request into a TableState, then call RenderHeader/RenderFooter around your
+// row output. Handles sortable column headers, search/filter input, pagination
+// controls, and page size selection. Used by all list partials (users, groups,
+// SSH certs, FIDO2 keys, service accounts, dashboard activity).
 package frontend
 
 import (

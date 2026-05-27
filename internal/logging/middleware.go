@@ -1,3 +1,5 @@
+// middleware.go provides chi-compatible HTTP middleware that logs each request
+// with method, path, status code, duration, and remote address.
 package logging
 
 import (

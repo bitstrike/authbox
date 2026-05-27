@@ -1,3 +1,7 @@
+// repository.go defines the data model structs (ServiceAccount, SSHCert,
+// FIDO2Credential) and the Repository type that provides CRUD operations
+// against SQLite for all application state: service accounts, SSH certificates,
+// and FIDO2 credentials.
 package db
 
 import (

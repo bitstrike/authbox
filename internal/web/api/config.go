@@ -1,3 +1,7 @@
+// config.go implements the REST API handlers for backup export and import.
+// Export produces a gzipped tar archive containing the LDAP directory, cn=config,
+// FIDO2 mappings, and SQLite state. Import restores from an archive with
+// confirmation required via X-Confirm header.
 package api
 
 import (

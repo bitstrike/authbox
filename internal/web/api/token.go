@@ -1,3 +1,7 @@
+// token.go implements the OAuth2 client credentials grant for service
+// accounts. Validates client_id/client_secret against bcrypt hashes in SQLite,
+// issues opaque bearer tokens stored in memory with a 1-hour TTL, and provides
+// ValidateServiceToken for the auth middleware to verify API requests.
 package api
 
 import (

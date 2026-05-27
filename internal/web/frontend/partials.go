@@ -1,3 +1,8 @@
+// partials.go contains HTMX partial fragment handlers that return HTML table
+// snippets for dynamic page sections. Each partial fetches data, applies
+// filtering/sorting/pagination using TableRenderer, and writes the HTML
+// directly to the response. These are loaded via hx-get into .table-container
+// elements on the parent pages.
 package frontend
 
 import (

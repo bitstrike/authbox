@@ -1,3 +1,7 @@
+// config.go loads application configuration from environment variables and
+// secrets files. Reads OIDC credentials (Google or Entra), AWS credentials
+// for ACME DNS-01, LDAP admin password, and replica sync secret from the
+// runtime secrets directory mounted into the container.
 package config
 
 import (

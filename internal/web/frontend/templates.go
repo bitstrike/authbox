@@ -1,3 +1,8 @@
+// templates.go manages Go html/template loading and rendering. Defines the
+// PageData struct passed to every template (title, user email, roles, content)
+// and the templateRenderer which pre-parses all page templates with the shared
+// layout on startup. Also provides pageDataFromRequest to build PageData from
+// the current request context.
 package frontend
 
 import (

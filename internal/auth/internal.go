@@ -1,3 +1,6 @@
+// internal.go provides HTTP middleware for authenticating internal
+// container-to-container requests using a shared secret token passed in the
+// X-Internal-Token header. Used to protect the /internal/sync/* endpoints.
 package auth
 
 import (

@@ -1,3 +1,6 @@
+// roles.go implements auth.RoleLookup by searching LDAP groupOfNames entries
+// named authbox-admins, authbox-operators, and authbox-viewers for the user's
+// DN. Maps group membership to the application's role constants.
 package ldap
 
 import (

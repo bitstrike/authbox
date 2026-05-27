@@ -1,3 +1,7 @@
+// fido2.go implements the REST API handlers for FIDO2/U2F credential
+// management: registering new credentials (pamu2fcfg output), retrieving
+// per-user or all credentials (optionally in pam_u2f mapping format), and
+// revoking individual credentials. Enforces self/operator permission checks.
 package api
 
 import (

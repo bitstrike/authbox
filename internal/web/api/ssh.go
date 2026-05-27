@@ -1,3 +1,7 @@
+// ssh.go implements the REST API handlers for SSH certificate operations:
+// serving the CA public key (unauthenticated), signing user public keys with
+// the CA, and listing issued certificates for audit. Validates that the user
+// exists and is active before signing, and records each cert in SQLite.
 package api
 
 import (

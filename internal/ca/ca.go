@@ -1,3 +1,7 @@
+// ca.go implements the SSH Certificate Authority. Generates or loads an
+// ed25519 CA keypair from the data directory, signs user public keys with
+// configurable TTL and principals, and exposes the CA public key and
+// fingerprint for distribution to hosts.
 package ca
 
 import (

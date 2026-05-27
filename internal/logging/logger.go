@@ -1,3 +1,6 @@
+// logger.go provides a structured logger with level filtering, daily file
+// rotation, and automatic cleanup of old log files beyond a retention period.
+// Writes to both a date-stamped file in the configured log directory and stdout.
 package logging
 
 import (

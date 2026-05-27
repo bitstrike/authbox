@@ -1,3 +1,7 @@
+// ratelimit.go implements a per-user sliding window rate limiter for SSH
+// certificate signing. Tracks timestamps of recent sign operations per user
+// and enforces a maximum number of certs per hour. Used by the SSH sign
+// action handler to prevent abuse.
 package frontend
 
 import (

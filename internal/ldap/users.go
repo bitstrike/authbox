@@ -1,3 +1,6 @@
+// users.go implements LDAP operations for user management: create, get, list,
+// update, disable (set /sbin/nologin), enable (restore shell), and UID
+// existence checks. The Disabled field is derived from loginShell at read time.
 package ldap
 
 import (

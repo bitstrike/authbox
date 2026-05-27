@@ -1,3 +1,7 @@
+// bootstrap.go handles first-boot initialization of the LDAP directory:
+// creating the base DN, organizational units (people, groups, serviceaccounts),
+// role groups (authbox-admins/operators/viewers), the initial admin user, and
+// applying any schema LDIF. Skips creation if the directory already has entries.
 package ldap
 
 import (

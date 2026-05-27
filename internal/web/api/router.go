@@ -1,3 +1,7 @@
+// router.go defines the API struct, registers all REST and internal routes on
+// the chi router, and provides shared JSON response helpers (respondJSON,
+// respondError, respondList, paginationParams). This is the entry point for
+// wiring the JSON API into the application server.
 package api
 
 import (

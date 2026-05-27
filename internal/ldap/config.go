@@ -1,3 +1,6 @@
+// config.go manages OpenLDAP's cn=config via LDAP protocol: reading current
+// configuration (ACLs, modules, TLS, syncrepl), updating ACLs, configuring
+// and removing syncrepl for replication, and enabling the syncprov overlay.
 package ldap
 
 import (

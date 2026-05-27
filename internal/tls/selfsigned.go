@@ -1,3 +1,6 @@
+// selfsigned.go generates a self-signed ECDSA P-256 TLS certificate for
+// development and testing. Used when no cert exists on disk and TLS_DOMAIN
+// is not configured for ACME.
 package tls
 
 import (

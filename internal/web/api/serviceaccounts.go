@@ -1,3 +1,6 @@
+// serviceaccounts.go implements the REST API handlers for service account
+// CRUD: list, create (generates client_id and bcrypt-hashed client_secret),
+// and delete. The client_secret is returned only once at creation time.
 package api
 
 import (

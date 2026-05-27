@@ -1,3 +1,6 @@
+// client.go provides the LDAP client that connects to the local slapd instance,
+// binds as admin, and exposes low-level Add/Modify/Search operations. Also
+// provides Ping for health checks and IsEmpty for first-boot detection.
 package ldap
 
 import (

@@ -1,3 +1,7 @@
+// auth.go implements the OIDC authorization code flow for web UI login.
+// Handles the login redirect to the IdP, the callback that exchanges the
+// authorization code for tokens, ID token verification, session creation,
+// and logout. Verifies the user exists in LDAP before granting access.
 package frontend
 
 import (

@@ -1,3 +1,6 @@
+// groups.go implements LDAP operations for group management: create, get,
+// list, update membership, delete, and GID existence checks. Supports both
+// posixGroup (memberUid) and groupOfNames (member DN) types.
 package ldap
 
 import (

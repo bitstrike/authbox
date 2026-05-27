@@ -1,3 +1,6 @@
+// sqlite.go handles SQLite database initialization: opening the database file
+// (or in-memory for tests), running schema migrations to create tables and
+// indexes, and providing the raw *sql.DB connection to the Repository.
 package db
 
 import (

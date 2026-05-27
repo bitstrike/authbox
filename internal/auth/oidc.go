@@ -1,3 +1,6 @@
+// oidc.go sets up the OIDC provider (Google or Entra) using go-oidc, configures
+// the OAuth2 client for the authorization code flow, and provides token
+// verification and bearer token extraction from HTTP requests.
 package auth
 
 import (
