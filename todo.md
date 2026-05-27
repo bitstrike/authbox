@@ -232,3 +232,14 @@
 - [x] Conditionally show Disable (operators+) or Enable (admin only) using `.IsAdmin`/`.IsOperator` from PageData
 - [x] No handler/struct changes needed (`User.Disabled` and role bools already available in template)
 - [ ] Known limitation: enable hardcodes `/bin/bash` instead of restoring previous shell (separate fix)
+
+## Dark Mode Table Header Contrast Fix
+
+- [x] Table header sort links now use `text-blue-600` base class (dark: `#60a5fa`)
+- [x] Added `.hover\:text-blue-600:hover` rule to style.css (light: `#2563eb`)
+- [x] Added `.dark .hover\:text-blue-600:hover` rule (dark: `#93bbfd`, blue-300)
+- [x] Consistent with existing `.dark .text-blue-600 { color: #60a5fa }` pattern
+
+## Code Documentation
+
+- [x] Block comments added to all Go source files (35 files across cmd/ and internal/)

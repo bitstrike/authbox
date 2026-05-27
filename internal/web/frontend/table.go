@@ -131,7 +131,7 @@ func (tr *TableRenderer) RenderHeader() {
 				}
 			}
 			fmt.Fprintf(tr.w,
-				`<th><a href="#" class="hover:text-blue-600" hx-get="%s?sort=%s&order=%s&limit=%d&q=%s" hx-target="closest .table-container" hx-swap="innerHTML">%s%s</a></th>`,
+				`<th><a href="#" class="text-blue-600 hover:text-blue-600" hx-get="%s?sort=%s&order=%s&limit=%d&q=%s" hx-target="closest .table-container" hx-swap="innerHTML">%s%s</a></th>`,
 				tr.cfg.PartialURL, col.Key, nextOrder, tr.state.Limit, tr.state.Query, col.Label, indicator,
 			)
 		} else {
