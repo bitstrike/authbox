@@ -4,6 +4,8 @@
 *.exe
 .env
 
+/examples/
+
 # Dependencies
 /vendor/
 

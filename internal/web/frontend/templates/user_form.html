@@ -53,5 +53,35 @@
       <a href="/users" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
+
+  {{if .Content.IsEdit}}
+  <div class="mt-6 pt-6 border-t dark:border-gray-700">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-sm font-medium">Account Status:</span>
+        {{if .Content.User.Disabled}}
+        <span class="ml-2 text-red-600 dark:text-red-400 font-medium">Disabled</span>
+        {{else}}
+        <span class="ml-2 text-green-800 dark:text-green-400 font-medium">Active</span>
+        {{end}}
+      </div>
+      {{if .Content.User.Disabled}}
+        {{if .IsAdmin}}
+        <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account? You must type the confirmation word to proceed.');">
+          <input type="hidden" name="confirm" value="yesiagree">
+          <button type="submit" class="btn btn-primary text-sm" hx-confirm="Re-enable this user account?">Enable</button>
+        </form>
+        {{end}}
+      {{else}}
+        {{if or .IsAdmin .IsOperator}}
+        <form method="POST" action="/users/{{.Content.User.UID}}/disable" onsubmit="return confirm('This will set shell to /sbin/nologin and revoke FIDO2 credentials. Continue?');">
+          <input type="hidden" name="confirm" value="yesiagree">
+          <button type="submit" class="btn btn-secondary text-sm text-red-600 dark:text-red-400">Disable</button>
+        </form>
+        {{end}}
+      {{end}}
+    </div>
+  </div>
+  {{end}}
 </div>
 {{end}}

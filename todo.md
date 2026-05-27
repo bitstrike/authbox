@@ -225,10 +225,10 @@
 
 ## User Enable/Disable Toggle in Edit Form
 
-- [ ] Add status indicator to `user_form.html` (visible only in edit mode, use `.Content.User.Disabled`)
-- [ ] Add toggle button: POST to `/users/{uid}/disable` or `/users/{uid}/enable`
-- [ ] Include `confirm=yesiagree` hidden field with `hx-confirm` prompt on both actions
-- [ ] Disable confirmation message must warn: "This will set shell to /sbin/nologin and revoke FIDO2 credentials"
-- [ ] Conditionally show Disable (operators+) or Enable (admin only) using `.IsAdmin`/`.IsOperator` from PageData
-- [ ] No handler/struct changes needed (`User.Disabled` and role bools already available in template)
+- [x] Add status indicator to `user_form.html` (visible only in edit mode, use `.Content.User.Disabled`)
+- [x] Add toggle button: POST to `/users/{uid}/disable` or `/users/{uid}/enable`
+- [x] Include `confirm=yesiagree` hidden field with `hx-confirm` prompt on both actions
+- [x] Disable confirmation message must warn: "This will set shell to /sbin/nologin and revoke FIDO2 credentials"
+- [x] Conditionally show Disable (operators+) or Enable (admin only) using `.IsAdmin`/`.IsOperator` from PageData
+- [x] No handler/struct changes needed (`User.Disabled` and role bools already available in template)
 - [ ] Known limitation: enable hardcodes `/bin/bash` instead of restoring previous shell (separate fix)
