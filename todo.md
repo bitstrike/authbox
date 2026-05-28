@@ -243,3 +243,10 @@
 ## Code Documentation
 
 - [x] Block comments added to all Go source files (35 files across cmd/ and internal/)
+
+## Fix: Backup Export Button (session auth, not bearer token)
+
+- [x] Add frontend handler `actionExportBackup` that calls `backup.CreateExport()` directly
+- [x] Register `GET /backup/export` in admin route group (session-protected)
+- [x] Change `backup.html` link from `/api/v1/config/export` to `/backup/export`
+- [x] API endpoint remains for service account/automation use (bearer token)

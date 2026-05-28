@@ -5,9 +5,12 @@
 package frontend
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/backup"
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
@@ -220,4 +223,14 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 	}
 	data := pageDataFromRequest(r, "Backup", content)
 	h.renderer.renderPage(w, "backup", data)
+}
+
+// Backup export (session-authenticated, streams archive to browser)
+func (h *handlers) actionExportBackup(w http.ResponseWriter, r *http.Request) {
+	ts := time.Now().Format("2006-01-02T150405")
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=authbox-export-%s.tar.gz", ts))
+	if err := backup.CreateExport(w, h.deps.Repo, "/usr/sbin/slapcat"); err != nil {
+		http.Error(w, "export failed: "+err.Error(), http.StatusInternalServerError)
+	}
 }

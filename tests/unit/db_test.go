@@ -21,9 +21,11 @@ func TestDBOpenAndMigrate(t *testing.T) {
 	// Verify tables exist by querying them
 	tables := []string{"schema_version", "service_accounts", "ssh_certs", "fido2_credentials", "sync_log"}
 	for _, table := range tables {
-		_, err := database.Conn().Query("SELECT 1 FROM " + table + " LIMIT 1")
-		if err != nil {
-			t.Fatalf("table %s does not exist: %v", table, err)
+		row := database.Conn().QueryRow("SELECT 1 FROM " + table + " LIMIT 1")
+		var dummy int
+		// Table may be empty, that's fine - we just need no "no such table" error
+		if err := row.Scan(&dummy); err != nil && err.Error() != "sql: no rows in result set" {
+			t.Fatalf("table %s query failed: %v", table, err)
 		}
 	}
 }
