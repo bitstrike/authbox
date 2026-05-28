@@ -250,3 +250,15 @@
 - [x] Register `GET /backup/export` in admin route group (session-protected)
 - [x] Change `backup.html` link from `/api/v1/config/export` to `/backup/export`
 - [x] API endpoint remains for service account/automation use (bearer token)
+
+## Fix: Backup Import Button (404 - route not registered)
+
+- [x] Add frontend handler `actionImportBackup` in handlers.go
+- [x] Read multipart form: archive file + confirm field
+- [x] Validate `confirm == "yesiagree"`, reject otherwise
+- [x] Call `backup.ImportExport()` to parse the uploaded archive
+- [x] Call `backup.RestoreLDAP()` for directory and cn=config LDIFs
+- [x] Call `backup.RestoreState()` for SQLite application state
+- [x] Register `POST /backup/import` in admin route group (session-protected)
+- [x] Redirect to `/backup` with success or re-render with error message
+- [x] API endpoint at `POST /api/v1/config/import` remains for automation (bearer token)

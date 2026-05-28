@@ -1,6 +1,12 @@
 {{define "content"}}
 <h1 class="text-2xl font-semibold mb-6">Backup</h1>
 
+{{if .Content.Error}}
+<div class="mb-6 p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+  {{.Content.Error}}
+</div>
+{{end}}
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
   <!-- Export -->
   <div class="card">

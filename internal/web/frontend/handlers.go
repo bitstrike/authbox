@@ -234,3 +234,61 @@ func (h *handlers) actionExportBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "export failed: "+err.Error(), http.StatusInternalServerError)
 	}
 }
+
+// Backup import (session-authenticated, restores from uploaded archive)
+func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(50 << 20) // 50MB max
+
+	confirm := r.FormValue("confirm")
+	if confirm != "yesiagree" {
+		h.renderBackupError(w, r, "Type \"yesiagree\" to confirm import")
+		return
+	}
+
+	file, _, err := r.FormFile("archive")
+	if err != nil {
+		h.renderBackupError(w, r, "Archive file required")
+		return
+	}
+	defer file.Close()
+
+	data, err := backup.ImportExport(file)
+	if err != nil {
+		h.renderBackupError(w, r, "Invalid archive: "+err.Error())
+		return
+	}
+
+	if err := backup.RestoreLDAP("/usr/sbin/slapadd", data.DirectoryLDIF, ""); err != nil {
+		h.renderBackupError(w, r, "LDAP directory restore failed: "+err.Error())
+		return
+	}
+
+	if err := backup.RestoreLDAP("/usr/sbin/slapadd", data.ConfigLDIF, "cn=config"); err != nil {
+		h.renderBackupError(w, r, "LDAP config restore failed: "+err.Error())
+		return
+	}
+
+	if err := backup.RestoreState(h.deps.Repo, &data.State); err != nil {
+		h.renderBackupError(w, r, "State restore failed: "+err.Error())
+		return
+	}
+
+	http.Redirect(w, r, "/backup", http.StatusFound)
+}
+
+func (h *handlers) renderBackupError(w http.ResponseWriter, r *http.Request, errMsg string) {
+	content := struct {
+		BackupEnabled   bool
+		BackupTime      string
+		BackupRetention int
+		CAFingerprint   string
+		Error           string
+	}{
+		BackupTime:      "02:00",
+		BackupRetention: 30,
+		CAFingerprint:   h.deps.CA.Fingerprint(),
+		Error:           errMsg,
+	}
+	data := pageDataFromRequest(r, "Backup", content)
+	h.renderer.renderPage(w, "backup", data)
+}

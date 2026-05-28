@@ -98,6 +98,7 @@ func (f *Frontend) RegisterRoutes(r chi.Router) {
 			r.Get("/settings", f.h.settings)
 			r.Get("/backup", f.h.backup)
 			r.Get("/backup/export", f.h.actionExportBackup)
+			r.Post("/backup/import", f.h.actionImportBackup)
 		})
 	})
 }
