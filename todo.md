@@ -262,3 +262,18 @@
 - [x] Register `POST /backup/import` in admin route group (session-protected)
 - [x] Redirect to `/backup` with success or re-render with error message
 - [x] API endpoint at `POST /api/v1/config/import` remains for automation (bearer token)
+
+## LDAP Restore via Staged Files (live-restore pattern)
+
+- [ ] Create `/data/live-restore/` directory convention for staged restore files
+- [ ] `actionImportBackup`: write extracted LDIFs to `/data/live-restore/` instead of calling slapadd directly
+- [ ] `actionImportBackup`: restore SQLite state immediately (independent of slapd)
+- [ ] `actionImportBackup`: trigger container restart after staging (os.Exit or SIGTERM, rely on Docker restart policy)
+- [ ] `entrypoint.sh`: on startup, check if `/data/live-restore/` exists
+- [ ] `entrypoint.sh`: if restore dir found, wipe MDB (`/var/lib/openldap/*`) and cn=config (`/etc/openldap/slapd.d/*`)
+- [ ] `entrypoint.sh`: run `slapadd -l /data/live-restore/directory.ldif`
+- [ ] `entrypoint.sh`: run `slapadd -b cn=config -l /data/live-restore/config.ldif` (if file exists)
+- [ ] `entrypoint.sh`: remove `/data/live-restore/` after successful restore
+- [ ] `entrypoint.sh`: log errors and start slapd with empty DB if restore fails (admin can retry)
+- [ ] CLI escape hatch: admin can manually place LDIF in `/data/live-restore/` and restart container
+- [ ] Document the restore workflow in README
