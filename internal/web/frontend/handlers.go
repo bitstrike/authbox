@@ -216,6 +216,7 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 		BackupTime      string
 		BackupRetention int
 		CAFingerprint   string
+		Error           string
 	}{
 		BackupTime:      "02:00",
 		BackupRetention: 30,
