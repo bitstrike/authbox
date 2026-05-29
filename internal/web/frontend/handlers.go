@@ -7,6 +7,7 @@ package frontend
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
@@ -259,22 +260,42 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := backup.RestoreLDAP("/usr/sbin/slapadd", data.DirectoryLDIF, ""); err != nil {
-		h.renderBackupError(w, r, "LDAP directory restore failed: "+err.Error())
+	// Stage LDIF files for restore on next startup
+	restoreDir := "/data/live-restore"
+	if err := os.MkdirAll(restoreDir, 0750); err != nil {
+		h.renderBackupError(w, r, "Failed to create restore directory: "+err.Error())
 		return
 	}
 
-	if err := backup.RestoreLDAP("/usr/sbin/slapadd", data.ConfigLDIF, "cn=config"); err != nil {
-		h.renderBackupError(w, r, "LDAP config restore failed: "+err.Error())
-		return
+	if len(data.DirectoryLDIF) > 0 {
+		if err := os.WriteFile(restoreDir+"/directory.ldif", data.DirectoryLDIF, 0640); err != nil {
+			h.renderBackupError(w, r, "Failed to write directory LDIF: "+err.Error())
+			return
+		}
 	}
 
+	if len(data.ConfigLDIF) > 0 {
+		if err := os.WriteFile(restoreDir+"/config.ldif", data.ConfigLDIF, 0640); err != nil {
+			h.renderBackupError(w, r, "Failed to write config LDIF: "+err.Error())
+			return
+		}
+	}
+
+	// Restore SQLite state immediately (independent of slapd)
 	if err := backup.RestoreState(h.deps.Repo, &data.State); err != nil {
 		h.renderBackupError(w, r, "State restore failed: "+err.Error())
 		return
 	}
 
-	http.Redirect(w, r, "/backup", http.StatusFound)
+	// Exit to trigger container restart; entrypoint will apply the staged LDIF
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(0)
+	}()
+
+	// Respond before exit
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<html><body><h1>Import staged</h1><p>Container is restarting to apply LDAP restore. Reload this page in a few seconds.</p></body></html>`))
 }
 
 func (h *handlers) renderBackupError(w http.ResponseWriter, r *http.Request, errMsg string) {

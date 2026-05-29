@@ -103,6 +103,94 @@ fi
 # Ensure permissions on subsequent boots
 chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR" /var/run/openldap
 
+# Check for staged restore (live-restore pattern)
+RESTORE_DIR="/data/live-restore"
+if [ -d "$RESTORE_DIR" ]; then
+    echo "Live restore detected: creating pre-import safety backup"
+
+    BACKUP_DIR="/data/backups"
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    mkdir -p "$BACKUP_DIR"
+
+    # Pre-import safety backup
+    PRE_BACKUP_DIR="$BACKUP_DIR/pre-import-backup-$TIMESTAMP-directory.ldif"
+    PRE_BACKUP_CFG="$BACKUP_DIR/pre-import-backup-$TIMESTAMP-config.ldif"
+
+    if ! slapcat -F "$SLAPD_CONF_DIR" > "$PRE_BACKUP_DIR" 2>/dev/null; then
+        echo "ERROR: pre-import backup failed (disk full?). Aborting restore." >&2
+        rm -f "$PRE_BACKUP_DIR"
+        # Leave restore dir in place so operator can investigate
+        echo "Starting slapd with existing data unchanged."
+    else
+        # Also backup cn=config
+        slapcat -F "$SLAPD_CONF_DIR" -b "cn=config" > "$PRE_BACKUP_CFG" 2>/dev/null
+
+        echo "Pre-import backup saved to $BACKUP_DIR"
+        echo "Wiping existing LDAP data and restoring from staged files"
+
+        # Wipe existing data
+        rm -rf "${SLAPD_DATA_DIR:?}"/*
+        rm -rf "${SLAPD_CONF_DIR:?}"/*
+
+        RESTORE_OK=true
+
+        # Restore cn=config if present
+        if [ -f "$RESTORE_DIR/config.ldif" ]; then
+            echo "Restoring cn=config..."
+            if ! slapadd -n 0 -F "$SLAPD_CONF_DIR" -l "$RESTORE_DIR/config.ldif" 2>&1; then
+                echo "ERROR: cn=config restore failed." >&2
+                RESTORE_OK=false
+            fi
+        fi
+
+        # Restore directory data if present
+        if [ "$RESTORE_OK" = true ] && [ -f "$RESTORE_DIR/directory.ldif" ]; then
+            echo "Restoring directory data..."
+            if ! slapadd -F "$SLAPD_CONF_DIR" -l "$RESTORE_DIR/directory.ldif" 2>&1; then
+                echo "ERROR: directory restore failed." >&2
+                RESTORE_OK=false
+            fi
+        fi
+
+        if [ "$RESTORE_OK" = true ]; then
+            # Fix permissions after restore
+            chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR"
+            # Remove restore dir so it doesn't re-apply on next restart
+            rm -rf "$RESTORE_DIR"
+            echo "Live restore complete"
+        else
+            echo "Restore failed. Attempting rollback from pre-import backup..."
+            rm -rf "${SLAPD_DATA_DIR:?}"/*
+            rm -rf "${SLAPD_CONF_DIR:?}"/*
+
+            ROLLBACK_OK=true
+            if [ -f "$PRE_BACKUP_CFG" ]; then
+                if ! slapadd -n 0 -F "$SLAPD_CONF_DIR" -l "$PRE_BACKUP_CFG" 2>&1; then
+                    echo "ERROR: rollback of cn=config failed." >&2
+                    ROLLBACK_OK=false
+                fi
+            fi
+            if [ "$ROLLBACK_OK" = true ] && [ -f "$PRE_BACKUP_DIR" ]; then
+                if ! slapadd -F "$SLAPD_CONF_DIR" -l "$PRE_BACKUP_DIR" 2>&1; then
+                    echo "ERROR: rollback of directory failed." >&2
+                    ROLLBACK_OK=false
+                fi
+            fi
+
+            if [ "$ROLLBACK_OK" = true ]; then
+                chown -R ldap:ldap "$SLAPD_CONF_DIR" "$SLAPD_DATA_DIR"
+                echo "Rollback successful. Renaming staged files to prevent retry."
+                mv "$RESTORE_DIR/directory.ldif" "$RESTORE_DIR/directory.ldif.failed" 2>/dev/null
+                mv "$RESTORE_DIR/config.ldif" "$RESTORE_DIR/config.ldif.failed" 2>/dev/null
+            else
+                echo "CRITICAL: Rollback also failed. Investigate disk space, permissions, and LDIF validity." >&2
+                echo "Pre-import backup files remain at: $PRE_BACKUP_DIR and $PRE_BACKUP_CFG" >&2
+                echo "Staged restore files remain at: $RESTORE_DIR/" >&2
+            fi
+        fi
+    fi
+fi
+
 # Start slapd
 echo "Starting slapd..."
 mkdir -p /var/run/openldap

@@ -229,6 +229,52 @@ See [project.md](project.md) for full architecture documentation.
 See [webstack.md](webstack.md) for web framework details.
 See [webui.md](webui.md) for UI page specifications.
 
+## Backup and Restore
+
+### Export
+
+From the web UI (Backup page), click "Export Now" to download a gzipped tar archive containing the LDAP directory, cn=config, and application state (FIDO2 credentials, service accounts, SSH certs).
+
+For automation, use the API with a service account bearer token:
+
+```bash
+curl -sk -H "Authorization: Bearer $TOKEN" \
+  https://host-local:8443/api/v1/config/export -o backup.tar.gz
+```
+
+### Restore via Web UI
+
+1. Go to the Backup page
+2. Upload the exported archive
+3. Type "yesiagree" to confirm
+4. The container will restart automatically and apply the restore
+
+### Restore via CLI (manual)
+
+If the web UI is unavailable, place LDIF files directly in the restore directory and restart the container:
+
+```bash
+# Extract the archive
+mkdir /tmp/restore && tar xzf backup.tar.gz -C /tmp/restore
+
+# Stage files for restore (path is on the Docker host volume)
+docker cp /tmp/restore/directory.ldif authbox-primary:/data/live-restore/directory.ldif
+docker cp /tmp/restore/config.ldif authbox-primary:/data/live-restore/config.ldif
+
+# Restart - entrypoint will wipe existing data and apply the LDIFs
+docker restart authbox-primary
+```
+
+The entrypoint checks for `/data/live-restore/` on startup. If found, it wipes the existing MDB and cn=config, runs `slapadd` with the staged files, removes the restore directory, then starts normally.
+
+### CA Key Backup
+
+The SSH CA private key is NOT included in standard exports. Back it up separately:
+
+```bash
+docker cp authbox-primary:/data/ca/ca_ed25519 ./ca_ed25519.backup
+```
+
 ## Troubleshooting
 
 ### `redirect_uri_mismatch` on Google login

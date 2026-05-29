@@ -266,12 +266,29 @@ Subsequent boots detect existing data and skip initialization.
 
 ## Backup and Recovery
 
-- API endpoint exports full LDAP directory and `cn=config`
-- Export includes user FIDO2 credential mappings
-- Import endpoint allows rebuilding directory on a fresh container
-- CA private key backed up separately (encrypted, external storage)
-- SQLite database included in export
-- Web UI supports scheduling daily `slapcat` backups
+- Export via web UI or API produces a gzipped tar archive (LDAP directory LDIF, cn=config LDIF, SQLite state)
+- Export includes FIDO2 credential mappings, service accounts, and SSH cert audit records
+- CA private key is NOT included in exports (backed up separately, encrypted, external storage)
+- Web UI supports scheduling daily `slapcat` backups with configurable retention
+
+### Restore (live-restore pattern)
+
+Import uses a staged file approach for safe LDAP restoration:
+
+1. Web UI (or CLI) writes extracted LDIFs to `/data/live-restore/`
+2. SQLite application state is restored immediately
+3. Container restarts (process exits, Docker restart policy brings it back)
+4. On startup, entrypoint detects `/data/live-restore/` and:
+   - Runs `slapcat` to create a pre-import safety backup in `/data/backups/`
+   - If pre-import backup fails: aborts import (likely disk full), starts slapd with existing data
+   - If pre-import backup succeeds: wipes MDB and cn=config, runs `slapadd` with staged LDIFs
+   - If slapadd fails: attempts rollback from the pre-import backup
+   - If rollback also fails: logs critical error, operator must investigate
+   - On success: removes `/data/live-restore/`, starts slapd normally
+
+### CLI Restore (escape hatch)
+
+An admin can manually place `directory.ldif` and/or `config.ldif` in `/data/live-restore/` on the persistent volume and restart the container. The entrypoint applies the same restore logic without needing the web UI.
 
 ## Design Decisions
 

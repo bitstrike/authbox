@@ -265,15 +265,26 @@
 
 ## LDAP Restore via Staged Files (live-restore pattern)
 
-- [ ] Create `/data/live-restore/` directory convention for staged restore files
-- [ ] `actionImportBackup`: write extracted LDIFs to `/data/live-restore/` instead of calling slapadd directly
-- [ ] `actionImportBackup`: restore SQLite state immediately (independent of slapd)
-- [ ] `actionImportBackup`: trigger container restart after staging (os.Exit or SIGTERM, rely on Docker restart policy)
-- [ ] `entrypoint.sh`: on startup, check if `/data/live-restore/` exists
-- [ ] `entrypoint.sh`: if restore dir found, wipe MDB (`/var/lib/openldap/*`) and cn=config (`/etc/openldap/slapd.d/*`)
-- [ ] `entrypoint.sh`: run `slapadd -l /data/live-restore/directory.ldif`
-- [ ] `entrypoint.sh`: run `slapadd -b cn=config -l /data/live-restore/config.ldif` (if file exists)
-- [ ] `entrypoint.sh`: remove `/data/live-restore/` after successful restore
-- [ ] `entrypoint.sh`: log errors and start slapd with empty DB if restore fails (admin can retry)
-- [ ] CLI escape hatch: admin can manually place LDIF in `/data/live-restore/` and restart container
-- [ ] Document the restore workflow in README
+- [x] Create `/data/live-restore/` directory convention for staged restore files
+- [x] `actionImportBackup`: write extracted LDIFs to `/data/live-restore/` instead of calling slapadd directly
+- [x] `actionImportBackup`: restore SQLite state immediately (independent of slapd)
+- [x] `actionImportBackup`: trigger container restart after staging (os.Exit, rely on Docker restart policy)
+- [x] `entrypoint.sh`: on startup, check if `/data/live-restore/` exists
+- [x] `entrypoint.sh`: if restore dir found, wipe MDB (`/var/lib/openldap/*`) and cn=config (`/etc/openldap/slapd.d/*`)
+- [x] `entrypoint.sh`: run `slapadd -l /data/live-restore/directory.ldif`
+- [x] `entrypoint.sh`: run `slapadd -b cn=config -l /data/live-restore/config.ldif` (if file exists)
+- [x] `entrypoint.sh`: remove `/data/live-restore/` after successful restore
+- [x] `entrypoint.sh`: log errors and start slapd with empty DB if restore fails (admin can retry)
+- [x] CLI escape hatch: admin can manually place LDIF in `/data/live-restore/` and restart container
+- [x] Document the restore workflow in README
+
+## Pre-Import Safety Backup in Entrypoint
+
+- [x] Before wiping MDB, run `slapcat` to `/data/backups/pre-import-backup-YYYYMMDD-HHMMSS-directory.ldif`
+- [x] Also run `slapcat -b cn=config` to `/data/backups/pre-import-backup-YYYYMMDD-HHMMSS-config.ldif`
+- [x] If slapcat fails: abort import, log "pre-import backup failed (disk full?)", start slapd with existing data unchanged
+- [x] If slapcat succeeds: proceed with wipe and slapadd
+- [x] If slapadd fails: attempt rollback using the pre-import backup LDIFs
+- [x] If rollback also fails: log critical error directing operator to investigate disk/permissions
+- [x] On successful import: keep pre-import backup in `/data/backups/` as rollback point
+- [x] On failed import with successful rollback: rename staged files to `.failed` to prevent retry loop
