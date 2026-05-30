@@ -376,3 +376,13 @@
 - [x] If employeeType is "contact", hide posixAccount fields (UID/GID, home directory, login shell)
 - [x] If employeeType is changed away from "contact", show posixAccount fields again
 - [x] Use JS to toggle field visibility based on employeeType dropdown selection
+
+## Fix: UID/GID Uniqueness Validation in Frontend Handlers
+
+- [x] `actionCreateUser`: validate UID uniqueness via `UIDExists()` before calling `CreateUser`
+- [x] `actionCreateUser`: validate GID uniqueness via `GIDExists()` before calling `CreateUser`
+- [x] `actionUpdateUser`: validate UID uniqueness if changed (compare to existing user's UID)
+- [x] `actionUpdateUser`: validate GID uniqueness if changed
+- [x] On conflict, re-render form with error message (same pattern as API's 409 response)
+- [x] Pre-fill should also check GID against groups (not just users) to avoid UID=GID collision with existing posixGroup
+- [x] Consider race condition: if two admins submit simultaneously, LDAP itself should reject the duplicate (belt and suspenders)

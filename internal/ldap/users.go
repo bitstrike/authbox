@@ -154,6 +154,8 @@ func (c *Client) UIDExists(uidNumber int) (bool, error) {
 }
 
 // NextAvailableUID finds the next unused uidNumber within the given range.
+// Also checks against existing group gidNumbers to avoid collisions when
+// UID and GID are set to the same value.
 func (c *Client) NextAvailableUID(rangeStart, rangeEnd int) (int, error) {
 	dn := fmt.Sprintf("ou=people,%s", c.baseDN)
 	req := goldap.NewSearchRequest(
@@ -162,7 +164,7 @@ func (c *Client) NextAvailableUID(rangeStart, rangeEnd int) (int, error) {
 		goldap.NeverDerefAliases,
 		0, 0, false,
 		"(objectClass=posixAccount)",
-		[]string{"uidNumber"},
+		[]string{"uidNumber", "gidNumber"},
 		nil,
 	)
 	result, err := c.Search(req)
@@ -174,6 +176,29 @@ func (c *Client) NextAvailableUID(rangeStart, rangeEnd int) (int, error) {
 	for _, entry := range result.Entries {
 		num, _ := strconv.Atoi(entry.GetAttributeValue("uidNumber"))
 		used[num] = true
+		gid, _ := strconv.Atoi(entry.GetAttributeValue("gidNumber"))
+		used[gid] = true
+	}
+
+	// Also check group gidNumbers
+	groupDN := fmt.Sprintf("ou=groups,%s", c.baseDN)
+	greq := goldap.NewSearchRequest(
+		groupDN,
+		goldap.ScopeSingleLevel,
+		goldap.NeverDerefAliases,
+		0, 0, false,
+		"(objectClass=posixGroup)",
+		[]string{"gidNumber"},
+		nil,
+	)
+	gresult, err := c.Search(greq)
+	if err == nil {
+		for _, entry := range gresult.Entries {
+			gid, _ := strconv.Atoi(entry.GetAttributeValue("gidNumber"))
+			if gid > 0 {
+				used[gid] = true
+			}
+		}
 	}
 
 	for i := rangeStart; i <= rangeEnd; i++ {

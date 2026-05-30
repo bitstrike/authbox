@@ -86,18 +86,44 @@ func (h *handlers) actionCreateUser(w http.ResponseWriter, r *http.Request) {
 		user.LoginShell = "/bin/bash"
 	}
 
+	// Validate UID/GID uniqueness
+	if user.UIDNumber > 0 {
+		exists, err := h.deps.LDAP.UIDExists(user.UIDNumber)
+		if err == nil && exists {
+			h.renderCreateUserError(w, r, user, "uidNumber already in use")
+			return
+		}
+	}
+	if user.GIDNumber > 0 {
+		gidUsedByGroup, err := h.deps.LDAP.GIDExists(user.GIDNumber)
+		if err == nil && gidUsedByGroup {
+			h.renderCreateUserError(w, r, user, "gidNumber already in use by a group")
+			return
+		}
+	}
+
 	if err := h.deps.LDAP.CreateUser(user); err != nil {
-		content := struct {
-			IsEdit bool
-			Action string
-			User   ldap.User
-			Error  string
-		}{false, "/users", *user, err.Error()}
-		data := pageDataFromRequest(r, "Create User", content)
-		h.renderer.renderPage(w, "user_form", data)
+		h.renderCreateUserError(w, r, user, err.Error())
 		return
 	}
 	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
+func (h *handlers) renderCreateUserError(w http.ResponseWriter, r *http.Request, user *ldap.User, errMsg string) {
+	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+	content := struct {
+		IsEdit        bool
+		Action        string
+		User          ldap.User
+		Error         string
+		EmployeeTypes []db.EmployeeType
+		UIDRangeStart int
+		UIDRangeEnd   int
+	}{false, "/users", *user, errMsg, employeeTypes, rangeStart, rangeEnd}
+	data := pageDataFromRequest(r, "Create User", content)
+	h.renderer.renderPage(w, "user_form", data)
 }
 
 func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -119,18 +145,45 @@ func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
 		EmployeeType:  r.FormValue("employeeType"),
 	}
 
+	// Validate UID/GID uniqueness if changed
+	existing, _ := h.deps.LDAP.GetUser(uid)
+	if user.UIDNumber > 0 && (existing == nil || user.UIDNumber != existing.UIDNumber) {
+		exists, err := h.deps.LDAP.UIDExists(user.UIDNumber)
+		if err == nil && exists {
+			h.renderEditUserError(w, r, uid, user, "uidNumber already in use")
+			return
+		}
+	}
+	if user.GIDNumber > 0 && (existing == nil || user.GIDNumber != existing.GIDNumber) {
+		gidUsedByGroup, err := h.deps.LDAP.GIDExists(user.GIDNumber)
+		if err == nil && gidUsedByGroup {
+			h.renderEditUserError(w, r, uid, user, "gidNumber already in use by a group")
+			return
+		}
+	}
+
 	if err := h.deps.LDAP.UpdateUser(uid, user); err != nil {
-		content := struct {
-			IsEdit bool
-			Action string
-			User   ldap.User
-			Error  string
-		}{true, "/users/" + uid, *user, err.Error()}
-		data := pageDataFromRequest(r, "Edit User", content)
-		h.renderer.renderPage(w, "user_form", data)
+		h.renderEditUserError(w, r, uid, user, err.Error())
 		return
 	}
 	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
+func (h *handlers) renderEditUserError(w http.ResponseWriter, r *http.Request, uid string, user *ldap.User, errMsg string) {
+	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+	content := struct {
+		IsEdit        bool
+		Action        string
+		User          ldap.User
+		Error         string
+		EmployeeTypes []db.EmployeeType
+		UIDRangeStart int
+		UIDRangeEnd   int
+	}{true, "/users/" + uid, *user, errMsg, employeeTypes, rangeStart, rangeEnd}
+	data := pageDataFromRequest(r, "Edit User", content)
+	h.renderer.renderPage(w, "user_form", data)
 }
 
 func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
