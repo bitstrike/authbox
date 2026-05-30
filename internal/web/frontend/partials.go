@@ -635,3 +635,34 @@ func (h *handlers) partialSettingsLogging(w http.ResponseWriter, r *http.Request
 func (h *handlers) partialSettingsEmployeeTypes(w http.ResponseWriter, r *http.Request) {
 	h.renderer.renderPartial(w, "settings_employee_types", nil)
 }
+
+// Backup partial handlers
+
+func (h *handlers) partialBackupExport(w http.ResponseWriter, r *http.Request) {
+	h.renderer.renderPartial(w, "backup_export", nil)
+}
+
+func (h *handlers) partialBackupImport(w http.ResponseWriter, r *http.Request) {
+	h.renderer.renderPartial(w, "backup_import", nil)
+}
+
+func (h *handlers) partialBackupSchedule(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		BackupEnabled   bool
+		BackupTime      string
+		BackupRetention int
+	}{
+		BackupTime:      "02:00",
+		BackupRetention: 30,
+	}
+	h.renderer.renderPartial(w, "backup_schedule", data)
+}
+
+func (h *handlers) partialBackupCAKey(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		CAFingerprint string
+	}{
+		CAFingerprint: h.deps.CA.Fingerprint(),
+	}
+	h.renderer.renderPartial(w, "backup_ca_key", data)
+}

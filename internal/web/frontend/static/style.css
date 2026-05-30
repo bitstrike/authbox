@@ -255,8 +255,8 @@ body {
 .nav-link.active { color: #111827; font-weight: 500; }
 .dark .nav-link.active { color: #f3f4f6; }
 
-/* Settings nav */
-.settings-nav-item {
+/* Sidebar nav */
+.sidebar-nav-item {
   display: block;
   padding: 0.375rem 0.75rem;
   border-radius: 0.25rem;
@@ -264,10 +264,10 @@ body {
   text-decoration: none;
   font-size: 0.875rem;
 }
-.settings-nav-item:hover { background-color: #f3f4f6; color: #111827; }
-.dark .settings-nav-item:hover { background-color: #374151; color: #f3f4f6; }
-.settings-nav-item.active { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
-.dark .settings-nav-item.active { background-color: rgba(30,58,138,0.3); color: #60a5fa; }
+.sidebar-nav-item:hover { background-color: #f3f4f6; color: #111827; }
+.dark .sidebar-nav-item:hover { background-color: #374151; color: #f3f4f6; }
+.sidebar-nav-item.active { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
+.dark .sidebar-nav-item.active { background-color: rgba(30,58,138,0.3); color: #60a5fa; }
 
 /* Status dot */
 .status-dot {

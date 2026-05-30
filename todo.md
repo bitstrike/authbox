@@ -335,11 +335,11 @@
 
 ## Reusable Sidebar Layout Component
 
-- [ ] Create `SidebarRenderer` (similar pattern to `TableRenderer`)
-- [ ] Define `SidebarConfig` struct: PanelID, NavItems (label + URL), DefaultURL
-- [ ] Render two-column layout: left nav with HTMX links, right panel with load trigger
-- [ ] Include JS for active nav item highlighting (generic, class-based)
-- [ ] Rename CSS class from `settings-nav-item` to `sidebar-nav-item`
-- [ ] Refactor settings page to use `SidebarRenderer`
-- [ ] Refactor backup page to use `SidebarRenderer` (Export, Import, Schedule, CA Key sections)
-- [ ] Register backup partials: `/backup/export-panel`, `/backup/import-panel`, `/backup/schedule`, `/backup/ca-key`
+- [x] Create `SidebarRenderer` (similar pattern to `TableRenderer`)
+- [x] Define `SidebarConfig` struct: PanelID, NavItems (label + URL), DefaultURL
+- [x] Render two-column layout: left nav with HTMX links, right panel with load trigger
+- [x] Include JS for active nav item highlighting (generic, class-based)
+- [x] Rename CSS class from `settings-nav-item` to `sidebar-nav-item`
+- [x] Refactor settings page to use `SidebarRenderer`
+- [x] Refactor backup page to use `SidebarRenderer` (Export, Import, Schedule, CA Key sections)
+- [x] Register backup partials: `/backup/export-panel`, `/backup/import-panel`, `/backup/schedule`, `/backup/ca-key`

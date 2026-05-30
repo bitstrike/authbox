@@ -1,34 +1,4 @@
 {{define "content"}}
 <h1 class="text-2xl font-semibold mb-6">Settings</h1>
-
-<div class="flex gap-6 max-w-5xl">
-  <!-- Left nav -->
-  <nav class="w-48 shrink-0">
-    <ul class="space-y-1 text-sm">
-      <li><a href="#" class="settings-nav-item active" hx-get="/settings/oidc" hx-target="#settings-panel" hx-swap="innerHTML">OIDC Provider</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/session" hx-target="#settings-panel" hx-swap="innerHTML">Session</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/uid-range" hx-target="#settings-panel" hx-swap="innerHTML">UID/GID Range</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/ssh-ca" hx-target="#settings-panel" hx-swap="innerHTML">SSH CA</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/ldap" hx-target="#settings-panel" hx-swap="innerHTML">LDAP</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/logging" hx-target="#settings-panel" hx-swap="innerHTML">Logging</a></li>
-      <li><a href="#" class="settings-nav-item" hx-get="/settings/employee-types" hx-target="#settings-panel" hx-swap="innerHTML">Employee Types</a></li>
-    </ul>
-  </nav>
-
-  <!-- Right panel -->
-  <div id="settings-panel" class="flex-1 card" hx-get="/settings/oidc" hx-trigger="load" hx-swap="innerHTML">
-    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
-  </div>
-</div>
-
-<script>
-document.addEventListener('htmx:afterRequest', function(evt) {
-  if (evt.detail.target && evt.detail.target.id === 'settings-panel') {
-    document.querySelectorAll('.settings-nav-item').forEach(function(el) { el.classList.remove('active'); });
-    if (evt.detail.elt && evt.detail.elt.classList.contains('settings-nav-item')) {
-      evt.detail.elt.classList.add('active');
-    }
-  }
-});
-</script>
+{{.Content}}
 {{end}}

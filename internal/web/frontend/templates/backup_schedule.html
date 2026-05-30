@@ -1,0 +1,20 @@
+{{define "backup_schedule"}}
+<h2 class="text-lg font-semibold mb-4">Scheduled Backup</h2>
+<form method="POST" action="/settings/backup-schedule">
+  <div class="space-y-3">
+    <label class="flex items-center space-x-2">
+      <input type="checkbox" name="enabled" {{if .BackupEnabled}}checked{{end}}>
+      <span class="text-sm">Enable daily slapcat backup</span>
+    </label>
+    <div>
+      <label class="label" for="backup-time">Backup Time</label>
+      <input type="time" id="backup-time" name="time" class="input w-32" value="{{.BackupTime}}">
+    </div>
+    <div>
+      <label class="label" for="backup-retention">Retention (days)</label>
+      <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.BackupRetention}}" min="1">
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary mt-4">Save Schedule</button>
+</form>
+{{end}}

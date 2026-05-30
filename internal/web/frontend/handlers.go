@@ -6,8 +6,10 @@ package frontend
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
@@ -185,47 +187,40 @@ func (h *handlers) status(w http.ResponseWriter, r *http.Request) {
 
 // Settings page
 func (h *handlers) settings(w http.ResponseWriter, r *http.Request) {
-	content := struct {
-		OIDCIssuer           string
-		OIDCClientID         string
-		OIDCSecretConfigured bool
-		SessionTimeout       int
-		UIDRangeStart        string
-		UIDRangeEnd          string
-		CAPublicKey          string
-		SSHCertTTL           string
-		LogLevel             string
-		LogRetention         int
-	}{
-		OIDCIssuer:           h.deps.Config.OIDCIssuerURL,
-		OIDCClientID:         h.deps.Config.OIDCClientID,
-		OIDCSecretConfigured: h.deps.Config.OIDCClientSecret != "",
-		SessionTimeout:       30,
-		UIDRangeStart:        h.deps.Config.UIDRangeStart,
-		UIDRangeEnd:          h.deps.Config.UIDRangeEnd,
-		CAPublicKey:          h.deps.CA.PublicKeyString(),
-		SSHCertTTL:           h.deps.Config.SSHCertTTL,
-		LogLevel:             h.deps.Config.LogLevel,
-		LogRetention:         90,
-	}
-	data := pageDataFromRequest(r, "Settings", content)
+	var buf strings.Builder
+	sr := NewSidebarRenderer(&buf, SidebarConfig{
+		PanelID:    "settings-panel",
+		DefaultURL: "/settings/oidc",
+		NavItems: []SidebarNavItem{
+			{Label: "OIDC Provider", URL: "/settings/oidc"},
+			{Label: "Session", URL: "/settings/session"},
+			{Label: "UID/GID Range", URL: "/settings/uid-range"},
+			{Label: "SSH CA", URL: "/settings/ssh-ca"},
+			{Label: "LDAP", URL: "/settings/ldap"},
+			{Label: "Logging", URL: "/settings/logging"},
+			{Label: "Employee Types", URL: "/settings/employee-types"},
+		},
+	})
+	sr.Render()
+	data := pageDataFromRequest(r, "Settings", template.HTML(buf.String()))
 	h.renderer.renderPage(w, "settings", data)
 }
 
 // Backup page
 func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
-	content := struct {
-		BackupEnabled   bool
-		BackupTime      string
-		BackupRetention int
-		CAFingerprint   string
-		Error           string
-	}{
-		BackupTime:      "02:00",
-		BackupRetention: 30,
-		CAFingerprint:   h.deps.CA.Fingerprint(),
-	}
-	data := pageDataFromRequest(r, "Backup", content)
+	var buf strings.Builder
+	sr := NewSidebarRenderer(&buf, SidebarConfig{
+		PanelID:    "backup-panel",
+		DefaultURL: "/backup/export-panel",
+		NavItems: []SidebarNavItem{
+			{Label: "Export", URL: "/backup/export-panel"},
+			{Label: "Import", URL: "/backup/import-panel"},
+			{Label: "Schedule", URL: "/backup/schedule"},
+			{Label: "CA Key", URL: "/backup/ca-key"},
+		},
+	})
+	sr.Render()
+	data := pageDataFromRequest(r, "Backup", template.HTML(buf.String()))
 	h.renderer.renderPage(w, "backup", data)
 }
 
@@ -318,18 +313,8 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) renderBackupError(w http.ResponseWriter, r *http.Request, errMsg string) {
-	content := struct {
-		BackupEnabled   bool
-		BackupTime      string
-		BackupRetention int
-		CAFingerprint   string
-		Error           string
-	}{
-		BackupTime:      "02:00",
-		BackupRetention: 30,
-		CAFingerprint:   h.deps.CA.Fingerprint(),
-		Error:           errMsg,
-	}
-	data := pageDataFromRequest(r, "Backup", content)
-	h.renderer.renderPage(w, "backup", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprintf(w, `<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm mb-4">%s</div>`, errMsg)
+	fmt.Fprint(w, `<a href="/backup" class="btn btn-secondary">Back to Backup</a>`)
 }

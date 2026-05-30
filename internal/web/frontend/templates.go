@@ -83,6 +83,16 @@ func (tr *templateRenderer) loadAll() {
 		t = template.Must(t.ParseFS(templateFS, "templates/"+name+".html"))
 		tr.tmpls[name] = t
 	}
+
+	// Backup partials (no layout, rendered as fragments)
+	backupPartials := []string{
+		"backup_export", "backup_import", "backup_schedule", "backup_ca_key",
+	}
+	for _, name := range backupPartials {
+		t := template.New(name + ".html").Funcs(tr.funcs)
+		t = template.Must(t.ParseFS(templateFS, "templates/"+name+".html"))
+		tr.tmpls[name] = t
+	}
 }
 
 func (tr *templateRenderer) render(w io.Writer, name string, data PageData) error {

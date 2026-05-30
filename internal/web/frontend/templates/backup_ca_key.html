@@ -1,0 +1,10 @@
+{{define "backup_ca_key"}}
+<h2 class="text-lg font-semibold mb-4">CA Key Backup</h2>
+<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+  The CA private key is NOT included in standard exports.
+  Back it up separately from <code>/data/ca/</code>.
+</p>
+{{if .CAFingerprint}}
+<p class="text-sm mt-2 font-mono">Fingerprint: {{.CAFingerprint}}</p>
+{{end}}
+{{end}}

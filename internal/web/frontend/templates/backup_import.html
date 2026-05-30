@@ -1,0 +1,17 @@
+{{define "backup_import"}}
+<h2 class="text-lg font-semibold mb-4">Import</h2>
+<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+  Upload a previously exported archive to restore the directory.
+  This will overwrite the current directory. The container will restart to apply the restore.
+</p>
+<form method="POST" action="/backup/import" enctype="multipart/form-data">
+  <div class="mb-4">
+    <input type="file" name="archive" class="input" required>
+  </div>
+  <div class="mb-4">
+    <label class="label">Type "yesiagree" to confirm</label>
+    <input type="text" name="confirm" class="input" placeholder="yesiagree" required>
+  </div>
+  <button type="submit" class="btn btn-danger">Import (Overwrites Current Data)</button>
+</form>
+{{end}}
