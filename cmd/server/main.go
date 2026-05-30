@@ -156,6 +156,7 @@ func main() {
 			Config:   cfg,
 			Sessions: sessions,
 			Roles:    roleLookup,
+			Log:      log,
 		}
 		fe := frontend.NewFrontend(sessions, authHandlers, deps)
 		fe.RegisterRoutes(r)
@@ -169,6 +170,7 @@ func main() {
 			Config:   cfg,
 			Sessions: sessions,
 			Roles:    nil,
+			Log:      log,
 		}
 		fe := frontend.NewFrontendDevMode(sessions, deps)
 		fe.RegisterRoutes(r)

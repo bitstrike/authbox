@@ -133,6 +133,12 @@ func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
 	uid := chi.URLParam(r, "uid")
+	claims := auth.GetClaims(r.Context())
+	actor := ""
+	if claims != nil {
+		actor = claims.Email
+	}
+	h.deps.Log.Info("user disabled", "uid", uid, "by", actor)
 	h.deps.LDAP.DisableUser(uid)
 	// Revoke FIDO2 credentials
 	h.deps.Repo.DeleteFIDO2Credentials(uid)
@@ -147,6 +153,12 @@ func (h *handlers) actionEnableUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "confirmation required", http.StatusBadRequest)
 		return
 	}
+	claims := auth.GetClaims(r.Context())
+	actor := ""
+	if claims != nil {
+		actor = claims.Email
+	}
+	h.deps.Log.Info("user enabled", "uid", uid, "by", actor)
 	h.deps.LDAP.EnableUser(uid, "/bin/bash")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }

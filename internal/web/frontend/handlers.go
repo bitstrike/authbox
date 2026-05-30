@@ -16,6 +16,7 @@ import (
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
 	"github.com/authbox/authbox/internal/ldap"
+	"github.com/authbox/authbox/internal/logging"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -27,6 +28,7 @@ type Deps struct {
 	Config   *config.Config
 	Sessions *auth.SessionStore
 	Roles    auth.RoleLookup
+	Log      *logging.Logger
 }
 
 // handlers holds all page handler methods.
@@ -254,8 +256,16 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	claims := auth.GetClaims(r.Context())
+	email := ""
+	if claims != nil {
+		email = claims.Email
+	}
+	h.deps.Log.Info("backup import started", "user", email)
+
 	data, err := backup.ImportExport(file)
 	if err != nil {
+		h.deps.Log.Error("backup import failed: invalid archive", "user", email, "err", err)
 		h.renderBackupError(w, r, "Invalid archive: "+err.Error())
 		return
 	}
@@ -263,12 +273,14 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	// Stage LDIF files for restore on next startup
 	restoreDir := "/data/live-restore"
 	if err := os.MkdirAll(restoreDir, 0750); err != nil {
+		h.deps.Log.Error("backup import failed: create restore dir", "err", err)
 		h.renderBackupError(w, r, "Failed to create restore directory: "+err.Error())
 		return
 	}
 
 	if len(data.DirectoryLDIF) > 0 {
 		if err := os.WriteFile(restoreDir+"/directory.ldif", data.DirectoryLDIF, 0640); err != nil {
+			h.deps.Log.Error("backup import failed: write directory LDIF", "err", err)
 			h.renderBackupError(w, r, "Failed to write directory LDIF: "+err.Error())
 			return
 		}
@@ -276,20 +288,27 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 
 	if len(data.ConfigLDIF) > 0 {
 		if err := os.WriteFile(restoreDir+"/config.ldif", data.ConfigLDIF, 0640); err != nil {
+			h.deps.Log.Error("backup import failed: write config LDIF", "err", err)
 			h.renderBackupError(w, r, "Failed to write config LDIF: "+err.Error())
 			return
 		}
 	}
 
+	h.deps.Log.Info("backup import: LDIF files staged to /data/live-restore", "user", email)
+
 	// Restore SQLite state immediately (independent of slapd)
 	if err := backup.RestoreState(h.deps.Repo, &data.State); err != nil {
+		h.deps.Log.Error("backup import failed: state restore", "err", err)
 		h.renderBackupError(w, r, "State restore failed: "+err.Error())
 		return
 	}
 
+	h.deps.Log.Info("backup import: sqlite state restored, triggering restart", "user", email)
+
 	// Exit to trigger container restart; entrypoint will apply the staged LDIF
 	go func() {
 		time.Sleep(500 * time.Millisecond)
+		h.deps.Log.Sync()
 		os.Exit(0)
 	}()
 

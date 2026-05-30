@@ -54,6 +54,24 @@ func (l *Logger) Error(msg string, args ...any) {
 	l.log(LevelError, msg, args...)
 }
 
+func (l *Logger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.file != nil {
+		l.file.Sync()
+		l.file.Close()
+		l.file = nil
+	}
+}
+
+func (l *Logger) Sync() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.file != nil {
+		l.file.Sync()
+	}
+}
+
 func (l *Logger) log(level Level, msg string, args ...any) {
 	if level < l.level {
 		return
