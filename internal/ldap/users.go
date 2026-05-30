@@ -153,6 +153,37 @@ func (c *Client) UIDExists(uidNumber int) (bool, error) {
 	return len(result.Entries) > 0, nil
 }
 
+// NextAvailableUID finds the next unused uidNumber within the given range.
+func (c *Client) NextAvailableUID(rangeStart, rangeEnd int) (int, error) {
+	dn := fmt.Sprintf("ou=people,%s", c.baseDN)
+	req := goldap.NewSearchRequest(
+		dn,
+		goldap.ScopeSingleLevel,
+		goldap.NeverDerefAliases,
+		0, 0, false,
+		"(objectClass=posixAccount)",
+		[]string{"uidNumber"},
+		nil,
+	)
+	result, err := c.Search(req)
+	if err != nil {
+		return 0, err
+	}
+
+	used := make(map[int]bool)
+	for _, entry := range result.Entries {
+		num, _ := strconv.Atoi(entry.GetAttributeValue("uidNumber"))
+		used[num] = true
+	}
+
+	for i := rangeStart; i <= rangeEnd; i++ {
+		if !used[i] {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("no available UID in range %d-%d", rangeStart, rangeEnd)
+}
+
 func entryToUser(e *goldap.Entry) *User {
 	uidNum, _ := strconv.Atoi(e.GetAttributeValue("uidNumber"))
 	gidNum, _ := strconv.Atoi(e.GetAttributeValue("gidNumber"))

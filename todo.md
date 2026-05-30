@@ -362,3 +362,17 @@
 - [x] Refactor settings page to use `SidebarRenderer`
 - [x] Refactor backup page to use `SidebarRenderer` (Export, Import, Schedule, CA Key sections)
 - [x] Register backup partials: `/backup/export-panel`, `/backup/import-panel`, `/backup/schedule`, `/backup/ca-key`
+
+## User Create/Edit Form Fixes
+
+### Create User
+- [x] UID/GID must always be within the UID/GID range specified in settings (validate on submit)
+- [x] Pre-fill UID/GID fields with next available UID/GID for convenience
+- [x] Pre-fill home directory using uid typed in the uid text field (auto-fill via JS as user types)
+- [x] Employee type defaults to "employee" on create form
+
+### Edit User
+- [x] UID/GID fields auto-fill with current UID/GID of user being edited (already works)
+- [x] If employeeType is "contact", hide posixAccount fields (UID/GID, home directory, login shell)
+- [x] If employeeType is changed away from "contact", show posixAccount fields again
+- [x] Use JS to toggle field visibility based on employeeType dropdown selection

@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,17 +65,32 @@ func (h *handlers) users(w http.ResponseWriter, r *http.Request) {
 // User create form
 func (h *handlers) userNew(w http.ResponseWriter, r *http.Request) {
 	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
+
+	// Pre-fill next available UID/GID
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+	nextUID, _ := h.deps.LDAP.NextAvailableUID(rangeStart, rangeEnd)
+
 	content := struct {
 		IsEdit        bool
 		Action        string
 		User          ldap.User
 		Error         string
 		EmployeeTypes []db.EmployeeType
+		UIDRangeStart int
+		UIDRangeEnd   int
 	}{
-		IsEdit:        false,
-		Action:        "/users",
-		User:          ldap.User{LoginShell: "/bin/bash"},
+		IsEdit: false,
+		Action: "/users",
+		User: ldap.User{
+			LoginShell:   "/bin/bash",
+			UIDNumber:    nextUID,
+			GIDNumber:    nextUID,
+			EmployeeType: "employee",
+		},
 		EmployeeTypes: employeeTypes,
+		UIDRangeStart: rangeStart,
+		UIDRangeEnd:   rangeEnd,
 	}
 	data := pageDataFromRequest(r, "Create User", content)
 	h.renderer.renderPage(w, "user_form", data)
@@ -89,17 +105,23 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
 	content := struct {
 		IsEdit        bool
 		Action        string
 		User          ldap.User
 		Error         string
 		EmployeeTypes []db.EmployeeType
+		UIDRangeStart int
+		UIDRangeEnd   int
 	}{
 		IsEdit:        true,
 		Action:        "/users/" + uid,
 		User:          *user,
 		EmployeeTypes: employeeTypes,
+		UIDRangeStart: rangeStart,
+		UIDRangeEnd:   rangeEnd,
 	}
 	data := pageDataFromRequest(r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)

@@ -2,7 +2,7 @@
 <h1 class="text-2xl font-semibold mb-6">{{if .Content.IsEdit}}Edit User{{else}}Create User{{end}}</h1>
 
 <div class="card max-w-2xl">
-  <form method="POST" action="{{.Content.Action}}">
+  <form method="POST" action="{{.Content.Action}}" id="user-form">
     <div class="space-y-4">
       <div>
         <label class="label" for="uid">Username (uid)</label>
@@ -22,24 +22,6 @@
         <label class="label" for="mail">Email</label>
         <input type="email" id="mail" name="mail" value="{{.Content.User.Mail}}" class="input" required>
       </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="label" for="uidNumber">UID Number (blank for auto)</label>
-          <input type="number" id="uidNumber" name="uidNumber" value="{{if .Content.User.UIDNumber}}{{.Content.User.UIDNumber}}{{end}}" class="input">
-        </div>
-        <div>
-          <label class="label" for="gidNumber">GID Number (blank for auto)</label>
-          <input type="number" id="gidNumber" name="gidNumber" value="{{if .Content.User.GIDNumber}}{{.Content.User.GIDNumber}}{{end}}" class="input">
-        </div>
-      </div>
-      <div>
-        <label class="label" for="homeDirectory">Home Directory</label>
-        <input type="text" id="homeDirectory" name="homeDirectory" value="{{.Content.User.HomeDirectory}}" class="input" placeholder="/home/username">
-      </div>
-      <div>
-        <label class="label" for="loginShell">Login Shell</label>
-        <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
-      </div>
       <div>
         <label class="label" for="employeeType">Employee Type</label>
         <select id="employeeType" name="employeeType" class="input">
@@ -48,6 +30,29 @@
           <option value="{{.Value}}" {{if eq $.Content.User.EmployeeType .Value}}selected{{end}}>{{.Emoji}} {{.Label}}</option>
           {{end}}
         </select>
+      </div>
+
+      <div id="posix-fields">
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="uidNumber">UID Number</label>
+              <input type="number" id="uidNumber" name="uidNumber" value="{{if .Content.User.UIDNumber}}{{.Content.User.UIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
+            </div>
+            <div>
+              <label class="label" for="gidNumber">GID Number</label>
+              <input type="number" id="gidNumber" name="gidNumber" value="{{if .Content.User.GIDNumber}}{{.Content.User.GIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
+            </div>
+          </div>
+          <div>
+            <label class="label" for="homeDirectory">Home Directory</label>
+            <input type="text" id="homeDirectory" name="homeDirectory" value="{{.Content.User.HomeDirectory}}" class="input" placeholder="/home/username">
+          </div>
+          <div>
+            <label class="label" for="loginShell">Login Shell</label>
+            <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
+          </div>
+        </div>
       </div>
     </div>
 
@@ -93,4 +98,35 @@
   </div>
   {{end}}
 </div>
+
+<script>
+(function() {
+  var uidInput = document.getElementById('uid');
+  var homeInput = document.getElementById('homeDirectory');
+  var typeSelect = document.getElementById('employeeType');
+  var posixFields = document.getElementById('posix-fields');
+  var isEdit = {{.Content.IsEdit}};
+
+  // Auto-fill home directory from uid (create mode only)
+  if (!isEdit && uidInput && homeInput) {
+    uidInput.addEventListener('input', function() {
+      var val = uidInput.value.trim();
+      if (val) {
+        homeInput.value = '/home/' + val;
+      }
+    });
+  }
+
+  // Toggle posix fields based on employeeType
+  function togglePosix() {
+    if (typeSelect.value === 'contact') {
+      posixFields.style.display = 'none';
+    } else {
+      posixFields.style.display = '';
+    }
+  }
+  typeSelect.addEventListener('change', togglePosix);
+  togglePosix();
+})();
+</script>
 {{end}}
