@@ -423,3 +423,15 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] If service token is valid, set claims (clientID as email/sub) and role from the token entry
 - [x] This requires `TokenMiddleware` to accept a service token validator function (avoid circular import between auth and api packages)
 - [x] Consider: pass a `func(string) (string, string, bool)` validator to `TokenMiddleware` as a parameter
+
+## Delete User (admin, disabled accounts only)
+
+- [x] Add `DeleteUser(uid string)` method to LDAP client (ldap.Del request)
+- [x] Add delete button to user edit form (visible only when user is disabled AND role is admin)
+- [x] Require "yesiagree" confirmation with warning text explaining UID reuse risk
+- [x] Warning: "This removes the user from the directory. The UID/GID will become available for reassignment. If this user owned files on any host, a future user with the same UID will inherit those files. Disable instead if unsure."
+- [x] Register `POST /users/{uid}/delete` in admin route group
+- [x] Handler validates confirm field, calls LDAP DeleteUser, redirects to /users
+- [x] Only allow deletion of disabled accounts (reject if user is not disabled)
+- [x] Add `DELETE /api/v1/users/{uid}` API endpoint (admin role, same validation)
+- [x] Log deletion event (who deleted whom)

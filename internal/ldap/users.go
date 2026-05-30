@@ -135,6 +135,12 @@ func (c *Client) EnableUser(uid string, shell string) error {
 	return c.Modify(req)
 }
 
+func (c *Client) DeleteUser(uid string) error {
+	dn := fmt.Sprintf("uid=%s,ou=people,%s", uid, c.baseDN)
+	del := goldap.NewDelRequest(dn, nil)
+	return c.conn.Del(del)
+}
+
 func (c *Client) UIDExists(uidNumber int) (bool, error) {
 	dn := fmt.Sprintf("ou=people,%s", c.baseDN)
 	req := goldap.NewSearchRequest(

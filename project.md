@@ -99,14 +99,23 @@ The initial admin user (from `INITIAL_ADMIN_EMAIL`) is added to `cn=authbox-admi
 - API validates uniqueness on create and update - returns `409 Conflict` if the uidNumber or gidNumber is already in use
 - Responses always include the assigned uidNumber/gidNumber (whether explicit or auto-assigned)
 - UID/GID can be changed via the web UI or API (subject to the same uniqueness check)
-- UIDs are never reused - deprovisioned users are disabled, not deleted
+- Preferred workflow: disable users rather than delete (preserves file ownership resolution)
 
 ### User Deprovisioning
 
 - Disabled users remain in LDAP with their uidNumber intact (so file ownership still resolves to a name)
 - loginShell set to `/sbin/nologin`, removed from all groups, FIDO2 credentials revoked
 - Account marked as disabled in the platform - not available for login
-- uidNumber is never reassigned to another user
+- uidNumber is not reassigned while the user entry exists
+
+### User Deletion
+
+- Admin-only action, only available on already-disabled accounts (two-step: disable first, then delete)
+- Permanently removes the user entry from the LDAP directory
+- The UID/GID becomes available for reassignment after deletion
+- Warning presented: if the user owned files on any host, a future user assigned the same UID will inherit ownership of those files
+- Requires "yesiagree" confirmation
+- Use disable instead of delete when the user may have files on managed hosts
 
 ## API
 

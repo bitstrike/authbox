@@ -81,10 +81,16 @@
       </div>
       {{if .Content.User.Disabled}}
         {{if .IsAdmin}}
-        <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account? You must type the confirmation word to proceed.');">
-          <input type="hidden" name="confirm" value="yesiagree">
-          <button type="submit" class="btn btn-primary text-sm" hx-confirm="Re-enable this user account?">Enable</button>
-        </form>
+        <div class="flex space-x-2">
+          <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account? You must type the confirmation word to proceed.');">
+            <input type="hidden" name="confirm" value="yesiagree">
+            <button type="submit" class="btn btn-primary text-sm">Enable</button>
+          </form>
+          <form method="POST" action="/users/{{.Content.User.UID}}/delete" onsubmit="return confirm('PERMANENTLY DELETE this user?\n\nThe UID/GID will become available for reassignment. If this user owned files on any host, a future user with the same UID will inherit those files.\n\nDisable is preferred over delete if unsure.');">
+            <input type="hidden" name="confirm" value="yesiagree">
+            <button type="submit" class="btn btn-secondary text-sm text-red-600 dark:text-red-400">Delete</button>
+          </form>
+        </div>
         {{end}}
       {{else}}
         {{if or .IsAdmin .IsOperator}}

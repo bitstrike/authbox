@@ -146,6 +146,27 @@ func (a *API) enableUser(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "enabled"})
 }
 
+func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
+	uid := chi.URLParam(r, "uid")
+
+	existing, err := a.ldap.GetUser(uid)
+	if err != nil || existing == nil {
+		respondError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
+		return
+	}
+	if !existing.Disabled {
+		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "user must be disabled before deletion")
+		return
+	}
+
+	if err := a.ldap.DeleteUser(uid); err != nil {
+		respondError(w, http.StatusInternalServerError, "INTERNAL", "failed to delete user")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func (a *API) importUsers(w http.ResponseWriter, r *http.Request) {
 	// TODO: implement CSV/JSON bulk import in Phase 8
 	respondError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "bulk import not yet available")

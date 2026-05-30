@@ -57,6 +57,7 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 			r.With(auth.RequireRole(auth.RoleOperator)).Put("/users/{uid}", a.updateUser)
 			r.With(auth.RequireRole(auth.RoleOperator)).Post("/users/{uid}/disable", a.disableUser)
 			r.With(auth.RequireRole(auth.RoleAdmin)).Post("/users/{uid}/enable", a.enableUser)
+			r.With(auth.RequireRole(auth.RoleAdmin)).Delete("/users/{uid}", a.deleteUser)
 			r.With(auth.RequireRole(auth.RoleOperator)).Post("/users/import", a.importUsers)
 
 			// Groups

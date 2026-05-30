@@ -37,6 +37,7 @@ func (f *Frontend) registerActions(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(requireFrontendRole(auth.RoleAdmin))
 		r.Post("/users/{uid}/enable", f.h.actionEnableUser)
+		r.Post("/users/{uid}/delete", f.h.actionDeleteUser)
 	})
 
 	// Groups
@@ -186,6 +187,40 @@ func (h *handlers) renderEditUserError(w http.ResponseWriter, r *http.Request, u
 	}{true, "/users/" + uid, *user, errMsg, employeeTypes, rangeStart, rangeEnd}
 	data := pageDataFromRequest(r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)
+}
+
+func (h *handlers) actionDeleteUser(w http.ResponseWriter, r *http.Request) {
+	uid := chi.URLParam(r, "uid")
+	r.ParseForm()
+	confirm := r.FormValue("confirm")
+	if confirm != "yesiagree" {
+		http.Error(w, "confirmation required", http.StatusBadRequest)
+		return
+	}
+
+	// Only allow deletion of disabled accounts
+	user, err := h.deps.LDAP.GetUser(uid)
+	if err != nil || user == nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+	if !user.Disabled {
+		http.Error(w, "user must be disabled before deletion", http.StatusBadRequest)
+		return
+	}
+
+	claims := auth.GetClaims(r.Context())
+	actor := ""
+	if claims != nil {
+		actor = claims.Email
+	}
+	h.deps.Log.Info("user deleted", "uid", uid, "by", actor)
+
+	if err := h.deps.LDAP.DeleteUser(uid); err != nil {
+		http.Error(w, "delete failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
 func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
