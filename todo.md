@@ -300,9 +300,34 @@
 
 ## Add Logger to Frontend Deps
 
-- [ ] Add `Log *logging.Logger` field to `frontend.Deps` struct
-- [ ] Pass logger from `main.go` when constructing Deps
-- [ ] Log import events: "backup import started" (with user email), "staging LDIF files", "sqlite state restored, triggering restart"
-- [ ] Log disable/enable user events (who disabled/enabled whom)
-- [ ] Call `file.Sync()` before `os.Exit` in import handler to ensure log flush
-- [ ] Entrypoint already logs restore steps via echo (no change needed there)
+- [x] Add `Log *logging.Logger` field to `frontend.Deps` struct
+- [x] Pass logger from `main.go` when constructing Deps
+- [x] Log import events: "backup import started" (with user email), "staging LDIF files", "sqlite state restored, triggering restart"
+- [x] Log disable/enable user events (who disabled/enabled whom)
+- [x] Call `file.Sync()` before `os.Exit` in import handler to ensure log flush
+- [x] Entrypoint already logs restore steps via echo (no change needed there)
+
+## employeeType Attribute Support
+
+- [ ] Add `EmployeeType string` field to `ldap.User` struct
+- [ ] Include `"employeeType"` in LDAP search attribute lists (GetUser, ListUsers)
+- [ ] Read `employeeType` in `entryToUser`
+- [ ] Write `employeeType` in `CreateUser` and `UpdateUser` (if non-empty)
+- [ ] Add `<select>` dropdown to `user_form.html` with values: (empty), employee, contractor, contact
+- [ ] Display colored dot or short badge in user list partial (blue=employee, orange=contractor, gray=contact)
+- [ ] Support `employeeType` in bulk CSV/JSON import
+- [ ] Add employeeType filter option to user list (like existing status filter)
+- [ ] Update project.md with employeeType documentation
+- [ ] Update README if needed
+
+## Settings Page Redesign (sidebar navigation)
+
+- [ ] Refactor `settings.html` to two-column layout: left nav + right content panel
+- [ ] Left nav lists settings categories (OIDC Provider, Session, UID/GID Range, SSH CA, LDAP, Logging, Employee Types, Backup Schedule)
+- [ ] Right panel loads selected category content via HTMX partial swap
+- [ ] Each settings category becomes its own partial template
+- [ ] Default selection on page load (first item or previously selected)
+- [ ] Active nav item highlighted
+- [ ] Mobile/narrow: collapse to stacked layout or hamburger
+- [ ] Register partial routes: `/settings/oidc`, `/settings/session`, `/settings/uid-range`, `/settings/ssh-ca`, `/settings/ldap`, `/settings/logging`, `/settings/employee-types`, `/settings/backup-schedule`
+- [ ] Migrate existing settings sections into individual partials
