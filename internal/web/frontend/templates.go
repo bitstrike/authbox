@@ -71,6 +71,18 @@ func (tr *templateRenderer) loadAll() {
 	t := template.New("login_standalone.html").Funcs(tr.funcs)
 	t = template.Must(t.ParseFS(templateFS, "templates/login_standalone.html"))
 	tr.tmpls["login_standalone"] = t
+
+	// Settings partials (no layout, rendered as fragments)
+	settingsPartials := []string{
+		"settings_oidc", "settings_session", "settings_uid_range",
+		"settings_ssh_ca", "settings_ldap", "settings_logging",
+		"settings_employee_types",
+	}
+	for _, name := range settingsPartials {
+		t := template.New(name + ".html").Funcs(tr.funcs)
+		t = template.Must(t.ParseFS(templateFS, "templates/"+name+".html"))
+		tr.tmpls[name] = t
+	}
 }
 
 func (tr *templateRenderer) render(w io.Writer, name string, data PageData) error {
@@ -86,6 +98,20 @@ func (tr *templateRenderer) render(w io.Writer, name string, data PageData) erro
 func (tr *templateRenderer) renderPage(w http.ResponseWriter, name string, data PageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tr.render(w, name, data); err != nil {
+		http.Error(w, "template error", http.StatusInternalServerError)
+	}
+}
+
+func (tr *templateRenderer) renderPartial(w http.ResponseWriter, name string, data any) {
+	tr.mu.RLock()
+	t, ok := tr.tmpls[name]
+	tr.mu.RUnlock()
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := t.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }

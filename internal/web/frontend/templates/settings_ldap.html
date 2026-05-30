@@ -1,0 +1,13 @@
+{{define "settings_ldap"}}
+<h2 class="text-lg font-semibold mb-4">LDAP Configuration</h2>
+<div class="space-y-3">
+  <div>
+    <label class="label">Base DN</label>
+    <p class="text-sm font-mono">{{.LDAPBaseDN}}</p>
+  </div>
+  <div>
+    <label class="label">Replication</label>
+    <p class="text-sm text-gray-500 dark:text-gray-400">Managed via API. See project documentation.</p>
+  </div>
+</div>
+{{end}}

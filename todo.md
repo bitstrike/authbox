@@ -317,17 +317,18 @@
 - [ ] Display colored dot or short badge in user list partial (blue=employee, orange=contractor, gray=contact)
 - [ ] Support `employeeType` in bulk CSV/JSON import
 - [ ] Add employeeType filter option to user list (like existing status filter)
+- [ ] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
 - [ ] Update project.md with employeeType documentation
 - [ ] Update README if needed
 
 ## Settings Page Redesign (sidebar navigation)
 
-- [ ] Refactor `settings.html` to two-column layout: left nav + right content panel
-- [ ] Left nav lists settings categories (OIDC Provider, Session, UID/GID Range, SSH CA, LDAP, Logging, Employee Types, Backup Schedule)
-- [ ] Right panel loads selected category content via HTMX partial swap
-- [ ] Each settings category becomes its own partial template
-- [ ] Default selection on page load (first item or previously selected)
-- [ ] Active nav item highlighted
+- [x] Refactor `settings.html` to two-column layout: left nav + right content panel
+- [x] Left nav lists settings categories (OIDC Provider, Session, UID/GID Range, SSH CA, LDAP, Logging, Employee Types)
+- [x] Right panel loads selected category content via HTMX partial swap
+- [x] Each settings category becomes its own partial template
+- [x] Default selection on page load (OIDC via hx-trigger="load")
+- [x] Active nav item highlighted
 - [ ] Mobile/narrow: collapse to stacked layout or hamburger
-- [ ] Register partial routes: `/settings/oidc`, `/settings/session`, `/settings/uid-range`, `/settings/ssh-ca`, `/settings/ldap`, `/settings/logging`, `/settings/employee-types`, `/settings/backup-schedule`
-- [ ] Migrate existing settings sections into individual partials
+- [x] Register partial routes: `/settings/oidc`, `/settings/session`, `/settings/uid-range`, `/settings/ssh-ca`, `/settings/ldap`, `/settings/logging`, `/settings/employee-types`
+- [x] Migrate existing settings sections into individual partials

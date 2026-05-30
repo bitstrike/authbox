@@ -1,0 +1,22 @@
+{{define "settings_oidc"}}
+<h2 class="text-lg font-semibold mb-4">OIDC Provider</h2>
+<form method="POST" action="/settings/oidc">
+  <div class="space-y-3">
+    <div>
+      <label class="label" for="issuer">Issuer URL</label>
+      <input type="url" id="issuer" name="issuer_url" class="input" value="{{.OIDCIssuer}}">
+    </div>
+    <div>
+      <label class="label" for="client-id">Client ID</label>
+      <input type="text" id="client-id" name="client_id" class="input" value="{{.OIDCClientID}}">
+    </div>
+    <div>
+      <label class="label">Client Secret</label>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        {{if .OIDCSecretConfigured}}Configured (read from secrets volume){{else}}Not configured{{end}}
+      </p>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary mt-4">Save</button>
+</form>
+{{end}}

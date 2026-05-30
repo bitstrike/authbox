@@ -1,0 +1,16 @@
+{{define "settings_uid_range"}}
+<h2 class="text-lg font-semibold mb-4">UID/GID Range</h2>
+<form method="POST" action="/settings/uid-range">
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label" for="uid-start">Range Start</label>
+      <input type="number" id="uid-start" name="range_start" class="input" value="{{.UIDRangeStart}}">
+    </div>
+    <div>
+      <label class="label" for="uid-end">Range End</label>
+      <input type="number" id="uid-end" name="range_end" class="input" value="{{.UIDRangeEnd}}">
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary mt-4">Save</button>
+</form>
+{{end}}

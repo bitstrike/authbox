@@ -565,3 +565,73 @@ func escHTML(s string) string {
 	s = strings.ReplaceAll(s, `"`, "&quot;")
 	return s
 }
+
+// Settings partial handlers
+
+func (h *handlers) partialSettingsOIDC(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		OIDCIssuer           string
+		OIDCClientID         string
+		OIDCSecretConfigured bool
+	}{
+		OIDCIssuer:           h.deps.Config.OIDCIssuerURL,
+		OIDCClientID:         h.deps.Config.OIDCClientID,
+		OIDCSecretConfigured: h.deps.Config.OIDCClientSecret != "",
+	}
+	h.renderer.renderPartial(w, "settings_oidc", data)
+}
+
+func (h *handlers) partialSettingsSession(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		SessionTimeout int
+	}{
+		SessionTimeout: 30,
+	}
+	h.renderer.renderPartial(w, "settings_session", data)
+}
+
+func (h *handlers) partialSettingsUIDRange(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		UIDRangeStart string
+		UIDRangeEnd   string
+	}{
+		UIDRangeStart: h.deps.Config.UIDRangeStart,
+		UIDRangeEnd:   h.deps.Config.UIDRangeEnd,
+	}
+	h.renderer.renderPartial(w, "settings_uid_range", data)
+}
+
+func (h *handlers) partialSettingsSSHCA(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		CAPublicKey string
+		SSHCertTTL  string
+	}{
+		CAPublicKey: h.deps.CA.PublicKeyString(),
+		SSHCertTTL:  h.deps.Config.SSHCertTTL,
+	}
+	h.renderer.renderPartial(w, "settings_ssh_ca", data)
+}
+
+func (h *handlers) partialSettingsLDAP(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		LDAPBaseDN string
+	}{
+		LDAPBaseDN: h.deps.Config.LDAPBaseDN,
+	}
+	h.renderer.renderPartial(w, "settings_ldap", data)
+}
+
+func (h *handlers) partialSettingsLogging(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		LogLevel     string
+		LogRetention int
+	}{
+		LogLevel:     h.deps.Config.LogLevel,
+		LogRetention: 90,
+	}
+	h.renderer.renderPartial(w, "settings_logging", data)
+}
+
+func (h *handlers) partialSettingsEmployeeTypes(w http.ResponseWriter, r *http.Request) {
+	h.renderer.renderPartial(w, "settings_employee_types", nil)
+}
