@@ -63,15 +63,18 @@ func (h *handlers) users(w http.ResponseWriter, r *http.Request) {
 
 // User create form
 func (h *handlers) userNew(w http.ResponseWriter, r *http.Request) {
+	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
 	content := struct {
-		IsEdit bool
-		Action string
-		User   ldap.User
-		Error  string
+		IsEdit        bool
+		Action        string
+		User          ldap.User
+		Error         string
+		EmployeeTypes []db.EmployeeType
 	}{
-		IsEdit: false,
-		Action: "/users",
-		User:   ldap.User{LoginShell: "/bin/bash"},
+		IsEdit:        false,
+		Action:        "/users",
+		User:          ldap.User{LoginShell: "/bin/bash"},
+		EmployeeTypes: employeeTypes,
 	}
 	data := pageDataFromRequest(r, "Create User", content)
 	h.renderer.renderPage(w, "user_form", data)
@@ -85,15 +88,18 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
+	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
 	content := struct {
-		IsEdit bool
-		Action string
-		User   ldap.User
-		Error  string
+		IsEdit        bool
+		Action        string
+		User          ldap.User
+		Error         string
+		EmployeeTypes []db.EmployeeType
 	}{
-		IsEdit: true,
-		Action: "/users/" + uid,
-		User:   *user,
+		IsEdit:        true,
+		Action:        "/users/" + uid,
+		User:          *user,
+		EmployeeTypes: employeeTypes,
 	}
 	data := pageDataFromRequest(r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)

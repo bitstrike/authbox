@@ -20,6 +20,7 @@ type User struct {
 	GIDNumber     int    `json:"gidNumber"`
 	HomeDirectory string `json:"homeDirectory"`
 	LoginShell    string `json:"loginShell"`
+	EmployeeType  string `json:"employeeType,omitempty"`
 	Disabled      bool   `json:"disabled"`
 }
 
@@ -40,6 +41,9 @@ func (c *Client) CreateUser(u *User) error {
 	req.Attribute("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
 	req.Attribute("homeDirectory", []string{u.HomeDirectory})
 	req.Attribute("loginShell", []string{u.LoginShell})
+	if u.EmployeeType != "" {
+		req.Attribute("employeeType", []string{u.EmployeeType})
+	}
 	return c.Add(req)
 }
 
@@ -51,7 +55,7 @@ func (c *Client) GetUser(uid string) (*User, error) {
 		goldap.NeverDerefAliases,
 		1, 0, false,
 		fmt.Sprintf("(uid=%s)", goldap.EscapeFilter(uid)),
-		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell"},
+		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType"},
 		nil,
 	)
 	result, err := c.Search(req)
@@ -72,7 +76,7 @@ func (c *Client) ListUsers(offset, limit int) ([]User, int, error) {
 		goldap.NeverDerefAliases,
 		0, 0, false,
 		"(objectClass=posixAccount)",
-		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell"},
+		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType"},
 		nil,
 	)
 	result, err := c.Search(req)
@@ -111,6 +115,9 @@ func (c *Client) UpdateUser(uid string, u *User) error {
 	req.Replace("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
 	req.Replace("homeDirectory", []string{u.HomeDirectory})
 	req.Replace("loginShell", []string{u.LoginShell})
+	if u.EmployeeType != "" {
+		req.Replace("employeeType", []string{u.EmployeeType})
+	}
 	return c.Modify(req)
 }
 
@@ -160,6 +167,7 @@ func entryToUser(e *goldap.Entry) *User {
 		GIDNumber:     gidNum,
 		HomeDirectory: e.GetAttributeValue("homeDirectory"),
 		LoginShell:    shell,
+		EmployeeType:  e.GetAttributeValue("employeeType"),
 		Disabled:      shell == "/sbin/nologin",
 	}
 }

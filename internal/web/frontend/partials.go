@@ -108,13 +108,21 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build emoji lookup from employee types
+	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
+	emojiMap := make(map[string]string)
+	for _, et := range employeeTypes {
+		emojiMap[et.Value] = et.Emoji
+	}
+
 	// Filter
 	type userRow struct {
-		UID       string
-		CN        string
-		Mail      string
-		UIDNumber int
-		Disabled  bool
+		UID          string
+		CN           string
+		Mail         string
+		UIDNumber    int
+		Disabled     bool
+		EmployeeType string
 	}
 	var filtered []userRow
 	q := strings.ToLower(state.Query)
@@ -132,7 +140,7 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		filtered = append(filtered, userRow{u.UID, u.CN, u.Mail, u.UIDNumber, u.Disabled})
+		filtered = append(filtered, userRow{u.UID, u.CN, u.Mail, u.UIDNumber, u.Disabled, u.EmployeeType})
 	}
 
 	total := len(filtered)
@@ -158,9 +166,13 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 			if u.Disabled {
 				statusBadge = `<span class="text-red-600 dark:text-red-400">disabled</span>`
 			}
+			typeBadge := ""
+			if emoji, ok := emojiMap[u.EmployeeType]; ok && emoji != "" {
+				typeBadge = emoji + " "
+			}
 			fmt.Fprintf(w,
-				`<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
-				escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), u.UIDNumber, statusBadge, escHTML(u.UID),
+				`<tr><td>%s%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
+				typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), u.UIDNumber, statusBadge, escHTML(u.UID),
 			)
 		}
 	}
@@ -634,6 +646,44 @@ func (h *handlers) partialSettingsLogging(w http.ResponseWriter, r *http.Request
 
 func (h *handlers) partialSettingsEmployeeTypes(w http.ResponseWriter, r *http.Request) {
 	h.renderer.renderPartial(w, "settings_employee_types", nil)
+}
+
+func (h *handlers) partialSettingsEmployeeTypesList(w http.ResponseWriter, r *http.Request) {
+	types, _ := h.deps.Repo.ListEmployeeTypes()
+	data := struct {
+		Types []db.EmployeeType
+	}{Types: types}
+	h.renderer.renderPartial(w, "settings_employee_types_list", data)
+}
+
+func (h *handlers) actionCreateEmployeeType(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	value := r.FormValue("value")
+	label := r.FormValue("label")
+	emoji := r.FormValue("emoji")
+
+	if value == "" || label == "" {
+		h.partialSettingsEmployeeTypesList(w, r)
+		return
+	}
+
+	// Determine next sort order
+	types, _ := h.deps.Repo.ListEmployeeTypes()
+	nextOrder := len(types) + 1
+
+	h.deps.Repo.CreateEmployeeType(&db.EmployeeType{
+		Value:     value,
+		Label:     label,
+		Emoji:     emoji,
+		SortOrder: nextOrder,
+	})
+	h.partialSettingsEmployeeTypesList(w, r)
+}
+
+func (h *handlers) actionDeleteEmployeeType(w http.ResponseWriter, r *http.Request) {
+	value := chi.URLParam(r, "value")
+	h.deps.Repo.DeleteEmployeeType(value)
+	h.partialSettingsEmployeeTypesList(w, r)
 }
 
 // Backup partial handlers

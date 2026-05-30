@@ -309,12 +309,12 @@
 
 ## employeeType Attribute Support
 
-- [ ] Add `EmployeeType string` field to `ldap.User` struct
-- [ ] Include `"employeeType"` in LDAP search attribute lists (GetUser, ListUsers)
-- [ ] Read `employeeType` in `entryToUser`
-- [ ] Write `employeeType` in `CreateUser` and `UpdateUser` (if non-empty)
-- [ ] Add `<select>` dropdown to `user_form.html` populated dynamically from DB
-- [ ] Display colored dot or short badge in user list partial (emoji from DB)
+- [x] Add `EmployeeType string` field to `ldap.User` struct
+- [x] Include `"employeeType"` in LDAP search attribute lists (GetUser, ListUsers)
+- [x] Read `employeeType` in `entryToUser`
+- [x] Write `employeeType` in `CreateUser` and `UpdateUser` (if non-empty)
+- [x] Add `<select>` dropdown to `user_form.html` populated dynamically from DB
+- [x] Display colored dot or short badge in user list partial (emoji from DB)
 - [ ] Support `employeeType` in bulk CSV/JSON import
 - [ ] Add employeeType filter option to user list (like existing status filter)
 - [ ] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
@@ -333,12 +333,12 @@
 
 ### Employee Types Settings UI
 
-- [ ] Implement `settings_employee_types.html` partial (replace placeholder)
-- [ ] Display table of current types: emoji, value, label, sort order, remove button
-- [ ] Add form: emoji input, value input, label input, Add button
-- [ ] HTMX inline add/remove (no full page reload)
-- [ ] Register POST route for add/delete actions
-- [ ] User form dropdown queries ListEmployeeTypes to populate options
+- [x] Implement `settings_employee_types.html` partial (replace placeholder)
+- [x] Display table of current types: emoji, value, label, sort order, remove button
+- [x] Add form: emoji input, value input, label input, Add button
+- [x] HTMX inline add/remove (no full page reload)
+- [x] Register POST route for add/delete actions
+- [x] User form dropdown queries ListEmployeeTypes to populate options
 
 ## Settings Page Redesign (sidebar navigation)
 

@@ -76,7 +76,7 @@ func (tr *templateRenderer) loadAll() {
 	settingsPartials := []string{
 		"settings_oidc", "settings_session", "settings_uid_range",
 		"settings_ssh_ca", "settings_ldap", "settings_logging",
-		"settings_employee_types",
+		"settings_employee_types", "settings_employee_types_list",
 	}
 	for _, name := range settingsPartials {
 		t := template.New(name + ".html").Funcs(tr.funcs)

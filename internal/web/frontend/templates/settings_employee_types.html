@@ -3,5 +3,27 @@
 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
   Define the employee types available in user profiles. Each type has a value (stored in LDAP), a display label, and an emoji indicator.
 </p>
-<p class="text-sm text-gray-500 dark:text-gray-400">Not yet implemented.</p>
+
+<div id="employee-types-list" hx-get="/settings/employee-types/list" hx-trigger="load" hx-swap="innerHTML">
+  <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+</div>
+
+<div class="mt-4 pt-4 border-t dark:border-gray-700">
+  <h3 class="text-sm font-semibold mb-2">Add Type</h3>
+  <form hx-post="/settings/employee-types" hx-target="#employee-types-list" hx-swap="innerHTML" class="flex items-end gap-2">
+    <div>
+      <label class="label text-xs" for="et-emoji">Emoji</label>
+      <input type="text" id="et-emoji" name="emoji" class="input w-14 text-center" maxlength="4" required>
+    </div>
+    <div>
+      <label class="label text-xs" for="et-value">Value</label>
+      <input type="text" id="et-value" name="value" class="input w-28" placeholder="intern" required pattern="[a-z0-9_-]+">
+    </div>
+    <div>
+      <label class="label text-xs" for="et-label">Label</label>
+      <input type="text" id="et-label" name="label" class="input w-32" placeholder="Intern" required>
+    </div>
+    <button type="submit" class="btn btn-primary text-sm">Add</button>
+  </form>
+</div>
 {{end}}

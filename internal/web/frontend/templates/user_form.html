@@ -40,6 +40,15 @@
         <label class="label" for="loginShell">Login Shell</label>
         <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
       </div>
+      <div>
+        <label class="label" for="employeeType">Employee Type</label>
+        <select id="employeeType" name="employeeType" class="input">
+          <option value="">-- None --</option>
+          {{range .Content.EmployeeTypes}}
+          <option value="{{.Value}}" {{if eq $.Content.User.EmployeeType .Value}}selected{{end}}>{{.Emoji}} {{.Label}}</option>
+          {{end}}
+        </select>
+      </div>
     </div>
 
     {{if .Content.Error}}

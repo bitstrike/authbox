@@ -76,6 +76,7 @@ func (h *handlers) actionCreateUser(w http.ResponseWriter, r *http.Request) {
 		GIDNumber:     gidNum,
 		HomeDirectory: r.FormValue("homeDirectory"),
 		LoginShell:    r.FormValue("loginShell"),
+		EmployeeType:  r.FormValue("employeeType"),
 	}
 
 	if user.HomeDirectory == "" {
@@ -115,6 +116,7 @@ func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
 		GIDNumber:     gidNum,
 		HomeDirectory: r.FormValue("homeDirectory"),
 		LoginShell:    r.FormValue("loginShell"),
+		EmployeeType:  r.FormValue("employeeType"),
 	}
 
 	if err := h.deps.LDAP.UpdateUser(uid, user); err != nil {
