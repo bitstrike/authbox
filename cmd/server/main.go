@@ -117,7 +117,7 @@ func main() {
 			os.Exit(1)
 		}
 		roleLookup = appldap.NewRoleLookup(ldapClient)
-		authMiddleware = auth.TokenMiddleware(oidcAuth.Verifier(), roleLookup)
+		authMiddleware = auth.TokenMiddleware(oidcAuth.Verifier(), roleLookup, api.ValidateServiceToken)
 		log.Info("OIDC authentication configured", "issuer", cfg.OIDCIssuerURL)
 	} else {
 		log.Warn("OIDC not configured - API authentication disabled")

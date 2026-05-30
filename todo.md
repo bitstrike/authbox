@@ -412,3 +412,14 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Register `POST /fido2/credentials/{id}/revoke` in appropriate route group
 - [x] Handler calls `repo.DeleteFIDO2CredentialByID(id)` and returns refreshed list partial
 - [x] Update partial to use frontend route instead of `/api/v1/fido2/credentials/{id}`
+
+## Fix: Service Account Tokens Not Accepted by API Middleware
+
+- [x] `TokenMiddleware` only validates OIDC tokens via `verifier.Verify()`
+- [x] When OIDC verification fails, it returns 401 with no fallback
+- [x] `ValidateServiceToken` in `token.go` exists but is never called by the middleware
+- [x] Service accounts can obtain tokens (`POST /oauth/token` works) but can't use them on any endpoint
+- [x] Fix: add fallback in `TokenMiddleware` - if OIDC verify fails, try `api.ValidateServiceToken(token)`
+- [x] If service token is valid, set claims (clientID as email/sub) and role from the token entry
+- [x] This requires `TokenMiddleware` to accept a service token validator function (avoid circular import between auth and api packages)
+- [x] Consider: pass a `func(string) (string, string, bool)` validator to `TokenMiddleware` as a parameter
