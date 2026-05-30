@@ -387,7 +387,7 @@ func (h *handlers) partialFIDO2List(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, c := range page {
 			fmt.Fprintf(w,
-				`<tr><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/fido2/credentials/%d" hx-target="closest .table-container" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
+				`<tr><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/fido2/credentials/%d/revoke" hx-target="closest .table-container" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
 				escHTML(c.UID), c.RegisteredAt, c.ID,
 			)
 		}
@@ -466,7 +466,7 @@ func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Requ
 	} else {
 		for _, sa := range page {
 			fmt.Fprintf(w,
-				`<tr><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-delete="/api/v1/service-accounts?client_id=%s" hx-target="closest .table-container" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
+				`<tr><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/service-accounts/%s/delete" hx-target="closest .table-container" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
 				escHTML(sa.ClientID), escHTML(sa.Description), sa.Role, sa.CreatedAt, sa.LastUsedAt, escHTML(sa.ClientID),
 			)
 		}

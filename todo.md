@@ -396,3 +396,19 @@
 - [x] Remove the SHA256 `hashSecret` function (dead code after fix)
 - [x] Verify API `createServiceAccount` in `serviceaccounts.go` already uses bcrypt (it does)
 - [ ] Any existing service accounts created via web UI will need to be recreated after fix
+
+## Fix: HTMX Delete Buttons Hit API (401 - no bearer token)
+
+Frontend HTMX buttons call API endpoints that require bearer tokens. Browser only sends session cookie.
+
+### Service Account Delete
+- [x] Add frontend handler for service account deletion (session-authenticated)
+- [x] Register `POST /service-accounts/{clientID}/delete` in admin route group
+- [x] Handler calls `repo.DeleteServiceAccount(clientID)` and returns refreshed list partial
+- [x] Update partial to use frontend route instead of `/api/v1/service-accounts`
+
+### FIDO2 Credential Revoke
+- [x] Add frontend handler for FIDO2 credential deletion (session-authenticated)
+- [x] Register `POST /fido2/credentials/{id}/revoke` in appropriate route group
+- [x] Handler calls `repo.DeleteFIDO2CredentialByID(id)` and returns refreshed list partial
+- [x] Update partial to use frontend route instead of `/api/v1/fido2/credentials/{id}`

@@ -53,11 +53,13 @@ func (f *Frontend) registerActions(r chi.Router) {
 
 	// FIDO2
 	r.Post("/fido2/register", f.h.actionRegisterFIDO2)
+	r.Post("/fido2/credentials/{id}/revoke", f.h.actionRevokeFIDO2)
 
 	// Service accounts (admin)
 	r.Group(func(r chi.Router) {
 		r.Use(requireFrontendRole(auth.RoleAdmin))
 		r.Post("/service-accounts", f.h.actionCreateServiceAccount)
+		r.Post("/service-accounts/{clientID}/delete", f.h.actionDeleteServiceAccount)
 	})
 }
 
@@ -486,4 +488,23 @@ func generateRandomHex(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func (h *handlers) actionDeleteServiceAccount(w http.ResponseWriter, r *http.Request) {
+	clientID := chi.URLParam(r, "clientID")
+	h.deps.Repo.DeleteServiceAccount(clientID)
+	// Return refreshed list
+	h.partialServiceAccountList(w, r)
+}
+
+func (h *handlers) actionRevokeFIDO2(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	h.deps.Repo.DeleteFIDO2CredentialByID(id)
+	// Return refreshed list
+	h.partialFIDO2List(w, r)
 }
