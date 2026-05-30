@@ -1,19 +1,21 @@
 // config.go implements the REST API handlers for backup export and import.
 // Export produces a gzipped tar archive containing the LDAP directory, cn=config,
-// FIDO2 mappings, and SQLite state. Import restores from an archive with
-// confirmation required via X-Confirm header.
+// FIDO2 mappings, and SQLite state. Import stages LDIF files for restore on
+// container restart and restores SQLite state immediately.
 package api
 
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/authbox/authbox/internal/backup"
 	"github.com/authbox/authbox/internal/constants"
 )
 
 const slapcatPath = "/usr/sbin/slapcat"
-const slapaddPath = "/usr/sbin/slapadd"
+const restoreDir = "/data/live-restore"
 
 func (a *API) exportConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/gzip")
@@ -43,27 +45,42 @@ func (a *API) importConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Restore LDAP directory
-	if err := backup.RestoreLDAP(slapaddPath, data.DirectoryLDIF, ""); err != nil {
-		respondError(w, http.StatusInternalServerError, "LDAP_RESTORE_FAILED", err.Error())
+	// Stage LDIF files for restore on next startup
+	if err := os.MkdirAll(restoreDir, 0750); err != nil {
+		respondError(w, http.StatusInternalServerError, "STAGE_FAILED", "failed to create restore directory: "+err.Error())
 		return
 	}
 
-	// Restore cn=config
-	if err := backup.RestoreLDAP(slapaddPath, data.ConfigLDIF, "cn=config"); err != nil {
-		respondError(w, http.StatusInternalServerError, "CONFIG_RESTORE_FAILED", err.Error())
-		return
+	if len(data.DirectoryLDIF) > 0 {
+		if err := os.WriteFile(restoreDir+"/directory.ldif", data.DirectoryLDIF, 0640); err != nil {
+			respondError(w, http.StatusInternalServerError, "STAGE_FAILED", "failed to write directory LDIF: "+err.Error())
+			return
+		}
 	}
 
-	// Restore application state
+	if len(data.ConfigLDIF) > 0 {
+		if err := os.WriteFile(restoreDir+"/config.ldif", data.ConfigLDIF, 0640); err != nil {
+			respondError(w, http.StatusInternalServerError, "STAGE_FAILED", "failed to write config LDIF: "+err.Error())
+			return
+		}
+	}
+
+	// Restore application state immediately
 	if err := backup.RestoreState(a.repo, &data.State); err != nil {
 		respondError(w, http.StatusInternalServerError, "STATE_RESTORE_FAILED", err.Error())
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]any{
-		"message":  "import complete",
+		"message":  "restore staged, container restarting",
+		"restart":  true,
 		"version":  data.Meta.Version,
 		"exported": data.Meta.CreatedAt,
 	})
+
+	// Exit to trigger container restart; entrypoint will apply the staged LDIF
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(0)
+	}()
 }

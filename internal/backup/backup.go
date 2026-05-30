@@ -160,6 +160,8 @@ func RestoreState(repo *db.Repository, state *ExportData) error {
 }
 
 // RestoreLDAP runs slapadd to restore LDAP data from LDIF.
+// Currently unused - the live-restore pattern stages files for the entrypoint
+// to apply on restart. Kept as a utility for integration tests or future CLI tools.
 func RestoreLDAP(slapaddPath string, ldifData []byte, configDB string) error {
 	if len(ldifData) == 0 {
 		return nil

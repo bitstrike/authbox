@@ -288,3 +288,21 @@
 - [x] If rollback also fails: log critical error directing operator to investigate disk/permissions
 - [x] On successful import: keep pre-import backup in `/data/backups/` as rollback point
 - [x] On failed import with successful rollback: rename staged files to `.failed` to prevent retry loop
+
+## API Import Endpoint: Switch to Staged Pattern
+
+- [x] Update `POST /api/v1/config/import` to use the same live-restore staging as the frontend
+- [x] Validate archive and `X-Confirm: yesiagree` header (already done)
+- [x] Stage LDIFs to `/data/live-restore/` instead of calling slapadd directly
+- [x] Restore SQLite state immediately
+- [x] Return `200 { "message": "restore staged, container restarting", "restart": true }`
+- [x] Exit process after short delay (same as frontend handler)
+
+## Add Logger to Frontend Deps
+
+- [ ] Add `Log *logging.Logger` field to `frontend.Deps` struct
+- [ ] Pass logger from `main.go` when constructing Deps
+- [ ] Log import events: "backup import started" (with user email), "staging LDIF files", "sqlite state restored, triggering restart"
+- [ ] Log disable/enable user events (who disabled/enabled whom)
+- [ ] Call `file.Sync()` before `os.Exit` in import handler to ensure log flush
+- [ ] Entrypoint already logs restore steps via echo (no change needed there)

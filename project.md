@@ -144,7 +144,7 @@ List endpoints accept `?offset=0&limit=50` query parameters. Default limit is 50
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/v1/ssh/sign` | Sign a public key, return SSH certificate |
-| `GET /api/v1/ssh/ca.pub` | Return CA public key (unauthenticated) |
+| `GET /api/v1/ssh/ca.pub` | Return CA public key (unauthenticated, also used as health check) |
 | `GET /api/v1/ssh/certs` | List issued certificates (audit) |
 | `POST /api/v1/users` | Create user in LDAP |
 | `GET /api/v1/users` | List users |
