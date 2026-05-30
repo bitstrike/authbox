@@ -315,9 +315,9 @@
 - [x] Write `employeeType` in `CreateUser` and `UpdateUser` (if non-empty)
 - [x] Add `<select>` dropdown to `user_form.html` populated dynamically from DB
 - [x] Display colored dot or short badge in user list partial (emoji from DB)
-- [ ] Support `employeeType` in bulk CSV/JSON import
-- [ ] Add employeeType filter option to user list (like existing status filter)
-- [ ] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
+- [x] Support `employeeType` in bulk CSV/JSON import
+- [x] Add employeeType filter option to user list (like existing status filter)
+- [x] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
 - [ ] Update project.md with employeeType documentation
 - [ ] Update README if needed
 

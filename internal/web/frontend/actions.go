@@ -198,6 +198,10 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 			if len(rec) > 7 {
 				shell = rec[7]
 			}
+			employeeType := ""
+			if len(rec) > 8 {
+				employeeType = rec[8]
+			}
 			users = append(users, ldap.User{
 				UID:           rec[0],
 				GivenName:     rec[1],
@@ -208,6 +212,7 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 				GIDNumber:     gidNum,
 				HomeDirectory: homeDir,
 				LoginShell:    shell,
+				EmployeeType:  employeeType,
 			})
 		}
 	}

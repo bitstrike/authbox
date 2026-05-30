@@ -101,6 +101,7 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 
 	state := ParseTableState(r, "uid")
 	status := r.URL.Query().Get("status")
+	typeFilter := r.URL.Query().Get("type")
 
 	users, _, err := h.deps.LDAP.ListUsers(0, 1000)
 	if err != nil {
@@ -131,6 +132,9 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if status == "disabled" && !u.Disabled {
+			continue
+		}
+		if typeFilter != "" && u.EmployeeType != typeFilter {
 			continue
 		}
 		if q != "" {

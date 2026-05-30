@@ -17,6 +17,7 @@ type DashboardStats struct {
 	TotalUsers    int
 	ActiveUsers   int
 	DisabledUsers int
+	Contacts      int
 	GroupsTotal   int
 	GroupsPosix   int
 	GroupsRole    int
@@ -35,7 +36,9 @@ func (h *handlers) gatherDashboardStats() DashboardStats {
 	if err == nil {
 		stats.TotalUsers = len(users)
 		for _, u := range users {
-			if u.Disabled {
+			if u.EmployeeType == "contact" {
+				stats.Contacts++
+			} else if u.Disabled {
 				stats.DisabledUsers++
 			} else {
 				stats.ActiveUsers++

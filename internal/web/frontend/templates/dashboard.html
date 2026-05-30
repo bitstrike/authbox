@@ -15,6 +15,12 @@
     <div class="text-sm text-gray-500 dark:text-gray-400">Disabled Users</div>
     <div class="text-2xl font-bold">{{.Content.DisabledUsers}}</div>
   </div>
+  {{if .Content.Contacts}}
+  <div class="card">
+    <div class="text-sm text-gray-500 dark:text-gray-400">Contacts</div>
+    <div class="text-2xl font-bold">{{.Content.Contacts}}</div>
+  </div>
+  {{end}}
   <div class="card">
     <div class="text-sm text-gray-500 dark:text-gray-400">Groups</div>
     <div class="text-2xl font-bold">{{.Content.GroupsTotal}}</div>
