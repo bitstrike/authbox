@@ -313,13 +313,32 @@
 - [ ] Include `"employeeType"` in LDAP search attribute lists (GetUser, ListUsers)
 - [ ] Read `employeeType` in `entryToUser`
 - [ ] Write `employeeType` in `CreateUser` and `UpdateUser` (if non-empty)
-- [ ] Add `<select>` dropdown to `user_form.html` with values: (empty), employee, contractor, contact
-- [ ] Display colored dot or short badge in user list partial (blue=employee, orange=contractor, gray=contact)
+- [ ] Add `<select>` dropdown to `user_form.html` populated dynamically from DB
+- [ ] Display colored dot or short badge in user list partial (emoji from DB)
 - [ ] Support `employeeType` in bulk CSV/JSON import
 - [ ] Add employeeType filter option to user list (like existing status filter)
 - [ ] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
 - [ ] Update project.md with employeeType documentation
 - [ ] Update README if needed
+
+### Employee Types SQLite Storage
+
+- [x] Create `employee_types` table: id, value (UNIQUE), label, emoji, sort_order
+- [x] Migration seeds 4 defaults: contractor =👷, employee = 👤, service = 🤖, contact = 🪪
+- [x] Use `INSERT OR IGNORE` so seeding is idempotent (skipped if types already exist)
+- [x] Repository methods: ListEmployeeTypes, CreateEmployeeType, DeleteEmployeeType, UpdateEmployeeType
+- [x] Add `EmployeeTypes []db.EmployeeType` to `ExportData` struct
+- [x] Query employee_types in `exportAppState`
+- [x] Restore employee_types in `RestoreState` (INSERT OR REPLACE to merge with defaults)
+
+### Employee Types Settings UI
+
+- [ ] Implement `settings_employee_types.html` partial (replace placeholder)
+- [ ] Display table of current types: emoji, value, label, sort order, remove button
+- [ ] Add form: emoji input, value input, label input, Add button
+- [ ] HTMX inline add/remove (no full page reload)
+- [ ] Register POST route for add/delete actions
+- [ ] User form dropdown queries ListEmployeeTypes to populate options
 
 ## Settings Page Redesign (sidebar navigation)
 

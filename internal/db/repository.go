@@ -29,6 +29,14 @@ type SSHCert struct {
 	ExpiresAt time.Time
 }
 
+type EmployeeType struct {
+	ID        int    `json:"id"`
+	Value     string `json:"value"`
+	Label     string `json:"label"`
+	Emoji     string `json:"emoji"`
+	SortOrder int    `json:"sort_order"`
+}
+
 type FIDO2Credential struct {
 	ID             int
 	UID            string
@@ -240,4 +248,53 @@ func (r *Repository) CleanExpiredCerts(retentionDays int) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+// Employee type methods
+
+func (r *Repository) ListEmployeeTypes() ([]EmployeeType, error) {
+	rows, err := r.db.Query("SELECT id, value, label, emoji, sort_order FROM employee_types ORDER BY sort_order ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var types []EmployeeType
+	for rows.Next() {
+		var t EmployeeType
+		if err := rows.Scan(&t.ID, &t.Value, &t.Label, &t.Emoji, &t.SortOrder); err != nil {
+			return nil, err
+		}
+		types = append(types, t)
+	}
+	return types, rows.Err()
+}
+
+func (r *Repository) CreateEmployeeType(et *EmployeeType) error {
+	_, err := r.db.Exec(
+		"INSERT INTO employee_types (value, label, emoji, sort_order) VALUES (?, ?, ?, ?)",
+		et.Value, et.Label, et.Emoji, et.SortOrder,
+	)
+	return err
+}
+
+func (r *Repository) UpdateEmployeeType(et *EmployeeType) error {
+	_, err := r.db.Exec(
+		"UPDATE employee_types SET label = ?, emoji = ?, sort_order = ? WHERE value = ?",
+		et.Label, et.Emoji, et.SortOrder, et.Value,
+	)
+	return err
+}
+
+func (r *Repository) DeleteEmployeeType(value string) error {
+	_, err := r.db.Exec("DELETE FROM employee_types WHERE value = ?", value)
+	return err
+}
+
+func (r *Repository) UpsertEmployeeType(et *EmployeeType) error {
+	_, err := r.db.Exec(
+		"INSERT OR REPLACE INTO employee_types (value, label, emoji, sort_order) VALUES (?, ?, ?, ?)",
+		et.Value, et.Label, et.Emoji, et.SortOrder,
+	)
+	return err
 }

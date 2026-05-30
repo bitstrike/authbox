@@ -95,6 +95,17 @@ func (db *DB) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_sync_log_version ON sync_log(version)`,
 		`CREATE INDEX IF NOT EXISTS idx_fido2_uid ON fido2_credentials(uid)`,
 		`CREATE INDEX IF NOT EXISTS idx_ssh_certs_username ON ssh_certs(username)`,
+		`CREATE TABLE IF NOT EXISTS employee_types (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			value TEXT UNIQUE NOT NULL,
+			label TEXT NOT NULL,
+			emoji TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER NOT NULL DEFAULT 0
+		)`,
+		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('employee', 'Employee', '👤', 1)`,
+		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('contractor', 'Contractor', '👷', 2)`,
+		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('service', 'Service', '🤖', 3)`,
+		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('contact', 'Contact', '🪪', 4)`,
 	}
 
 	for _, m := range migrations {

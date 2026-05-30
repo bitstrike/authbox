@@ -33,6 +33,7 @@ type ExportData struct {
 	FIDO2           []db.FIDO2Credential  `json:"fido2_credentials"`
 	ServiceAccounts []db.ServiceAccount   `json:"service_accounts"`
 	SSHCerts        []db.SSHCert          `json:"ssh_certs"`
+	EmployeeTypes   []db.EmployeeType     `json:"employee_types"`
 }
 
 const (
@@ -156,6 +157,11 @@ func RestoreState(repo *db.Repository, state *ExportData) error {
 			return fmt.Errorf("restoring service account: %w", err)
 		}
 	}
+	for i := range state.EmployeeTypes {
+		if err := repo.UpsertEmployeeType(&state.EmployeeTypes[i]); err != nil {
+			return fmt.Errorf("restoring employee type: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -274,11 +280,17 @@ func exportAppState(repo *db.Repository, meta Export) (*ExportData, error) {
 		return nil, err
 	}
 
+	employeeTypes, err := repo.ListEmployeeTypes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ExportData{
 		Meta:            meta,
 		FIDO2:           fido2,
 		ServiceAccounts: accounts,
 		SSHCerts:        certs,
+		EmployeeTypes:   employeeTypes,
 	}, nil
 }
 
