@@ -7,7 +7,6 @@ package frontend
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +21,7 @@ import (
 	"github.com/authbox/authbox/internal/db"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // registerActions adds POST/PUT/DELETE form action routes.
@@ -453,9 +453,15 @@ func (h *handlers) actionCreateServiceAccount(w http.ResponseWriter, r *http.Req
 	clientID := generateRandomHex(16)
 	clientSecret := generateRandomHex(32)
 
-	err := h.deps.Repo.CreateServiceAccount(&db.ServiceAccount{
+	hash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "failed to hash secret", http.StatusInternalServerError)
+		return
+	}
+
+	err = h.deps.Repo.CreateServiceAccount(&db.ServiceAccount{
 		ClientID:         clientID,
-		ClientSecretHash: hashSecret(clientSecret),
+		ClientSecretHash: string(hash),
 		Description:      description,
 		Role:             role,
 	})
@@ -480,9 +486,4 @@ func generateRandomHex(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-func hashSecret(secret string) string {
-	h := sha256.Sum256([]byte(secret))
-	return hex.EncodeToString(h[:])
 }

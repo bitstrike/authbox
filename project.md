@@ -62,6 +62,7 @@ The Go app manages OpenLDAP's `cn=config` directly via LDAP protocol on localhos
 - OAuth2 client credentials grant for headless/server-to-server use
 - An admin creates a service account via the web UI (OIDC-authenticated)
 - Platform generates a client_id and client_secret, shown once at creation time
+- client_secret is stored as a bcrypt hash (never retrievable after creation)
 - Admin stores the secret in the service's environment (env var, secrets manager, etc.)
 - The service exchanges client_id + client_secret for a bearer token, no browser needed
 - Scoped permissions (which principals/operations a service account can request)

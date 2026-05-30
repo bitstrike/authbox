@@ -386,3 +386,13 @@
 - [x] On conflict, re-render form with error message (same pattern as API's 409 response)
 - [x] Pre-fill should also check GID against groups (not just users) to avoid UID=GID collision with existing posixGroup
 - [x] Consider race condition: if two admins submit simultaneously, LDAP itself should reject the duplicate (belt and suspenders)
+
+## Fix: Service Account Secret Hash Mismatch
+
+- [x] Frontend `actionCreateServiceAccount` uses SHA256 (`hashSecret`) to hash the client_secret
+- [x] Token endpoint `tokenHandler` uses bcrypt (`bcrypt.CompareHashAndPassword`) to verify
+- [x] These are incompatible - service accounts created via web UI can never authenticate
+- [x] Fix: change `hashSecret()` in `actions.go` to use `bcrypt.GenerateFromPassword`
+- [x] Remove the SHA256 `hashSecret` function (dead code after fix)
+- [x] Verify API `createServiceAccount` in `serviceaccounts.go` already uses bcrypt (it does)
+- [ ] Any existing service accounts created via web UI will need to be recreated after fix
