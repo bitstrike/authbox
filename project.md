@@ -157,7 +157,7 @@ List endpoints accept `?offset=0&limit=50` query parameters. Default limit is 50
 | `POST /api/v1/fido2/register` | Register a FIDO2 credential for a user |
 | `GET /api/v1/fido2/credentials/{uid}` | Get credential mappings for a user |
 | `GET /api/v1/config/export` | Export LDAP config and directory for backup |
-| `POST /api/v1/config/import` | Import config to rebuild directory |
+| `POST /api/v1/config/import` | Stage restore and restart container (returns `restart: true`) |
 
 ### Internal Sync Endpoints (container-to-container only)
 
