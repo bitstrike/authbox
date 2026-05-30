@@ -435,3 +435,4 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Only allow deletion of disabled accounts (reject if user is not disabled)
 - [x] Add `DELETE /api/v1/users/{uid}` API endpoint (admin role, same validation)
 - [x] Log deletion event (who deleted whom)
+
