@@ -489,8 +489,8 @@ Server-side flash messages rendered as a colored top-bar notification (AWS conso
 
 Importing an archive exported from the same instance fails because `RestoreState` inserts rows that already exist.
 
-- [ ] In `RestoreState`, truncate tables before inserting: `DELETE FROM service_accounts`, `DELETE FROM fido2_credentials`, `DELETE FROM ssh_certs`
-- [ ] Employee types already use upsert (`UpsertEmployeeType`) so no change needed there
+- [x] In `RestoreState`, truncate tables before inserting: `DELETE FROM service_accounts`, `DELETE FROM fido2_credentials`, `DELETE FROM ssh_certs`
+- [x] Employee types already use upsert (`UpsertEmployeeType`) so no change needed there
 - [ ] Verify round-trip: export, then import on same instance without error
 - [ ] Backup > Export should flash error/success
 

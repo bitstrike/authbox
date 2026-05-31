@@ -52,6 +52,17 @@ func NewRepository(database *DB) *Repository {
 	return &Repository{db: database.Conn()}
 }
 
+// TruncateForRestore clears tables that will be repopulated during a restore.
+func (r *Repository) TruncateForRestore() error {
+	tables := []string{"fido2_credentials", "service_accounts", "ssh_certs"}
+	for _, t := range tables {
+		if _, err := r.db.Exec("DELETE FROM " + t); err != nil {
+			return fmt.Errorf("truncating %s: %w", t, err)
+		}
+	}
+	return nil
+}
+
 func (r *Repository) CreateServiceAccount(sa *ServiceAccount) error {
 	_, err := r.db.Exec(
 		"INSERT INTO service_accounts (client_id, client_secret_hash, description, role) VALUES (?, ?, ?, ?)",

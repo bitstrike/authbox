@@ -146,7 +146,11 @@ type ImportData struct {
 }
 
 // RestoreState imports application state into the database.
+// Truncates existing data in restored tables to avoid UNIQUE constraint conflicts.
 func RestoreState(repo *db.Repository, state *ExportData) error {
+	if err := repo.TruncateForRestore(); err != nil {
+		return fmt.Errorf("truncating tables: %w", err)
+	}
 	for i := range state.FIDO2 {
 		if err := repo.CreateFIDO2Credential(&state.FIDO2[i]); err != nil {
 			return fmt.Errorf("restoring fido2 credential: %w", err)
