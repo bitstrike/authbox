@@ -494,6 +494,25 @@ Importing an archive exported from the same instance fails because `RestoreState
 - [ ] Verify round-trip: export, then import on same instance without error
 - [ ] Backup > Export should flash error/success
 
+## Fix: CSV Import - Contact Type and UID/GID Validation
+
+### CreateUser: support inetOrgPerson-only entries (no posixAccount)
+- [x] If UIDNumber == 0 and GIDNumber == 0, use objectClass `["top", "inetOrgPerson"]` (skip posixAccount)
+- [x] Skip uidNumber, gidNumber, homeDirectory, loginShell attributes when not posixAccount
+- [x] This allows contacts to be created without posix fields
+
+### Import: UID/GID range validation
+- [x] Read configured UID/GID range (from config) at start of import
+- [x] For non-contact rows: validate UID/GID are within configured range
+- [x] For contact rows: allow empty UID/GID (skip range check)
+- [x] If any row fails validation, abort entire import (no partial imports)
+- [x] Collect all validation errors and flash them (e.g., "Row 3: UID 500 outside range 10000-60000")
+
+### Import: contact-type handling
+- [x] If employeeType is "contact" and UID/GID are empty, set UIDNumber=0 and GIDNumber=0
+- [x] If employeeType is "contact", force loginShell to `/sbin/nologin` regardless of CSV value
+- [x] If employeeType is "contact", allow empty homeDirectory
+
 
 
 ## Phone Number Attributes (inetOrgPerson)

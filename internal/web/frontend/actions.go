@@ -270,7 +270,12 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+
 	var users []ldap.User
+	var errors []string
+
 	if strings.HasSuffix(header.Filename, ".json") {
 		data, _ := io.ReadAll(file)
 		json.Unmarshal(data, &users)
@@ -298,6 +303,25 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 			if len(rec) > 8 {
 				employeeType = rec[8]
 			}
+
+			// Contact-type handling
+			if employeeType == "contact" {
+				uidNum = 0
+				gidNum = 0
+				homeDir = ""
+				shell = "/sbin/nologin"
+			}
+
+			// UID/GID range validation for non-contact types
+			if employeeType != "contact" {
+				if uidNum < rangeStart || uidNum > rangeEnd {
+					errors = append(errors, fmt.Sprintf("Row %d: UID %d outside range %d-%d", i+1, uidNum, rangeStart, rangeEnd))
+				}
+				if gidNum < rangeStart || gidNum > rangeEnd {
+					errors = append(errors, fmt.Sprintf("Row %d: GID %d outside range %d-%d", i+1, gidNum, rangeStart, rangeEnd))
+				}
+			}
+
 			users = append(users, ldap.User{
 				UID:           rec[0],
 				GivenName:     rec[1],
@@ -311,6 +335,13 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 				EmployeeType:  employeeType,
 			})
 		}
+	}
+
+	// Abort if validation errors
+	if len(errors) > 0 {
+		flash.Set(w, flash.Error, "Import aborted: "+strings.Join(errors, "; "))
+		http.Redirect(w, r, "/users/import", http.StatusFound)
+		return
 	}
 
 	for i := range users {

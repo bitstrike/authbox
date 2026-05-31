@@ -27,7 +27,13 @@ type User struct {
 func (c *Client) CreateUser(u *User) error {
 	dn := fmt.Sprintf("uid=%s,ou=people,%s", u.UID, c.baseDN)
 	req := goldap.NewAddRequest(dn, nil)
-	req.Attribute("objectClass", []string{"top", "inetOrgPerson", "posixAccount"})
+
+	if u.UIDNumber > 0 && u.GIDNumber > 0 {
+		req.Attribute("objectClass", []string{"top", "inetOrgPerson", "posixAccount"})
+	} else {
+		req.Attribute("objectClass", []string{"top", "inetOrgPerson"})
+	}
+
 	req.Attribute("uid", []string{u.UID})
 	req.Attribute("cn", []string{u.CN})
 	req.Attribute("sn", []string{u.SN})
@@ -37,10 +43,12 @@ func (c *Client) CreateUser(u *User) error {
 	if u.Mail != "" {
 		req.Attribute("mail", []string{u.Mail})
 	}
-	req.Attribute("uidNumber", []string{strconv.Itoa(u.UIDNumber)})
-	req.Attribute("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
-	req.Attribute("homeDirectory", []string{u.HomeDirectory})
-	req.Attribute("loginShell", []string{u.LoginShell})
+	if u.UIDNumber > 0 && u.GIDNumber > 0 {
+		req.Attribute("uidNumber", []string{strconv.Itoa(u.UIDNumber)})
+		req.Attribute("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
+		req.Attribute("homeDirectory", []string{u.HomeDirectory})
+		req.Attribute("loginShell", []string{u.LoginShell})
+	}
 	if u.EmployeeType != "" {
 		req.Attribute("employeeType", []string{u.EmployeeType})
 	}
