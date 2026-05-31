@@ -319,6 +319,7 @@
 - [x] Support `employeeType` in bulk CSV/JSON import
 - [x] Add employeeType filter option to user list (like existing status filter)
 - [x] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
+- [x] Change `ListUsers` LDAP filter from `(objectClass=posixAccount)` to `(objectClass=inetOrgPerson)` so contacts appear in user list
 - [ ] Update project.md with employeeType documentation
 - [ ] Update README if needed
 

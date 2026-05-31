@@ -103,7 +103,7 @@ func (c *Client) ListUsers(offset, limit int) ([]User, int, error) {
 		goldap.ScopeSingleLevel,
 		goldap.NeverDerefAliases,
 		0, 0, false,
-		"(objectClass=posixAccount)",
+		"(objectClass=inetOrgPerson)",
 		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType", "telephoneNumber", "mobile", "homePhone", "facsimileTelephoneNumber", "pager"},
 		nil,
 	)

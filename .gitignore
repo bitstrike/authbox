@@ -3,6 +3,7 @@
 /authbox
 *.exe
 .env
+vortex.csv
 
 /llm-examples/
 
