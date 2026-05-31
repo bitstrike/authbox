@@ -441,35 +441,64 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Delete button: move button to its own line below the input (not inline flex)
 - [x] Delete button: change class from `btn btn-secondary text-sm text-red-600` to `btn btn-danger` (matches Import button)
 - [x] Delete button: remove `flex items-end gap-2` wrapper, use `mb-4` spacing between input and button
+- [ ] Add Flash notification when delete user
 
-## Flash Notification System
+## Flash Notification System (Flash package)
 
 Server-side flash messages rendered as a colored top-bar notification (AWS console style).
 
 ### Infrastructure
-- [ ] Add `Flash` struct (Type: success/error/warning, Message string) to session data
-- [ ] Add `setFlash(w, r, type, message)` helper that writes flash to session
-- [ ] Add `getFlash(w, r)` helper that reads and clears flash from session (one-time read)
-- [ ] Add `Flash` field to base `PageData` struct
-- [ ] Populate `Flash` in the base page data builder (call `getFlash` on every page render)
+- [x] Add `Flash` struct (Type: success/error/warning, Message string) to session data
+- [x] Add `setFlash(w, r, type, message)` helper that writes flash to session
+- [x] Add `getFlash(w, r)` helper that reads and clears flash from session (one-time read)
+- [x] Add `Flash` field to base `PageData` struct
+- [x] Populate `Flash` in the base page data builder (call `getFlash` on every page render)
 
 ### Template and CSS
-- [ ] Add notification markup to base layout (renders above `<main>` content when Flash is set)
-- [ ] CSS: `.notification` base class (full-width bar, padding, flex with text + close button)
-- [ ] CSS: `.notification-success` (green background, white text)
-- [ ] CSS: `.notification-error` (red background, white text)
-- [ ] CSS: `.notification-warning` (yellow/orange background, dark text)
-- [ ] CSS: dark mode variants for all three types
-- [ ] Close button (X) to dismiss manually
-- [ ] JS: auto-dismiss after 5 seconds (fade-out animation, then remove from DOM)
+- [x] Add notification markup to base layout (renders above `<main>` content when Flash is set)
+- [x] CSS: `.notification` base class (full-width bar, padding, flex with text + close button)
+- [x] CSS: `.notification-success` (green background, white text)
+- [x] CSS: `.notification-error` (red background, white text)
+- [x] CSS: `.notification-warning` (yellow/orange background, dark text)
+- [x] CSS: dark mode variants for all three types
+- [x] Close button (X) to dismiss manually
+- [x] JS: auto-dismiss after 5 seconds (fade-out animation, then remove from DOM)
 
 ### Adopt in Handlers
-- [ ] Delete user: flash success "User {uid} deleted" before redirect to /users
-- [ ] Enable user: flash success "User {uid} enabled"
-- [ ] Disable user: flash success "User {uid} disabled"
-- [ ] Create user: flash success "User {uid} created"
-- [ ] Backup import: flash success "Restore staged, container restarting"
-- [ ] Service account delete: flash success "Service account {clientID} deleted"
-- [ ] FIDO2 credential revoke: flash success "Credential revoked for {uid}"
+- [x] Delete user: flash success "User {uid} deleted" before redirect to /users
+- [x] Enable user: flash success "User {uid} enabled"
+- [x] Disable user: flash success "User {uid} disabled"
+- [x] Create user: flash success "User {uid} created"
+- [ ] Backup import: flash success "Restore staged, container restarting" (deferred - container exits immediately, current inline message is sufficient)
+- [x] Service account delete: flash success "Service account deleted" (via HX-Trigger)
+- [x] FIDO2 credential revoke: flash success "FIDO2 credential revoked" (via HX-Trigger)
+- [x] Group create/update/delete: flash success messages
+- [x] Bulk import: flash success "{n} users imported"
+- [x] FIDO2 register: flash success "FIDO2 credential registered for {uid}"
 
 
+
+## Phone Number Attributes (inetOrgPerson)
+
+Add support for standard LDAP phone attributes: telephoneNumber (work), mobile (cell), homePhone, facsimileTelephoneNumber (fax), pager.
+
+### User Struct and LDAP Operations
+- [ ] Add fields to `User` struct: `TelephoneNumber`, `Mobile`, `HomePhone`, `Fax`, `Pager` (all `string`)
+- [ ] Add attributes to LDAP search lists in `GetUser` and `ListUsers`
+- [ ] Read attributes in `entryToUser`
+- [ ] Write attributes in `CreateUser` (if non-empty)
+- [ ] Write attributes in `UpdateUser` (if non-empty, replace; if empty, delete attribute)
+
+### User Form
+- [ ] Add "Phone Numbers" field group to `user_form.html` (below email, above employeeType)
+- [ ] Fields: Work Phone, Mobile, Home Phone, Fax, Pager (all optional text inputs)
+- [ ] Hide phone fields when employeeType is "contact" (same toggle as posix fields) - or keep visible? Decide.
+
+### Frontend Handler
+- [ ] Read phone form values in `actionCreateUser` and `actionUpdateUser`
+- [ ] Map form values to User struct fields before calling LDAP
+
+### Bulk Import
+- [ ] Add phone columns to CSV import (telephoneNumber, mobile, homePhone, fax, pager)
+- [ ] Add phone fields to JSON import schema
+- [ ] Document new columns in import instructions/help text

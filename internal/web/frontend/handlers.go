@@ -52,13 +52,13 @@ func newHandlers(deps *Deps) *handlers {
 // Dashboard
 func (h *handlers) dashboard(w http.ResponseWriter, r *http.Request) {
 	stats := h.gatherDashboardStats()
-	data := pageDataFromRequest(r, "Dashboard", stats)
+	data := pageDataFromRequest(w, r, "Dashboard", stats)
 	h.renderer.renderPage(w, "dashboard", data)
 }
 
 // Users list
 func (h *handlers) users(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "Users", nil)
+	data := pageDataFromRequest(w, r, "Users", nil)
 	h.renderer.renderPage(w, "users", data)
 }
 
@@ -92,7 +92,7 @@ func (h *handlers) userNew(w http.ResponseWriter, r *http.Request) {
 		UIDRangeStart: rangeStart,
 		UIDRangeEnd:   rangeEnd,
 	}
-	data := pageDataFromRequest(r, "Create User", content)
+	data := pageDataFromRequest(w, r, "Create User", content)
 	h.renderer.renderPage(w, "user_form", data)
 }
 
@@ -123,19 +123,19 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 		UIDRangeStart: rangeStart,
 		UIDRangeEnd:   rangeEnd,
 	}
-	data := pageDataFromRequest(r, "Edit User", content)
+	data := pageDataFromRequest(w, r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)
 }
 
 // User import page
 func (h *handlers) userImport(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "Bulk Import", nil)
+	data := pageDataFromRequest(w, r, "Bulk Import", nil)
 	h.renderer.renderPage(w, "user_import", data)
 }
 
 // Groups list
 func (h *handlers) groups(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "Groups", nil)
+	data := pageDataFromRequest(w, r, "Groups", nil)
 	h.renderer.renderPage(w, "groups", data)
 }
 
@@ -151,7 +151,7 @@ func (h *handlers) groupNew(w http.ResponseWriter, r *http.Request) {
 		IsEdit: false,
 		Action: "/groups",
 	}
-	data := pageDataFromRequest(r, "Create Group", content)
+	data := pageDataFromRequest(w, r, "Create Group", content)
 	h.renderer.renderPage(w, "group_form", data)
 }
 
@@ -175,19 +175,19 @@ func (h *handlers) groupEdit(w http.ResponseWriter, r *http.Request) {
 		Group:   *group,
 		Members: group.Members,
 	}
-	data := pageDataFromRequest(r, "Edit Group", content)
+	data := pageDataFromRequest(w, r, "Edit Group", content)
 	h.renderer.renderPage(w, "group_form", data)
 }
 
 // SSH certs page
 func (h *handlers) ssh(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "SSH Certificates", nil)
+	data := pageDataFromRequest(w, r, "SSH Certificates", nil)
 	h.renderer.renderPage(w, "ssh", data)
 }
 
 // FIDO2 page
 func (h *handlers) fido2(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "FIDO2 Keys", nil)
+	data := pageDataFromRequest(w, r, "FIDO2 Keys", nil)
 	h.renderer.renderPage(w, "fido2", data)
 }
 
@@ -197,19 +197,19 @@ func (h *handlers) serviceAccounts(w http.ResponseWriter, r *http.Request) {
 		NewSecret   string
 		NewClientID string
 	}{}
-	data := pageDataFromRequest(r, "Service Accounts", content)
+	data := pageDataFromRequest(w, r, "Service Accounts", content)
 	h.renderer.renderPage(w, "service_accounts", data)
 }
 
 // Logs page
 func (h *handlers) logs(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "Logs", nil)
+	data := pageDataFromRequest(w, r, "Logs", nil)
 	h.renderer.renderPage(w, "logs", data)
 }
 
 // Status page
 func (h *handlers) status(w http.ResponseWriter, r *http.Request) {
-	data := pageDataFromRequest(r, "System Status", nil)
+	data := pageDataFromRequest(w, r, "System Status", nil)
 	h.renderer.renderPage(w, "status", data)
 }
 
@@ -230,7 +230,7 @@ func (h *handlers) settings(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	sr.Render()
-	data := pageDataFromRequest(r, "Settings", template.HTML(buf.String()))
+	data := pageDataFromRequest(w, r, "Settings", template.HTML(buf.String()))
 	h.renderer.renderPage(w, "settings", data)
 }
 
@@ -248,7 +248,7 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	sr.Render()
-	data := pageDataFromRequest(r, "Backup", template.HTML(buf.String()))
+	data := pageDataFromRequest(w, r, "Backup", template.HTML(buf.String()))
 	h.renderer.renderPage(w, "backup", data)
 }
 

@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/flash"
 )
 
 //go:embed templates/*.html
@@ -27,7 +28,7 @@ type PageData struct {
 	IsAdmin     bool
 	IsOperator  bool
 	IsViewer    bool
-	Flash       string
+	Flash       *flash.Message
 	Content     any
 }
 
@@ -126,7 +127,7 @@ func (tr *templateRenderer) renderPartial(w http.ResponseWriter, name string, da
 	}
 }
 
-func pageDataFromRequest(r *http.Request, title string, content any) PageData {
+func pageDataFromRequest(w http.ResponseWriter, r *http.Request, title string, content any) PageData {
 	claims := auth.GetClaims(r.Context())
 	roles := auth.GetRoles(r.Context())
 	email := ""
@@ -141,6 +142,7 @@ func pageDataFromRequest(r *http.Request, title string, content any) PageData {
 		IsAdmin:     auth.HasRole(r.Context(), auth.RoleAdmin),
 		IsOperator:  auth.HasRole(r.Context(), auth.RoleOperator),
 		IsViewer:    auth.HasRole(r.Context(), auth.RoleViewer),
+		Flash:       flash.Get(w, r),
 		Content:     content,
 	}
 }

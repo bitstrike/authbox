@@ -19,6 +19,7 @@ import (
 
 	"github.com/authbox/authbox/internal/auth"
 	"github.com/authbox/authbox/internal/db"
+	"github.com/authbox/authbox/internal/flash"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -109,6 +110,7 @@ func (h *handlers) actionCreateUser(w http.ResponseWriter, r *http.Request) {
 		h.renderCreateUserError(w, r, user, err.Error())
 		return
 	}
+	flash.Set(w, flash.Success, "User "+user.UID+" created")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -125,7 +127,7 @@ func (h *handlers) renderCreateUserError(w http.ResponseWriter, r *http.Request,
 		UIDRangeStart int
 		UIDRangeEnd   int
 	}{false, "/users", *user, errMsg, employeeTypes, rangeStart, rangeEnd}
-	data := pageDataFromRequest(r, "Create User", content)
+	data := pageDataFromRequest(w, r, "Create User", content)
 	h.renderer.renderPage(w, "user_form", data)
 }
 
@@ -169,6 +171,7 @@ func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
 		h.renderEditUserError(w, r, uid, user, err.Error())
 		return
 	}
+	flash.Set(w, flash.Success, "User "+uid+" updated")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -185,7 +188,7 @@ func (h *handlers) renderEditUserError(w http.ResponseWriter, r *http.Request, u
 		UIDRangeStart int
 		UIDRangeEnd   int
 	}{true, "/users/" + uid, *user, errMsg, employeeTypes, rangeStart, rangeEnd}
-	data := pageDataFromRequest(r, "Edit User", content)
+	data := pageDataFromRequest(w, r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)
 }
 
@@ -220,6 +223,7 @@ func (h *handlers) actionDeleteUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "delete failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	flash.Set(w, flash.Success, "User "+uid+" deleted")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -234,6 +238,7 @@ func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
 	h.deps.LDAP.DisableUser(uid)
 	// Revoke FIDO2 credentials
 	h.deps.Repo.DeleteFIDO2Credentials(uid)
+	flash.Set(w, flash.Success, "User "+uid+" disabled")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -252,6 +257,7 @@ func (h *handlers) actionEnableUser(w http.ResponseWriter, r *http.Request) {
 	}
 	h.deps.Log.Info("user enabled", "uid", uid, "by", actor)
 	h.deps.LDAP.EnableUser(uid, "/bin/bash")
+	flash.Set(w, flash.Success, "User "+uid+" enabled")
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -310,6 +316,7 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 	for i := range users {
 		h.deps.LDAP.CreateUser(&users[i])
 	}
+	flash.Set(w, flash.Success, fmt.Sprintf("%d users imported", len(users)))
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -329,10 +336,11 @@ func (h *handlers) actionCreateGroup(w http.ResponseWriter, r *http.Request) {
 			Members []string
 			Error   string
 		}{false, "/groups", *group, nil, err.Error()}
-		data := pageDataFromRequest(r, "Create Group", content)
+		data := pageDataFromRequest(w, r, "Create Group", content)
 		h.renderer.renderPage(w, "group_form", data)
 		return
 	}
+	flash.Set(w, flash.Success, "Group "+group.CN+" created")
 	http.Redirect(w, r, "/groups", http.StatusFound)
 }
 
@@ -348,6 +356,7 @@ func (h *handlers) actionUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.deps.LDAP.UpdateGroupMembers(cn, cleaned)
+	flash.Set(w, flash.Success, "Group "+cn+" updated")
 	http.Redirect(w, r, "/groups", http.StatusFound)
 }
 
@@ -360,6 +369,7 @@ func (h *handlers) actionDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.deps.LDAP.DeleteGroup(cn)
+	flash.Set(w, flash.Success, "Group "+cn+" deleted")
 	http.Redirect(w, r, "/groups", http.StatusFound)
 }
 
@@ -473,6 +483,7 @@ func (h *handlers) actionRegisterFIDO2(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "registration failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	flash.Set(w, flash.Success, "FIDO2 credential registered for "+uid)
 	http.Redirect(w, r, "/fido2", http.StatusFound)
 }
 
@@ -515,7 +526,7 @@ func (h *handlers) actionCreateServiceAccount(w http.ResponseWriter, r *http.Req
 		NewSecret:   clientSecret,
 		NewClientID: clientID,
 	}
-	data := pageDataFromRequest(r, "Service Accounts", content)
+	data := pageDataFromRequest(w, r, "Service Accounts", content)
 	h.renderer.renderPage(w, "service_accounts", data)
 }
 
@@ -528,7 +539,7 @@ func generateRandomHex(n int) string {
 func (h *handlers) actionDeleteServiceAccount(w http.ResponseWriter, r *http.Request) {
 	clientID := chi.URLParam(r, "clientID")
 	h.deps.Repo.DeleteServiceAccount(clientID)
-	// Return refreshed list
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Service account deleted"}}`)
 	h.partialServiceAccountList(w, r)
 }
 
@@ -540,6 +551,6 @@ func (h *handlers) actionRevokeFIDO2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.deps.Repo.DeleteFIDO2CredentialByID(id)
-	// Return refreshed list
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"FIDO2 credential revoked"}}`)
 	h.partialFIDO2List(w, r)
 }

@@ -55,8 +55,9 @@
     <!-- Main content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {{if .Flash}}
-      <div class="mb-4 p-3 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm">
-        {{.Flash}}
+      <div class="flash flash-{{.Flash.Type}}" id="flash-notification">
+        <span>{{.Flash.Text}}</span>
+        <button onclick="this.parentElement.remove()" class="flash-close">&times;</button>
       </div>
       {{end}}
       {{template "content" .}}
@@ -69,6 +70,28 @@
       html.classList.toggle('dark');
       localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
     }
+    (function() {
+      var flash = document.getElementById('flash-notification');
+      if (flash) {
+        setTimeout(function() {
+          flash.style.opacity = '0';
+          setTimeout(function() { flash.remove(); }, 300);
+        }, 5000);
+      }
+    })();
+    document.body.addEventListener('showFlash', function(e) {
+      var d = e.detail;
+      var el = document.createElement('div');
+      el.className = 'flash flash-' + d.type;
+      el.id = 'flash-notification';
+      el.innerHTML = '<span>' + d.text + '</span><button onclick="this.parentElement.remove()" class="flash-close">&times;</button>';
+      var main = document.querySelector('main');
+      main.insertBefore(el, main.firstChild);
+      setTimeout(function() {
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 300);
+      }, 5000);
+    });
   </script>
 </body>
 </html>
