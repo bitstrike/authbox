@@ -539,3 +539,4 @@ Add support for standard LDAP phone attributes: telephoneNumber (work), mobile (
 - [ ] Add phone columns to CSV import (telephoneNumber, mobile, homePhone, fax, pager)
 - [ ] Add phone fields to JSON import schema
 - [ ] Document new columns in import instructions/help text
+- [ ] Empty phone fields are valid (optional attributes, skip writing to LDAP if blank)
