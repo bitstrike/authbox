@@ -139,10 +139,12 @@ func (c *Client) UpdateUser(uid string, u *User) error {
 	if u.Mail != "" {
 		req.Replace("mail", []string{u.Mail})
 	}
-	req.Replace("uidNumber", []string{strconv.Itoa(u.UIDNumber)})
-	req.Replace("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
-	req.Replace("homeDirectory", []string{u.HomeDirectory})
-	req.Replace("loginShell", []string{u.LoginShell})
+	if u.UIDNumber > 0 && u.GIDNumber > 0 {
+		req.Replace("uidNumber", []string{strconv.Itoa(u.UIDNumber)})
+		req.Replace("gidNumber", []string{strconv.Itoa(u.GIDNumber)})
+		req.Replace("homeDirectory", []string{u.HomeDirectory})
+		req.Replace("loginShell", []string{u.LoginShell})
+	}
 	if u.EmployeeType != "" {
 		req.Replace("employeeType", []string{u.EmployeeType})
 	}

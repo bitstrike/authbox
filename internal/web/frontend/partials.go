@@ -174,9 +174,13 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 			if emoji, ok := emojiMap[u.EmployeeType]; ok && emoji != "" {
 				typeBadge = emoji + " "
 			}
+			uidDisplay := fmt.Sprintf("%d", u.UIDNumber)
+			if u.EmployeeType == "contact" {
+				uidDisplay = "-"
+			}
 			fmt.Fprintf(w,
-				`<tr><td>%s%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
-				typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), u.UIDNumber, statusBadge, escHTML(u.UID),
+				`<tr><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
+				typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), uidDisplay, statusBadge, escHTML(u.UID),
 			)
 		}
 	}

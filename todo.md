@@ -502,6 +502,14 @@ Importing an archive exported from the same instance fails because `RestoreState
 - [x] Skip uidNumber, gidNumber, homeDirectory, loginShell attributes when not posixAccount
 - [x] This allows contacts to be created without posix fields
 
+### UpdateUser: skip posixAccount attributes for contacts
+- [x] If UIDNumber == 0 and GIDNumber == 0, skip Replace for uidNumber, gidNumber, homeDirectory, loginShell
+- [x] Prevents "Object Class Violation: attribute 'uidNumber' not allowed" on inetOrgPerson-only entries
+
+### User list: hide UID/GID for contacts
+- [x] In user list partial, display `-` for UID/GID columns when employeeType is "contact"
+- [x] Matches edit form behavior (posix fields hidden for contacts)
+
 ### Import: UID/GID range validation
 - [x] Read configured UID/GID range (from config) at start of import
 - [x] For non-contact rows: validate UID/GID are within configured range
@@ -542,3 +550,39 @@ Add support for standard LDAP phone attributes: telephoneNumber (work), mobile (
 - [x] Document new columns in import instructions/help text
 - [x] Empty phone fields are valid (optional attributes, skip writing to LDAP if blank)
 - [x] Update `samples/csv/users.csv` with phone number columns
+
+## Bulk Operations (TableRenderer checkbox selection)
+
+Add row selection checkboxes to the reusable TableRenderer with a bulk action bar.
+
+### TableRenderer Changes
+- [ ] Add `Selectable bool` option to table config
+- [ ] When enabled, render checkbox column as first column
+- [ ] Header checkbox toggles all visible rows (select all / deselect all)
+- [ ] JS: track selected row IDs in a Set, update count badge
+- [ ] "X selected" indicator appears when at least one row is checked
+- [ ] Bulk action bar appears above table when selections exist (hidden otherwise)
+- [ ] Each table page defines available bulk actions via config
+- [ ] Selected IDs submitted as JSON array to bulk action endpoint
+- [ ] Destructive bulk actions require "yesiagree" confirmation
+
+### User List Bulk Actions
+- [ ] Bulk disable (set nologin, revoke FIDO2 for all selected)
+- [ ] Bulk delete (only allowed for disabled accounts)
+- [ ] Bulk change employeeType
+- [ ] Bulk add to group
+- [ ] Bulk remove from group
+- [ ] Bulk export selected as CSV
+
+### Group List Bulk Actions
+- [ ] Bulk delete groups
+- [ ] Bulk add a user to all selected groups
+
+### SSH Certs Bulk Actions
+- [ ] Bulk delete expired/selected certs
+
+### FIDO2 Bulk Actions
+- [ ] Bulk revoke selected credentials
+
+### Service Accounts Bulk Actions
+- [ ] Bulk delete selected accounts
