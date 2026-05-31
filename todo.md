@@ -148,6 +148,35 @@
 - [x] Unit tests for backup round-trip, restore, cleanup
 - [ ] Plan integration test suite (tests/integration/)
 
+### New Unit Tests (recent changes)
+
+#### Flash package (`internal/flash/`)
+- [ ] `Set` writes cookie with correct format (type|message, URL-encoded)
+- [ ] `Get` reads and clears the cookie (returns message, cookie deleted after read)
+- [ ] `Get` returns nil when no cookie present
+- [ ] `Get` handles malformed cookie values gracefully (no panic)
+
+#### TruncateForRestore (`internal/db/`)
+- [ ] Truncates fido2_credentials, service_accounts, ssh_certs tables
+- [ ] Does not affect employee_types table
+- [ ] RestoreState succeeds on duplicate data after truncation (round-trip test)
+
+#### CSV import validation (`internal/web/frontend/`)
+- [ ] Contact-type rows: UID/GID forced to 0, shell forced to `/sbin/nologin`
+- [ ] Non-contact rows: UID/GID outside configured range rejected
+- [ ] Mixed valid/invalid rows: entire import aborted on any validation failure
+- [ ] Empty phone fields produce no LDAP attributes
+
+#### CreateUser conditional objectClass (`internal/ldap/`)
+- [ ] UID/GID > 0: request includes posixAccount objectClass and posix attributes
+- [ ] UID/GID == 0: request uses inetOrgPerson only, skips posix attributes
+- [ ] Phone attributes included only when non-empty
+
+#### UpdateUser conditional posix attributes (`internal/ldap/`)
+- [ ] UID/GID > 0: modify request includes posix attribute replacements
+- [ ] UID/GID == 0: modify request skips posix attributes
+- [ ] Phone attributes: non-empty values replaced, empty values cleared
+
 ## Tech Debt
 
 - [ ] Migrate existing hardcoded string literals to `internal/constants/constants.go` (shells, paths, time formats, route strings, defaults scattered across ldap/, web/api/, web/frontend/)
@@ -320,7 +349,7 @@
 - [x] Add employeeType filter option to user list (like existing status filter)
 - [x] Dashboard: add "Contacts" card showing count of inetOrgPerson entries without posixAccount (only shown if contacts exist)
 - [x] Change `ListUsers` LDAP filter from `(objectClass=posixAccount)` to `(objectClass=inetOrgPerson)` so contacts appear in user list
-- [ ] Update project.md with employeeType documentation
+- [x] Update project.md with employeeType documentation
 - [ ] Update README if needed
 
 ### Employee Types SQLite Storage
@@ -397,7 +426,7 @@
 - [x] Fix: change `hashSecret()` in `actions.go` to use `bcrypt.GenerateFromPassword`
 - [x] Remove the SHA256 `hashSecret` function (dead code after fix)
 - [x] Verify API `createServiceAccount` in `serviceaccounts.go` already uses bcrypt (it does)
-- [ ] Any existing service accounts created via web UI will need to be recreated after fix
+- [x] Any existing service accounts created via web UI will need to be recreated after fix
 
 ## Fix: HTMX Delete Buttons Hit API (401 - no bearer token)
 
@@ -442,7 +471,7 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Delete button: move button to its own line below the input (not inline flex)
 - [x] Delete button: change class from `btn btn-secondary text-sm text-red-600` to `btn btn-danger` (matches Import button)
 - [x] Delete button: remove `flex items-end gap-2` wrapper, use `mb-4` spacing between input and button
-- [ ] Add Flash notification when delete user
+- [x] Add Flash notification when delete user
 
 ## Flash Notification System (Flash package)
 
@@ -493,7 +522,7 @@ Importing an archive exported from the same instance fails because `RestoreState
 - [x] In `RestoreState`, truncate tables before inserting: `DELETE FROM service_accounts`, `DELETE FROM fido2_credentials`, `DELETE FROM ssh_certs`
 - [x] Employee types already use upsert (`UpsertEmployeeType`) so no change needed there
 - [ ] Verify round-trip: export, then import on same instance without error
-- [ ] Backup > Export should flash error/success
+- [x] Backup > Export should flash error/success
 
 ## Fix: CSV Import - Contact Type and UID/GID Validation
 

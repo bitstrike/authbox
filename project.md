@@ -92,6 +92,19 @@ The initial admin user (from `INITIAL_ADMIN_EMAIL`) is added to `cn=authbox-admi
 - Bulk import supported via API and web UI (CSV and JSON formats)
 - OIDC login is only permitted for users who already exist in the directory
 
+### Bulk Import Format
+
+CSV columns (header row required, phone columns optional):
+
+```
+uid,givenName,sn,mail,uidNumber,gidNumber,homeDirectory,loginShell,employeeType,telephoneNumber,mobile,homePhone,fax,pager
+```
+
+- For contact-type entries: leave uidNumber, gidNumber, homeDirectory empty. Shell is forced to `/sbin/nologin`.
+- For posix users: UID/GID must be within the configured range or the import is rejected.
+- Empty phone fields are valid (attributes not written to LDAP).
+- If any row fails validation, the entire import is aborted (no partial imports).
+
 ### UID/GID Assignment
 
 - uidNumber and gidNumber can be explicitly specified at user/group creation time
@@ -100,6 +113,35 @@ The initial admin user (from `INITIAL_ADMIN_EMAIL`) is added to `cn=authbox-admi
 - Responses always include the assigned uidNumber/gidNumber (whether explicit or auto-assigned)
 - UID/GID can be changed via the web UI or API (subject to the same uniqueness check)
 - Preferred workflow: disable users rather than delete (preserves file ownership resolution)
+
+### Employee Types
+
+Users are classified by `employeeType` attribute (stored in LDAP, managed via Settings UI):
+
+| Type | Emoji | Description |
+|---|---|---|
+| employee | 👤 | Standard user with posixAccount (UID/GID, shell, home directory) |
+| contractor | 👷 | External user with posixAccount |
+| service | 🤖 | Service/system account with posixAccount |
+| contact | 🪪 | Directory-only entry (inetOrgPerson without posixAccount) |
+
+Employee types are configurable via the Settings page (add/remove/reorder). The type determines:
+- **contact**: no posixAccount objectClass, no UID/GID/shell/home directory. Cannot log in. Used for address book entries.
+- **All others**: full posixAccount with UID/GID, home directory, and login shell.
+
+### Phone Number Attributes
+
+Standard inetOrgPerson phone attributes are supported for all user types:
+
+| Field | LDAP Attribute | Description |
+|---|---|---|
+| Work Phone | telephoneNumber | Business phone |
+| Mobile | mobile | Cell phone |
+| Home Phone | homePhone | Home phone |
+| Fax | facsimileTelephoneNumber | Fax number |
+| Pager | pager | Pager number |
+
+All phone fields are optional. Empty values are not written to LDAP. Clearing a phone field on update removes the attribute from the entry.
 
 ### User Deprovisioning
 
@@ -153,6 +195,7 @@ List endpoints accept `?offset=0&limit=50` query parameters. Default limit is 50
 
 | Endpoint | Purpose |
 |---|---|
+| `POST /oauth/token` | Client credentials grant (service account token issuance) |
 | `POST /api/v1/ssh/sign` | Sign a public key, return SSH certificate |
 | `GET /api/v1/ssh/ca.pub` | Return CA public key (unauthenticated, also used as health check) |
 | `GET /api/v1/ssh/certs` | List issued certificates (audit) |
@@ -160,12 +203,16 @@ List endpoints accept `?offset=0&limit=50` query parameters. Default limit is 50
 | `GET /api/v1/users` | List users |
 | `PUT /api/v1/users/{uid}` | Update user |
 | `POST /api/v1/users/{uid}/disable` | Disable user |
+| `POST /api/v1/users/{uid}/enable` | Re-enable user (admin only) |
+| `DELETE /api/v1/users/{uid}` | Delete user (admin only, must be disabled first) |
+| `POST /api/v1/users/import` | Bulk import users (CSV or JSON) |
 | `POST /api/v1/groups` | Create posixGroup or groupOfNames |
 | `GET /api/v1/groups` | List groups |
 | `PUT /api/v1/groups/{cn}` | Update group membership |
 | `DELETE /api/v1/groups/{cn}` | Remove group |
 | `POST /api/v1/fido2/register` | Register a FIDO2 credential for a user |
 | `GET /api/v1/fido2/credentials/{uid}` | Get credential mappings for a user |
+| `GET /api/v1/fido2/credentials` | All mappings in pam_u2f format (for Ansible sync) |
 | `GET /api/v1/config/export` | Export LDAP config and directory for backup |
 | `POST /api/v1/config/import` | Stage restore and restart container (returns `restart: true`) |
 
