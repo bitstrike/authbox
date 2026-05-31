@@ -19,7 +19,6 @@ import (
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
-	"github.com/authbox/authbox/internal/flash"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	"github.com/go-chi/chi/v5"
@@ -258,8 +257,7 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 func (h *handlers) actionExportBackup(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	if err := backup.CreateExport(&buf, h.deps.Repo, "/usr/sbin/slapcat"); err != nil {
-		flash.Set(w, flash.Error, "Export failed: "+err.Error())
-		http.Redirect(w, r, "/backup", http.StatusFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ts := time.Now().Format("2006-01-02T150405")

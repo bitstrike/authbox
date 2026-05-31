@@ -3,5 +3,36 @@
 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
   Exports LDAP directory, cn=config, FIDO2 mappings, and SQLite state.
 </p>
-<a href="/backup/export" class="btn btn-primary">Export Now</a>
+<button id="export-btn" class="btn btn-primary" onclick="doExport()">Export Now</button>
+<script>
+function doExport() {
+  var btn = document.getElementById('export-btn');
+  btn.disabled = true;
+  btn.textContent = 'Exporting...';
+  fetch('/backup/export').then(function(resp) {
+    if (!resp.ok) {
+      return resp.text().then(function(t) { throw new Error(t); });
+    }
+    var cd = resp.headers.get('Content-Disposition') || '';
+    var match = cd.match(/filename=([^\s;]+)/);
+    var filename = match ? match[1] : 'authbox-export.tar.gz';
+    return resp.blob().then(function(blob) { return {blob: blob, filename: filename}; });
+  }).then(function(result) {
+    var url = URL.createObjectURL(result.blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = result.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: 'success', text: 'Export complete'}}));
+  }).catch(function(err) {
+    document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: 'error', text: 'Export failed: ' + err.message}}));
+  }).finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Export Now';
+  });
+}
+</script>
 {{end}}

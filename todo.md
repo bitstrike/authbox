@@ -478,6 +478,19 @@ Server-side flash messages rendered as a colored top-bar notification (AWS conso
 - [x] Add member to group: flash success "Member {uid} added to {cn}" (redirect-based)
 - [x] Create employee type: flash via HX-Trigger "Employee type added"
 - [x] Delete employee type: flash via HX-Trigger "Employee type removed"
+
+### Backup Export Flash (file download)
+- [x] Change export button to use JS `fetch()` instead of plain link/form
+- [x] On success: trigger browser download via blob URL, then inject client-side flash "Export complete"
+- [x] On error: inject client-side flash error with message from response
+
+## Fix: Backup Import UNIQUE Constraint Failure
+
+Importing an archive exported from the same instance fails because `RestoreState` inserts rows that already exist.
+
+- [ ] In `RestoreState`, truncate tables before inserting: `DELETE FROM service_accounts`, `DELETE FROM fido2_credentials`, `DELETE FROM ssh_certs`
+- [ ] Employee types already use upsert (`UpsertEmployeeType`) so no change needed there
+- [ ] Verify round-trip: export, then import on same instance without error
 - [ ] Backup > Export should flash error/success
 
 
