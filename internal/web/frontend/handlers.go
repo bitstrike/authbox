@@ -19,6 +19,7 @@ import (
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
+	"github.com/authbox/authbox/internal/flash"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	"github.com/go-chi/chi/v5"
@@ -272,13 +273,15 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 
 	confirm := r.FormValue("confirm")
 	if confirm != "yesiagree" {
-		h.renderBackupError(w, r, "Type \"yesiagree\" to confirm import")
+		flash.Set(w, flash.Error, "Confirmation text must be exactly \"yesiagree\"")
+		http.Redirect(w, r, "/backup", http.StatusFound)
 		return
 	}
 
 	file, _, err := r.FormFile("archive")
 	if err != nil {
-		h.renderBackupError(w, r, "Archive file required")
+		flash.Set(w, flash.Error, "Archive file required")
+		http.Redirect(w, r, "/backup", http.StatusFound)
 		return
 	}
 	defer file.Close()
@@ -293,7 +296,8 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	data, err := backup.ImportExport(file)
 	if err != nil {
 		h.deps.Log.Error("backup import failed: invalid archive", "user", email, "err", err)
-		h.renderBackupError(w, r, "Invalid archive: "+err.Error())
+		flash.Set(w, flash.Error, "Invalid archive: "+err.Error())
+		http.Redirect(w, r, "/backup", http.StatusFound)
 		return
 	}
 
@@ -301,14 +305,16 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	restoreDir := "/data/live-restore"
 	if err := os.MkdirAll(restoreDir, 0750); err != nil {
 		h.deps.Log.Error("backup import failed: create restore dir", "err", err)
-		h.renderBackupError(w, r, "Failed to create restore directory: "+err.Error())
+		flash.Set(w, flash.Error, "Failed to create restore directory: "+err.Error())
+		http.Redirect(w, r, "/backup", http.StatusFound)
 		return
 	}
 
 	if len(data.DirectoryLDIF) > 0 {
 		if err := os.WriteFile(restoreDir+"/directory.ldif", data.DirectoryLDIF, 0640); err != nil {
 			h.deps.Log.Error("backup import failed: write directory LDIF", "err", err)
-			h.renderBackupError(w, r, "Failed to write directory LDIF: "+err.Error())
+			flash.Set(w, flash.Error, "Failed to write directory LDIF: "+err.Error())
+			http.Redirect(w, r, "/backup", http.StatusFound)
 			return
 		}
 	}
@@ -316,7 +322,8 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	if len(data.ConfigLDIF) > 0 {
 		if err := os.WriteFile(restoreDir+"/config.ldif", data.ConfigLDIF, 0640); err != nil {
 			h.deps.Log.Error("backup import failed: write config LDIF", "err", err)
-			h.renderBackupError(w, r, "Failed to write config LDIF: "+err.Error())
+			flash.Set(w, flash.Error, "Failed to write config LDIF: "+err.Error())
+			http.Redirect(w, r, "/backup", http.StatusFound)
 			return
 		}
 	}
@@ -326,7 +333,8 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	// Restore SQLite state immediately (independent of slapd)
 	if err := backup.RestoreState(h.deps.Repo, &data.State); err != nil {
 		h.deps.Log.Error("backup import failed: state restore", "err", err)
-		h.renderBackupError(w, r, "State restore failed: "+err.Error())
+		flash.Set(w, flash.Error, "State restore failed: "+err.Error())
+		http.Redirect(w, r, "/backup", http.StatusFound)
 		return
 	}
 
@@ -344,9 +352,4 @@ func (h *handlers) actionImportBackup(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`<html><body><h1>Import staged</h1><p>Container is restarting to apply LDAP restore. Reload this page in a few seconds.</p></body></html>`))
 }
 
-func (h *handlers) renderBackupError(w http.ResponseWriter, r *http.Request, errMsg string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusBadRequest)
-	fmt.Fprintf(w, `<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm mb-4">%s</div>`, errMsg)
-	fmt.Fprint(w, `<a href="/backup" class="btn btn-secondary">Back to Backup</a>`)
-}
+

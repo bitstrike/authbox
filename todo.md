@@ -470,7 +470,8 @@ Server-side flash messages rendered as a colored top-bar notification (AWS conso
 - [x] Disable user: flash success "User {uid} disabled"
 - [x] Create user: flash success "User {uid} created"
 - [ ] Backup import: flash success "Restore staged, container restarting" (deferred - container exits immediately, current inline message is sufficient)
-- [x] Service account delete: flash success "Service account deleted" (via HX-Trigger)
+- [x] Backup import: flash error on invalid confirmation text, redirect to /backup
+- [x] Backup import: all error paths use flash + redirect instead of inline HTML error- [x] Service account delete: flash success "Service account deleted" (via HX-Trigger)
 - [x] FIDO2 credential revoke: flash success "FIDO2 credential revoked" (via HX-Trigger)
 - [x] Group create/update/delete: flash success messages
 - [x] Bulk import: flash success "{n} users imported"
