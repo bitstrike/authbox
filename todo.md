@@ -442,4 +442,34 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Delete button: change class from `btn btn-secondary text-sm text-red-600` to `btn btn-danger` (matches Import button)
 - [x] Delete button: remove `flex items-end gap-2` wrapper, use `mb-4` spacing between input and button
 
+## Flash Notification System
+
+Server-side flash messages rendered as a colored top-bar notification (AWS console style).
+
+### Infrastructure
+- [ ] Add `Flash` struct (Type: success/error/warning, Message string) to session data
+- [ ] Add `setFlash(w, r, type, message)` helper that writes flash to session
+- [ ] Add `getFlash(w, r)` helper that reads and clears flash from session (one-time read)
+- [ ] Add `Flash` field to base `PageData` struct
+- [ ] Populate `Flash` in the base page data builder (call `getFlash` on every page render)
+
+### Template and CSS
+- [ ] Add notification markup to base layout (renders above `<main>` content when Flash is set)
+- [ ] CSS: `.notification` base class (full-width bar, padding, flex with text + close button)
+- [ ] CSS: `.notification-success` (green background, white text)
+- [ ] CSS: `.notification-error` (red background, white text)
+- [ ] CSS: `.notification-warning` (yellow/orange background, dark text)
+- [ ] CSS: dark mode variants for all three types
+- [ ] Close button (X) to dismiss manually
+- [ ] JS: auto-dismiss after 5 seconds (fade-out animation, then remove from DOM)
+
+### Adopt in Handlers
+- [ ] Delete user: flash success "User {uid} deleted" before redirect to /users
+- [ ] Enable user: flash success "User {uid} enabled"
+- [ ] Disable user: flash success "User {uid} disabled"
+- [ ] Create user: flash success "User {uid} created"
+- [ ] Backup import: flash success "Restore staged, container restarting"
+- [ ] Service account delete: flash success "Service account {clientID} deleted"
+- [ ] FIDO2 credential revoke: flash success "Credential revoked for {uid}"
+
 
