@@ -681,12 +681,14 @@ func (h *handlers) actionCreateEmployeeType(w http.ResponseWriter, r *http.Reque
 		Emoji:     emoji,
 		SortOrder: nextOrder,
 	})
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Employee type added"}}`)
 	h.partialSettingsEmployeeTypesList(w, r)
 }
 
 func (h *handlers) actionDeleteEmployeeType(w http.ResponseWriter, r *http.Request) {
 	value := chi.URLParam(r, "value")
 	h.deps.Repo.DeleteEmployeeType(value)
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Employee type removed"}}`)
 	h.partialSettingsEmployeeTypesList(w, r)
 }
 

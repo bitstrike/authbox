@@ -5,6 +5,7 @@
 package frontend
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
+	"github.com/authbox/authbox/internal/flash"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/authbox/authbox/internal/logging"
 	"github.com/go-chi/chi/v5"
@@ -254,12 +256,16 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 
 // Backup export (session-authenticated, streams archive to browser)
 func (h *handlers) actionExportBackup(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+	if err := backup.CreateExport(&buf, h.deps.Repo, "/usr/sbin/slapcat"); err != nil {
+		flash.Set(w, flash.Error, "Export failed: "+err.Error())
+		http.Redirect(w, r, "/backup", http.StatusFound)
+		return
+	}
 	ts := time.Now().Format("2006-01-02T150405")
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=authbox-export-%s.tar.gz", ts))
-	if err := backup.CreateExport(w, h.deps.Repo, "/usr/sbin/slapcat"); err != nil {
-		http.Error(w, "export failed: "+err.Error(), http.StatusInternalServerError)
-	}
+	w.Write(buf.Bytes())
 }
 
 // Backup import (session-authenticated, restores from uploaded archive)

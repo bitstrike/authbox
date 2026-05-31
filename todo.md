@@ -475,6 +475,10 @@ Server-side flash messages rendered as a colored top-bar notification (AWS conso
 - [x] Group create/update/delete: flash success messages
 - [x] Bulk import: flash success "{n} users imported"
 - [x] FIDO2 register: flash success "FIDO2 credential registered for {uid}"
+- [x] Add member to group: flash success "Member {uid} added to {cn}" (redirect-based)
+- [x] Create employee type: flash via HX-Trigger "Employee type added"
+- [x] Delete employee type: flash via HX-Trigger "Employee type removed"
+- [ ] Backup > Export should flash error/success
 
 
 

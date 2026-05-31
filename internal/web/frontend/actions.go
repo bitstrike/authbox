@@ -388,6 +388,7 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 	}
 	group.Members = append(group.Members, newMember)
 	h.deps.LDAP.UpdateGroupMembers(cn, group.Members)
+	flash.Set(w, flash.Success, "Member "+newMember+" added to "+cn)
 	http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
 }
 
