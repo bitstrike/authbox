@@ -436,6 +436,10 @@ Frontend HTMX buttons call API endpoints that require bearer tokens. Browser onl
 - [x] Only allow deletion of disabled accounts (reject if user is not disabled)
 - [x] Add `DELETE /api/v1/users/{uid}` API endpoint (admin role, same validation)
 - [x] Log deletion event (who deleted whom)
-- [x] Fix page layout  that was corrupted when adding the "Delete" button
+- [x] Fix page layout that was corrupted when adding the "Delete" button
+- [x] Delete button: stack confirm input on its own line (label above, full-width input like backup import)
+- [x] Delete button: move button to its own line below the input (not inline flex)
+- [x] Delete button: change class from `btn btn-secondary text-sm text-red-600` to `btn btn-danger` (matches Import button)
+- [x] Delete button: remove `flex items-end gap-2` wrapper, use `mb-4` spacing between input and button
 
 

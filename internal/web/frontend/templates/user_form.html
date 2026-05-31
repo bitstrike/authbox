@@ -106,13 +106,11 @@
         Disable is preferred over delete if unsure.
       </p>
       <form method="POST" action="/users/{{.Content.User.UID}}/delete">
-        <div class="flex items-end gap-2">
-          <div>
-            <label class="label text-xs" for="delete-confirm">Type "yesiagree" to confirm</label>
-            <input type="text" id="delete-confirm" name="confirm" class="input w-32 text-sm" placeholder="yesiagree" required>
-          </div>
-          <button type="submit" class="btn btn-secondary text-sm text-red-600 dark:text-red-400">Delete</button>
+        <div class="mb-4">
+          <label class="label" for="delete-confirm">Type "yesiagree" to confirm</label>
+          <input type="text" id="delete-confirm" name="confirm" class="input" placeholder="yesiagree" required>
         </div>
+        <button type="submit" class="btn btn-danger">Delete User</button>
       </form>
     </div>
     {{end}}
