@@ -71,16 +71,21 @@ func (h *handlers) actionCreateUser(w http.ResponseWriter, r *http.Request) {
 	gidNum, _ := strconv.Atoi(r.FormValue("gidNumber"))
 
 	user := &ldap.User{
-		UID:           r.FormValue("uid"),
-		CN:            r.FormValue("givenName") + " " + r.FormValue("sn"),
-		GivenName:     r.FormValue("givenName"),
-		SN:            r.FormValue("sn"),
-		Mail:          r.FormValue("mail"),
-		UIDNumber:     uidNum,
-		GIDNumber:     gidNum,
-		HomeDirectory: r.FormValue("homeDirectory"),
-		LoginShell:    r.FormValue("loginShell"),
-		EmployeeType:  r.FormValue("employeeType"),
+		UID:             r.FormValue("uid"),
+		CN:              r.FormValue("givenName") + " " + r.FormValue("sn"),
+		GivenName:       r.FormValue("givenName"),
+		SN:              r.FormValue("sn"),
+		Mail:            r.FormValue("mail"),
+		UIDNumber:       uidNum,
+		GIDNumber:       gidNum,
+		HomeDirectory:   r.FormValue("homeDirectory"),
+		LoginShell:      r.FormValue("loginShell"),
+		EmployeeType:    r.FormValue("employeeType"),
+		TelephoneNumber: r.FormValue("telephoneNumber"),
+		Mobile:          r.FormValue("mobile"),
+		HomePhone:       r.FormValue("homePhone"),
+		Fax:             r.FormValue("fax"),
+		Pager:           r.FormValue("pager"),
 	}
 
 	if user.HomeDirectory == "" {
@@ -138,16 +143,21 @@ func (h *handlers) actionUpdateUser(w http.ResponseWriter, r *http.Request) {
 	gidNum, _ := strconv.Atoi(r.FormValue("gidNumber"))
 
 	user := &ldap.User{
-		UID:           uid,
-		CN:            r.FormValue("givenName") + " " + r.FormValue("sn"),
-		GivenName:     r.FormValue("givenName"),
-		SN:            r.FormValue("sn"),
-		Mail:          r.FormValue("mail"),
-		UIDNumber:     uidNum,
-		GIDNumber:     gidNum,
-		HomeDirectory: r.FormValue("homeDirectory"),
-		LoginShell:    r.FormValue("loginShell"),
-		EmployeeType:  r.FormValue("employeeType"),
+		UID:             uid,
+		CN:              r.FormValue("givenName") + " " + r.FormValue("sn"),
+		GivenName:       r.FormValue("givenName"),
+		SN:              r.FormValue("sn"),
+		Mail:            r.FormValue("mail"),
+		UIDNumber:       uidNum,
+		GIDNumber:       gidNum,
+		HomeDirectory:   r.FormValue("homeDirectory"),
+		LoginShell:      r.FormValue("loginShell"),
+		EmployeeType:    r.FormValue("employeeType"),
+		TelephoneNumber: r.FormValue("telephoneNumber"),
+		Mobile:          r.FormValue("mobile"),
+		HomePhone:       r.FormValue("homePhone"),
+		Fax:             r.FormValue("fax"),
+		Pager:           r.FormValue("pager"),
 	}
 
 	// Validate UID/GID uniqueness if changed
@@ -303,6 +313,26 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 			if len(rec) > 8 {
 				employeeType = rec[8]
 			}
+			telephoneNumber := ""
+			if len(rec) > 9 {
+				telephoneNumber = rec[9]
+			}
+			mobile := ""
+			if len(rec) > 10 {
+				mobile = rec[10]
+			}
+			homePhone := ""
+			if len(rec) > 11 {
+				homePhone = rec[11]
+			}
+			fax := ""
+			if len(rec) > 12 {
+				fax = rec[12]
+			}
+			pager := ""
+			if len(rec) > 13 {
+				pager = rec[13]
+			}
 
 			// Contact-type handling
 			if employeeType == "contact" {
@@ -323,16 +353,21 @@ func (h *handlers) actionImportUsers(w http.ResponseWriter, r *http.Request) {
 			}
 
 			users = append(users, ldap.User{
-				UID:           rec[0],
-				GivenName:     rec[1],
-				SN:            rec[2],
-				CN:            rec[1] + " " + rec[2],
-				Mail:          rec[3],
-				UIDNumber:     uidNum,
-				GIDNumber:     gidNum,
-				HomeDirectory: homeDir,
-				LoginShell:    shell,
-				EmployeeType:  employeeType,
+				UID:             rec[0],
+				GivenName:       rec[1],
+				SN:              rec[2],
+				CN:              rec[1] + " " + rec[2],
+				Mail:            rec[3],
+				UIDNumber:       uidNum,
+				GIDNumber:       gidNum,
+				HomeDirectory:   homeDir,
+				LoginShell:      shell,
+				EmployeeType:    employeeType,
+				TelephoneNumber: telephoneNumber,
+				Mobile:          mobile,
+				HomePhone:       homePhone,
+				Fax:             fax,
+				Pager:           pager,
 			})
 		}
 	}

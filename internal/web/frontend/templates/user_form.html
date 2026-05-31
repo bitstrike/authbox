@@ -22,6 +22,30 @@
         <label class="label" for="mail">Email</label>
         <input type="email" id="mail" name="mail" value="{{.Content.User.Mail}}" class="input" required>
       </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="telephoneNumber">Work Phone</label>
+          <input type="tel" id="telephoneNumber" name="telephoneNumber" value="{{.Content.User.TelephoneNumber}}" class="input">
+        </div>
+        <div>
+          <label class="label" for="mobile">Mobile</label>
+          <input type="tel" id="mobile" name="mobile" value="{{.Content.User.Mobile}}" class="input">
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="label" for="homePhone">Home Phone</label>
+          <input type="tel" id="homePhone" name="homePhone" value="{{.Content.User.HomePhone}}" class="input">
+        </div>
+        <div>
+          <label class="label" for="fax">Fax</label>
+          <input type="tel" id="fax" name="fax" value="{{.Content.User.Fax}}" class="input">
+        </div>
+        <div>
+          <label class="label" for="pager">Pager</label>
+          <input type="tel" id="pager" name="pager" value="{{.Content.User.Pager}}" class="input">
+        </div>
+      </div>
       <div>
         <label class="label" for="employeeType">Employee Type</label>
         <select id="employeeType" name="employeeType" class="input">

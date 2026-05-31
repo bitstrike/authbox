@@ -520,23 +520,24 @@ Importing an archive exported from the same instance fails because `RestoreState
 Add support for standard LDAP phone attributes: telephoneNumber (work), mobile (cell), homePhone, facsimileTelephoneNumber (fax), pager.
 
 ### User Struct and LDAP Operations
-- [ ] Add fields to `User` struct: `TelephoneNumber`, `Mobile`, `HomePhone`, `Fax`, `Pager` (all `string`)
-- [ ] Add attributes to LDAP search lists in `GetUser` and `ListUsers`
-- [ ] Read attributes in `entryToUser`
-- [ ] Write attributes in `CreateUser` (if non-empty)
-- [ ] Write attributes in `UpdateUser` (if non-empty, replace; if empty, delete attribute)
+- [x] Add fields to `User` struct: `TelephoneNumber`, `Mobile`, `HomePhone`, `Fax`, `Pager` (all `string`)
+- [x] Add attributes to LDAP search lists in `GetUser` and `ListUsers`
+- [x] Read attributes in `entryToUser`
+- [x] Write attributes in `CreateUser` (if non-empty)
+- [x] Write attributes in `UpdateUser` (if non-empty, replace; if empty, delete attribute)
 
 ### User Form
-- [ ] Add "Phone Numbers" field group to `user_form.html` (below email, above employeeType)
-- [ ] Fields: Work Phone, Mobile, Home Phone, Fax, Pager (all optional text inputs)
-- [ ] Hide phone fields when employeeType is "contact" (same toggle as posix fields) - or keep visible? Decide.
+- [x] Add "Phone Numbers" field group to `user_form.html` (below email, above employeeType)
+- [x] Fields: Work Phone, Mobile, Home Phone, Fax, Pager (all optional text inputs)
+- [x] Phone fields remain visible for all employee types (including contacts)
 
 ### Frontend Handler
-- [ ] Read phone form values in `actionCreateUser` and `actionUpdateUser`
-- [ ] Map form values to User struct fields before calling LDAP
+- [x] Read phone form values in `actionCreateUser` and `actionUpdateUser`
+- [x] Map form values to User struct fields before calling LDAP
 
 ### Bulk Import
-- [ ] Add phone columns to CSV import (telephoneNumber, mobile, homePhone, fax, pager)
-- [ ] Add phone fields to JSON import schema
-- [ ] Document new columns in import instructions/help text
-- [ ] Empty phone fields are valid (optional attributes, skip writing to LDAP if blank)
+- [x] Add phone columns to CSV import (telephoneNumber, mobile, homePhone, fax, pager)
+- [x] Add phone fields to JSON import schema
+- [x] Document new columns in import instructions/help text
+- [x] Empty phone fields are valid (optional attributes, skip writing to LDAP if blank)
+- [x] Update `samples/csv/users.csv` with phone number columns

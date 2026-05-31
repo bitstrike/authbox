@@ -11,17 +11,22 @@ import (
 )
 
 type User struct {
-	UID           string `json:"uid"`
-	CN            string `json:"cn"`
-	SN            string `json:"sn"`
-	GivenName     string `json:"givenName"`
-	Mail          string `json:"mail"`
-	UIDNumber     int    `json:"uidNumber"`
-	GIDNumber     int    `json:"gidNumber"`
-	HomeDirectory string `json:"homeDirectory"`
-	LoginShell    string `json:"loginShell"`
-	EmployeeType  string `json:"employeeType,omitempty"`
-	Disabled      bool   `json:"disabled"`
+	UID             string `json:"uid"`
+	CN              string `json:"cn"`
+	SN              string `json:"sn"`
+	GivenName       string `json:"givenName"`
+	Mail            string `json:"mail"`
+	UIDNumber       int    `json:"uidNumber"`
+	GIDNumber       int    `json:"gidNumber"`
+	HomeDirectory   string `json:"homeDirectory"`
+	LoginShell      string `json:"loginShell"`
+	EmployeeType    string `json:"employeeType,omitempty"`
+	TelephoneNumber string `json:"telephoneNumber,omitempty"`
+	Mobile          string `json:"mobile,omitempty"`
+	HomePhone       string `json:"homePhone,omitempty"`
+	Fax             string `json:"facsimileTelephoneNumber,omitempty"`
+	Pager           string `json:"pager,omitempty"`
+	Disabled        bool   `json:"disabled"`
 }
 
 func (c *Client) CreateUser(u *User) error {
@@ -52,6 +57,21 @@ func (c *Client) CreateUser(u *User) error {
 	if u.EmployeeType != "" {
 		req.Attribute("employeeType", []string{u.EmployeeType})
 	}
+	if u.TelephoneNumber != "" {
+		req.Attribute("telephoneNumber", []string{u.TelephoneNumber})
+	}
+	if u.Mobile != "" {
+		req.Attribute("mobile", []string{u.Mobile})
+	}
+	if u.HomePhone != "" {
+		req.Attribute("homePhone", []string{u.HomePhone})
+	}
+	if u.Fax != "" {
+		req.Attribute("facsimileTelephoneNumber", []string{u.Fax})
+	}
+	if u.Pager != "" {
+		req.Attribute("pager", []string{u.Pager})
+	}
 	return c.Add(req)
 }
 
@@ -63,7 +83,7 @@ func (c *Client) GetUser(uid string) (*User, error) {
 		goldap.NeverDerefAliases,
 		1, 0, false,
 		fmt.Sprintf("(uid=%s)", goldap.EscapeFilter(uid)),
-		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType"},
+		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType", "telephoneNumber", "mobile", "homePhone", "facsimileTelephoneNumber", "pager"},
 		nil,
 	)
 	result, err := c.Search(req)
@@ -84,7 +104,7 @@ func (c *Client) ListUsers(offset, limit int) ([]User, int, error) {
 		goldap.NeverDerefAliases,
 		0, 0, false,
 		"(objectClass=posixAccount)",
-		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType"},
+		[]string{"uid", "cn", "sn", "givenName", "mail", "uidNumber", "gidNumber", "homeDirectory", "loginShell", "employeeType", "telephoneNumber", "mobile", "homePhone", "facsimileTelephoneNumber", "pager"},
 		nil,
 	)
 	result, err := c.Search(req)
@@ -126,6 +146,19 @@ func (c *Client) UpdateUser(uid string, u *User) error {
 	if u.EmployeeType != "" {
 		req.Replace("employeeType", []string{u.EmployeeType})
 	}
+	// Phone attributes: replace if set, delete if cleared
+	replaceOrDelete := func(attr, val string) {
+		if val != "" {
+			req.Replace(attr, []string{val})
+		} else {
+			req.Replace(attr, []string{})
+		}
+	}
+	replaceOrDelete("telephoneNumber", u.TelephoneNumber)
+	replaceOrDelete("mobile", u.Mobile)
+	replaceOrDelete("homePhone", u.HomePhone)
+	replaceOrDelete("facsimileTelephoneNumber", u.Fax)
+	replaceOrDelete("pager", u.Pager)
 	return c.Modify(req)
 }
 
@@ -228,16 +261,21 @@ func entryToUser(e *goldap.Entry) *User {
 	gidNum, _ := strconv.Atoi(e.GetAttributeValue("gidNumber"))
 	shell := e.GetAttributeValue("loginShell")
 	return &User{
-		UID:           e.GetAttributeValue("uid"),
-		CN:            e.GetAttributeValue("cn"),
-		SN:            e.GetAttributeValue("sn"),
-		GivenName:     e.GetAttributeValue("givenName"),
-		Mail:          e.GetAttributeValue("mail"),
-		UIDNumber:     uidNum,
-		GIDNumber:     gidNum,
-		HomeDirectory: e.GetAttributeValue("homeDirectory"),
-		LoginShell:    shell,
-		EmployeeType:  e.GetAttributeValue("employeeType"),
-		Disabled:      shell == "/sbin/nologin",
+		UID:             e.GetAttributeValue("uid"),
+		CN:              e.GetAttributeValue("cn"),
+		SN:              e.GetAttributeValue("sn"),
+		GivenName:       e.GetAttributeValue("givenName"),
+		Mail:            e.GetAttributeValue("mail"),
+		UIDNumber:       uidNum,
+		GIDNumber:       gidNum,
+		HomeDirectory:   e.GetAttributeValue("homeDirectory"),
+		LoginShell:      shell,
+		EmployeeType:    e.GetAttributeValue("employeeType"),
+		TelephoneNumber: e.GetAttributeValue("telephoneNumber"),
+		Mobile:          e.GetAttributeValue("mobile"),
+		HomePhone:       e.GetAttributeValue("homePhone"),
+		Fax:             e.GetAttributeValue("facsimileTelephoneNumber"),
+		Pager:           e.GetAttributeValue("pager"),
+		Disabled:        shell == "/sbin/nologin",
 	}
 }
