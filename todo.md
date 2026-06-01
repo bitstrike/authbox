@@ -540,10 +540,10 @@ Importing an archive exported from the same instance fails because `RestoreState
 - [x] Matches edit form behavior (posix fields hidden for contacts)
 
 ### Contact disable/delete logic
-- [ ] Skip `loginShell` modification when disabling a contact (no posixAccount, would cause Object Class Violation)
-- [ ] Allow deletion of contacts without requiring disable first (contacts have no login capability)
-- [ ] Hide Disable button in user edit form when employeeType is "contact"
-- [ ] Set `Disabled` to true for contacts in `entryToUser` (or use a separate check) so delete path works
+- [x] Skip `loginShell` modification when disabling a contact (no posixAccount, would cause Object Class Violation)
+- [x] Allow deletion of contacts without requiring disable first (contacts have no login capability)
+- [x] Hide Disable button in user edit form when employeeType is "contact"
+- [x] Set `Disabled` to true for contacts in `entryToUser` (or use a separate check) so delete path works
 
 ### Import: UID/GID range validation
 - [x] Read configured UID/GID range (from config) at start of import

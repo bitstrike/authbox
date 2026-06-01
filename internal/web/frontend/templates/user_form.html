@@ -97,13 +97,17 @@
     <div class="flex items-center justify-between">
       <div>
         <span class="text-sm font-medium">Account Status:</span>
-        {{if .Content.User.Disabled}}
+        {{if eq .Content.User.EmployeeType "contact"}}
+        <span class="ml-2 text-gray-500 dark:text-gray-400 font-medium">Contact (no login)</span>
+        {{else if .Content.User.Disabled}}
         <span class="ml-2 text-red-600 dark:text-red-400 font-medium">Disabled</span>
         {{else}}
         <span class="ml-2 text-green-800 dark:text-green-400 font-medium">Active</span>
         {{end}}
       </div>
-      {{if .Content.User.Disabled}}
+      {{if eq .Content.User.EmployeeType "contact"}}
+        {{/* Contacts cannot be disabled - no action buttons here */}}
+      {{else if .Content.User.Disabled}}
         {{if .IsAdmin}}
         <div class="flex space-x-2">
           <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account? You must type the confirmation word to proceed.');">
@@ -121,7 +125,7 @@
         {{end}}
       {{end}}
     </div>
-    {{if and .Content.User.Disabled .IsAdmin}}
+    {{if and .IsAdmin (or .Content.User.Disabled (eq .Content.User.EmployeeType "contact"))}}
     <div class="mt-4 pt-4 border-t dark:border-gray-700">
       <p class="text-sm text-red-600 dark:text-red-400 mb-2 font-medium">Permanently Delete User</p>
       <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">

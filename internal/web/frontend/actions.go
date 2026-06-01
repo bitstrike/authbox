@@ -227,13 +227,13 @@ func (h *handlers) actionDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only allow deletion of disabled accounts
+	// Only allow deletion of disabled accounts (contacts are always deletable)
 	user, err := h.deps.LDAP.GetUser(uid)
 	if err != nil || user == nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
-	if !user.Disabled {
+	if !user.Disabled && user.EmployeeType != "contact" {
 		http.Error(w, "user must be disabled before deletion", http.StatusBadRequest)
 		return
 	}
@@ -260,6 +260,14 @@ func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
 	if claims != nil {
 		actor = claims.Email
 	}
+
+	user, _ := h.deps.LDAP.GetUser(uid)
+	if user != nil && user.EmployeeType == "contact" {
+		flash.Set(w, flash.Error, "Contacts cannot be disabled (no login capability)")
+		http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
+		return
+	}
+
 	h.deps.Log.Info("user disabled", "uid", uid, "by", actor)
 	h.deps.LDAP.DisableUser(uid)
 	// Revoke FIDO2 credentials
@@ -660,7 +668,7 @@ func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request
 	disabled := 0
 	for _, uid := range req.IDs {
 		user, err := h.deps.LDAP.GetUser(uid)
-		if err != nil || user == nil || user.Disabled {
+		if err != nil || user == nil || user.Disabled || user.EmployeeType == "contact" {
 			continue
 		}
 		h.deps.LDAP.DisableUser(uid)
@@ -695,7 +703,7 @@ func (h *handlers) actionBulkDeleteUsers(w http.ResponseWriter, r *http.Request)
 		if err != nil || user == nil {
 			continue
 		}
-		if !user.Disabled {
+		if !user.Disabled && user.EmployeeType != "contact" {
 			skipped++
 			continue
 		}
