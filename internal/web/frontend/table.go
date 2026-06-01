@@ -33,11 +33,21 @@ type Column struct {
 
 // TableConfig defines the table's static configuration.
 type TableConfig struct {
-	Columns    []Column
-	PartialURL string
-	Filterable bool
-	Exportable bool
-	PageSizes  []int
+	Columns     []Column
+	PartialURL  string
+	Filterable  bool
+	Exportable  bool
+	Selectable  bool
+	BulkActions []BulkAction
+	PageSizes   []int
+}
+
+// BulkAction defines an available bulk operation.
+type BulkAction struct {
+	Label       string
+	URL         string
+	Class       string // CSS class for the button (e.g., "btn-danger")
+	Confirm     bool   // Requires "yesiagree" confirmation
 }
 
 // TableState holds the current request state for a table.
@@ -92,6 +102,25 @@ func NewTableRenderer(w io.Writer, cfg TableConfig, state TableState) *TableRend
 
 // RenderHeader writes the filter input, loading indicator, and table header row.
 func (tr *TableRenderer) RenderHeader() {
+	// Bulk action bar (hidden by default, shown via JS when rows selected)
+	if tr.cfg.Selectable && len(tr.cfg.BulkActions) > 0 {
+		fmt.Fprint(tr.w, `<div id="bulk-action-bar" class="bulk-bar hidden">`)
+		fmt.Fprint(tr.w, `<span class="text-sm" id="bulk-count">0 selected</span>`)
+		for _, action := range tr.cfg.BulkActions {
+			cls := "btn btn-secondary text-xs"
+			if action.Class != "" {
+				cls = "btn " + action.Class + " text-xs"
+			}
+			confirmAttr := ""
+			if action.Confirm {
+				confirmAttr = ` data-bulk-confirm="true"`
+			}
+			fmt.Fprintf(tr.w, ` <button class="%s" data-bulk-url="%s"%s onclick="submitBulk(this)">%s</button>`,
+				cls, action.URL, confirmAttr, action.Label)
+		}
+		fmt.Fprint(tr.w, `</div>`)
+	}
+
 	// Filter and controls bar
 	if tr.cfg.Filterable || tr.cfg.Exportable {
 		fmt.Fprint(tr.w, `<div class="flex justify-between items-center mb-3">`)
@@ -117,6 +146,12 @@ func (tr *TableRenderer) RenderHeader() {
 
 	// Table open + thead
 	fmt.Fprint(tr.w, `<table class="table"><thead><tr>`)
+
+	// Select-all checkbox
+	if tr.cfg.Selectable {
+		fmt.Fprint(tr.w, `<th class="w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>`)
+	}
+
 	for _, col := range tr.cfg.Columns {
 		if col.Sortable {
 			nextOrder := "asc"
@@ -146,8 +181,12 @@ func (tr *TableRenderer) RenderEmpty(msg string) {
 	if msg == "" {
 		msg = emptyMessage
 	}
+	colSpan := len(tr.cfg.Columns)
+	if tr.cfg.Selectable {
+		colSpan++
+	}
 	fmt.Fprintf(tr.w, `<tr><td colspan="%d" class="text-center text-gray-500 dark:text-gray-400 text-sm py-4">%s</td></tr>`,
-		len(tr.cfg.Columns), msg)
+		colSpan, msg)
 }
 
 // RenderFooter writes pagination controls, page size selector, and row count.
@@ -201,4 +240,53 @@ func (tr *TableRenderer) RenderFooter() {
 	fmt.Fprint(tr.w, `</div>`)
 
 	fmt.Fprint(tr.w, `</div></div>`)
+
+	// Bulk selection JS (only when selectable)
+	if tr.cfg.Selectable {
+		fmt.Fprint(tr.w, `<script>
+var bulkSelected = new Set();
+function toggleSelectAll(el) {
+  var boxes = document.querySelectorAll('.bulk-check');
+  boxes.forEach(function(cb) { cb.checked = el.checked; toggleRow(cb); });
+}
+function toggleRow(cb) {
+  var id = cb.value;
+  if (cb.checked) { bulkSelected.add(id); } else { bulkSelected.delete(id); }
+  updateBulkBar();
+}
+function updateBulkBar() {
+  var bar = document.getElementById('bulk-action-bar');
+  var count = document.getElementById('bulk-count');
+  if (!bar) return;
+  if (bulkSelected.size > 0) {
+    bar.classList.remove('hidden');
+    count.textContent = bulkSelected.size + ' selected';
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+function submitBulk(btn) {
+  if (bulkSelected.size === 0) return;
+  var url = btn.getAttribute('data-bulk-url');
+  var needsConfirm = btn.getAttribute('data-bulk-confirm');
+  if (needsConfirm) {
+    var input = prompt('Type "yesiagree" to confirm this action on ' + bulkSelected.size + ' items');
+    if (input !== 'yesiagree') return;
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids: Array.from(bulkSelected)})
+  }).then(function(resp) { return resp.json(); }).then(function(data) {
+    bulkSelected.clear();
+    document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: data.type || 'success', text: data.message || 'Done'}}));
+    htmx.trigger(document.querySelector('.table-container'), 'htmx:load');
+    var container = document.querySelector('.table-container');
+    if (container) { htmx.ajax('GET', '` + tr.cfg.PartialURL + `', {target: container, swap: 'innerHTML'}); }
+  }).catch(function(err) {
+    document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: 'error', text: 'Bulk action failed: ' + err.message}}));
+  });
+}
+</script>`)
+	}
 }

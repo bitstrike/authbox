@@ -97,6 +97,11 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 		},
 		PartialURL: "/partials/users/list",
 		Filterable: true,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Disable", URL: "/users/bulk/disable", Class: "btn-secondary", Confirm: true},
+			{Label: "Delete", URL: "/users/bulk/delete", Class: "btn-danger", Confirm: true},
+		},
 	}
 
 	state := ParseTableState(r, "uid")
@@ -179,8 +184,8 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 				uidDisplay = "-"
 			}
 			fmt.Fprintf(w,
-				`<tr><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
-				typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), uidDisplay, statusBadge, escHTML(u.UID),
+				`<tr><td><input type="checkbox" class="bulk-check" value="%s" onchange="toggleRow(this)"></td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
+				escHTML(u.UID), typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), uidDisplay, statusBadge, escHTML(u.UID),
 			)
 		}
 	}
@@ -200,6 +205,10 @@ func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
 		},
 		PartialURL: "/partials/groups/list",
 		Filterable: true,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Delete", URL: "/groups/bulk/delete", Class: "btn-danger", Confirm: true},
+		},
 	}
 
 	state := ParseTableState(r, "cn")
@@ -256,8 +265,8 @@ func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
 			if isAdmin {
 				editLink = fmt.Sprintf(`<a href="/groups/%s/edit" class="text-blue-600 text-sm">Edit</a>`, escHTML(g.CN))
 			}
-			fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`,
-				escHTML(g.CN), g.Type, gid, g.Members, editLink,
+			fmt.Fprintf(w, `<tr><td><input type="checkbox" class="bulk-check" value="%s" onchange="toggleRow(this)"></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`,
+				escHTML(g.CN), escHTML(g.CN), g.Type, gid, g.Members, editLink,
 			)
 		}
 	}
@@ -277,6 +286,10 @@ func (h *handlers) partialSSHCerts(w http.ResponseWriter, r *http.Request) {
 		PartialURL: "/partials/ssh/certs",
 		Filterable: true,
 		Exportable: false,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Delete", URL: "/ssh/bulk/delete", Class: "btn-danger", Confirm: true},
+		},
 	}
 
 	state := ParseTableState(r, "issued_at")
@@ -313,8 +326,8 @@ func (h *handlers) partialSSHCerts(w http.ResponseWriter, r *http.Request) {
 		tr.RenderEmpty("No certificates issued")
 	} else {
 		for _, c := range certs {
-			fmt.Fprintf(w, `<tr><td>%s</td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td></tr>`,
-				escHTML(c.Username), escHTML(c.Serial),
+			fmt.Fprintf(w, `<tr><td><input type="checkbox" class="bulk-check" value="%d" onchange="toggleRow(this)"></td><td>%s</td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td></tr>`,
+				c.ID, escHTML(c.Username), escHTML(c.Serial),
 				c.IssuedAt.Format("2006-01-02 15:04"),
 				c.ExpiresAt.Format("2006-01-02 15:04"),
 			)
@@ -334,6 +347,10 @@ func (h *handlers) partialFIDO2List(w http.ResponseWriter, r *http.Request) {
 		},
 		PartialURL: "/partials/fido2/list",
 		Filterable: true,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Revoke", URL: "/fido2/bulk/revoke", Class: "btn-danger", Confirm: true},
+		},
 	}
 
 	state := ParseTableState(r, "registered_at")
@@ -391,8 +408,8 @@ func (h *handlers) partialFIDO2List(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, c := range page {
 			fmt.Fprintf(w,
-				`<tr><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/fido2/credentials/%d/revoke" hx-target="closest .table-container" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
-				escHTML(c.UID), c.RegisteredAt, c.ID,
+				`<tr><td><input type="checkbox" class="bulk-check" value="%d" onchange="toggleRow(this)"></td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/fido2/credentials/%d/revoke" hx-target="closest .table-container" hx-confirm="Revoke this credential?">Revoke</button></td></tr>`,
+				c.ID, escHTML(c.UID), c.RegisteredAt, c.ID,
 			)
 		}
 	}
@@ -418,6 +435,10 @@ func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Requ
 		},
 		PartialURL: "/partials/service-accounts/list",
 		Filterable: true,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Delete", URL: "/service-accounts/bulk/delete", Class: "btn-danger", Confirm: true},
+		},
 	}
 
 	state := ParseTableState(r, "created_at")
@@ -470,8 +491,8 @@ func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Requ
 	} else {
 		for _, sa := range page {
 			fmt.Fprintf(w,
-				`<tr><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/service-accounts/%s/delete" hx-target="closest .table-container" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
-				escHTML(sa.ClientID), escHTML(sa.Description), sa.Role, sa.CreatedAt, sa.LastUsedAt, escHTML(sa.ClientID),
+				`<tr><td><input type="checkbox" class="bulk-check" value="%s" onchange="toggleRow(this)"></td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><button class="text-red-500 text-xs" hx-post="/service-accounts/%s/delete" hx-target="closest .table-container" hx-confirm="Delete this service account? All tokens will be revoked.">Delete</button></td></tr>`,
+				escHTML(sa.ClientID), escHTML(sa.ClientID), escHTML(sa.Description), sa.Role, sa.CreatedAt, sa.LastUsedAt, escHTML(sa.ClientID),
 			)
 		}
 	}

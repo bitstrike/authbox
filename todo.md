@@ -585,33 +585,32 @@ Add support for standard LDAP phone attributes: telephoneNumber (work), mobile (
 Add row selection checkboxes to the reusable TableRenderer with a bulk action bar.
 
 ### TableRenderer Changes
-- [ ] Add `Selectable bool` option to table config
-- [ ] When enabled, render checkbox column as first column
-- [ ] Header checkbox toggles all visible rows (select all / deselect all)
-- [ ] JS: track selected row IDs in a Set, update count badge
-- [ ] "X selected" indicator appears when at least one row is checked
-- [ ] Bulk action bar appears above table when selections exist (hidden otherwise)
-- [ ] Each table page defines available bulk actions via config
-- [ ] Selected IDs submitted as JSON array to bulk action endpoint
-- [ ] Destructive bulk actions require "yesiagree" confirmation
+- [x] Add `Selectable bool` option to table config
+- [x] When enabled, render checkbox column as first column
+- [x] Header checkbox toggles all visible rows (select all / deselect all)
+- [x] JS: track selected row IDs in a Set, update count badge
+- [x] "X selected" indicator appears when at least one row is checked
+- [x] Bulk action bar appears above table when selections exist (hidden otherwise)
+- [x] Each table page defines available bulk actions via config
+- [x] Selected IDs submitted as JSON array to bulk action endpoint
+- [x] Destructive bulk actions require "yesiagree" confirmation
 
 ### User List Bulk Actions
-- [ ] Bulk disable (set nologin, revoke FIDO2 for all selected)
-- [ ] Bulk delete (only allowed for disabled accounts)
+- [x] Bulk disable (set nologin, revoke FIDO2 for all selected)
+- [x] Bulk delete (only allowed for disabled accounts)
 - [ ] Bulk change employeeType
 - [ ] Bulk add to group
 - [ ] Bulk remove from group
 - [ ] Bulk export selected as CSV
 
 ### Group List Bulk Actions
-- [ ] Bulk delete groups
-- [ ] Bulk add a user to all selected groups
+- [x] Bulk delete groups
 
 ### SSH Certs Bulk Actions
-- [ ] Bulk delete expired/selected certs
+- [x] Bulk delete expired/selected certs
 
 ### FIDO2 Bulk Actions
-- [ ] Bulk revoke selected credentials
+- [x] Bulk revoke selected credentials
 
 ### Service Accounts Bulk Actions
-- [ ] Bulk delete selected accounts
+- [x] Bulk delete selected accounts

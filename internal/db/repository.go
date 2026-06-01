@@ -249,6 +249,11 @@ func (r *Repository) ListSSHCertsSorted(offset, limit int, sortCol, sortOrder st
 	return certs, total, rows.Err()
 }
 
+func (r *Repository) DeleteSSHCert(id int) error {
+	_, err := r.db.Exec("DELETE FROM ssh_certs WHERE id = ?", id)
+	return err
+}
+
 // CleanExpiredCerts removes cert records that expired more than retentionDays ago.
 func (r *Repository) CleanExpiredCerts(retentionDays int) (int64, error) {
 	result, err := r.db.Exec(

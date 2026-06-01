@@ -39,6 +39,8 @@ func (f *Frontend) registerActions(r chi.Router) {
 		r.Use(requireFrontendRole(auth.RoleAdmin))
 		r.Post("/users/{uid}/enable", f.h.actionEnableUser)
 		r.Post("/users/{uid}/delete", f.h.actionDeleteUser)
+		r.Post("/users/bulk/disable", f.h.actionBulkDisableUsers)
+		r.Post("/users/bulk/delete", f.h.actionBulkDeleteUsers)
 	})
 
 	// Groups
@@ -48,20 +50,30 @@ func (f *Frontend) registerActions(r chi.Router) {
 		r.Post("/groups/{cn}", f.h.actionUpdateGroup)
 		r.Post("/groups/{cn}/delete", f.h.actionDeleteGroup)
 		r.Post("/groups/{cn}/members", f.h.actionAddMember)
+		r.Post("/groups/bulk/delete", f.h.actionBulkDeleteGroups)
 	})
 
 	// SSH
 	r.Post("/ssh/sign", f.h.actionSignSSH)
+	r.Group(func(r chi.Router) {
+		r.Use(requireFrontendRole(auth.RoleAdmin))
+		r.Post("/ssh/bulk/delete", f.h.actionBulkDeleteCerts)
+	})
 
 	// FIDO2
 	r.Post("/fido2/register", f.h.actionRegisterFIDO2)
 	r.Post("/fido2/credentials/{id}/revoke", f.h.actionRevokeFIDO2)
+	r.Group(func(r chi.Router) {
+		r.Use(requireFrontendRole(auth.RoleAdmin))
+		r.Post("/fido2/bulk/revoke", f.h.actionBulkRevokeFIDO2)
+	})
 
 	// Service accounts (admin)
 	r.Group(func(r chi.Router) {
 		r.Use(requireFrontendRole(auth.RoleAdmin))
 		r.Post("/service-accounts", f.h.actionCreateServiceAccount)
 		r.Post("/service-accounts/{clientID}/delete", f.h.actionDeleteServiceAccount)
+		r.Post("/service-accounts/bulk/delete", f.h.actionBulkDeleteServiceAccounts)
 	})
 }
 
@@ -620,4 +632,163 @@ func (h *handlers) actionRevokeFIDO2(w http.ResponseWriter, r *http.Request) {
 	h.deps.Repo.DeleteFIDO2CredentialByID(id)
 	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"FIDO2 credential revoked"}}`)
 	h.partialFIDO2List(w, r)
+}
+
+// Bulk action request body
+type bulkRequest struct {
+	IDs []string `json:"ids"`
+}
+
+func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No users selected"})
+		return
+	}
+
+	claims := auth.GetClaims(r.Context())
+	actor := ""
+	if claims != nil {
+		actor = claims.Email
+	}
+
+	disabled := 0
+	for _, uid := range req.IDs {
+		user, err := h.deps.LDAP.GetUser(uid)
+		if err != nil || user == nil || user.Disabled {
+			continue
+		}
+		h.deps.LDAP.DisableUser(uid)
+		h.deps.Repo.DeleteFIDO2Credentials(uid)
+		h.deps.Log.Info("user disabled (bulk)", "uid", uid, "by", actor)
+		disabled++
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d users disabled", disabled),
+	})
+}
+
+func (h *handlers) actionBulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No users selected"})
+		return
+	}
+
+	claims := auth.GetClaims(r.Context())
+	actor := ""
+	if claims != nil {
+		actor = claims.Email
+	}
+
+	deleted := 0
+	skipped := 0
+	for _, uid := range req.IDs {
+		user, err := h.deps.LDAP.GetUser(uid)
+		if err != nil || user == nil {
+			continue
+		}
+		if !user.Disabled {
+			skipped++
+			continue
+		}
+		if err := h.deps.LDAP.DeleteUser(uid); err == nil {
+			h.deps.Log.Info("user deleted (bulk)", "uid", uid, "by", actor)
+			deleted++
+		}
+	}
+
+	msg := fmt.Sprintf("%d users deleted", deleted)
+	if skipped > 0 {
+		msg += fmt.Sprintf(" (%d skipped - not disabled)", skipped)
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"type": "success", "message": msg})
+}
+
+func respondJSON(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
+}
+
+func (h *handlers) actionBulkDeleteGroups(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No groups selected"})
+		return
+	}
+	deleted := 0
+	for _, cn := range req.IDs {
+		if err := h.deps.LDAP.DeleteGroup(cn); err == nil {
+			deleted++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d groups deleted", deleted),
+	})
+}
+
+func (h *handlers) actionBulkDeleteCerts(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No certs selected"})
+		return
+	}
+	deleted := 0
+	for _, idStr := range req.IDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue
+		}
+		if err := h.deps.Repo.DeleteSSHCert(id); err == nil {
+			deleted++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d certificates deleted", deleted),
+	})
+}
+
+func (h *handlers) actionBulkRevokeFIDO2(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No credentials selected"})
+		return
+	}
+	revoked := 0
+	for _, idStr := range req.IDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue
+		}
+		if err := h.deps.Repo.DeleteFIDO2CredentialByID(id); err == nil {
+			revoked++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d credentials revoked", revoked),
+	})
+}
+
+func (h *handlers) actionBulkDeleteServiceAccounts(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No accounts selected"})
+		return
+	}
+	deleted := 0
+	for _, clientID := range req.IDs {
+		if err := h.deps.Repo.DeleteServiceAccount(clientID); err == nil {
+			deleted++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d service accounts deleted", deleted),
+	})
 }
