@@ -292,7 +292,9 @@ function clearConflictState() {
 function evaluateEligibility(cb, expr) {
   var disabled = cb.getAttribute('data-disabled') || '';
   var type = cb.getAttribute('data-type') || '';
-  try { return (new Function('disabled','type','return (' + expr + ')'))(disabled, type); }
+  var self = cb.getAttribute('data-self') || '';
+  var admin = cb.getAttribute('data-admin') || '';
+  try { return (new Function('disabled','type','self','admin','return (' + expr + ')'))(disabled, type, self, admin); }
   catch(e) { return true; }
 }
 function submitBulk(btn) {

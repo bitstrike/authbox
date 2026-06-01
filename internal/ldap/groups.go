@@ -164,6 +164,58 @@ func (c *Client) GetUserGroups(uid string) ([]string, error) {
 	return groups, nil
 }
 
+// IsUserAdmin checks if a user is a member of the authbox-admins group.
+func (c *Client) IsUserAdmin(uid string) bool {
+	groups, err := c.GetUserGroups(uid)
+	if err != nil {
+		return false
+	}
+	for _, g := range groups {
+		if g == "authbox-admins" {
+			return true
+		}
+	}
+	return false
+}
+
+// CountActiveAdmins returns the number of non-disabled members in authbox-admins.
+func (c *Client) CountActiveAdmins() (int, error) {
+	group, err := c.GetGroup("authbox-admins")
+	if err != nil || group == nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, memberDN := range group.Members {
+		// Extract uid from DN like "uid=jsmith,ou=people,dc=..."
+		uid := extractUIDFromDN(memberDN)
+		if uid == "" {
+			continue
+		}
+		user, err := c.GetUser(uid)
+		if err != nil || user == nil {
+			continue
+		}
+		if !user.Disabled {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// extractUIDFromDN pulls the uid value from a DN like "uid=jsmith,ou=people,dc=example,dc=com".
+func extractUIDFromDN(dn string) string {
+	if len(dn) < 5 || dn[:4] != "uid=" {
+		return ""
+	}
+	for i := 4; i < len(dn); i++ {
+		if dn[i] == ',' {
+			return dn[4:i]
+		}
+	}
+	return dn[4:]
+}
+
 func entryToGroup(e *goldap.Entry) *Group {
 	classes := e.GetAttributeValues("objectClass")
 	groupType := "groupOfNames"

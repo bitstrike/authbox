@@ -99,8 +99,8 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 		Filterable: true,
 		Selectable: true,
 		BulkActions: []BulkAction{
-			{Label: "Disable", URL: "/users/bulk/disable", Class: "btn-secondary", Confirm: true, EligibleIf: "type!='contact' && disabled!='true'"},
-			{Label: "Delete", URL: "/users/bulk/delete", Class: "btn-danger", Confirm: true, EligibleIf: "disabled=='true' || type=='contact'"},
+			{Label: "Disable", URL: "/users/bulk/disable", Class: "btn-secondary", Confirm: true, EligibleIf: "self!='true' && type!='contact' && disabled!='true'"},
+			{Label: "Delete", URL: "/users/bulk/delete", Class: "btn-danger", Confirm: true, EligibleIf: "self!='true' && (disabled=='true' || type=='contact')"},
 			{Label: "Change Type", URL: "/users/bulk/change-type", Class: "btn-secondary", Prompt: "Enter employee type (employee, contractor, service, contact)"},
 			{Label: "Add to Group", URL: "/users/bulk/add-to-group", Class: "btn-secondary", Prompt: "Enter group name (cn)"},
 			{Label: "Remove from Group", URL: "/users/bulk/remove-from-group", Class: "btn-secondary", Prompt: "Enter group name (cn)"},
@@ -116,6 +116,25 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load users</p>`))
 		return
+	}
+
+	// Determine current user UID for data-self attribute
+	currentUID := ""
+	claims := auth.GetClaims(r.Context())
+	if claims != nil {
+		currentUID = emailToUID(claims.Email)
+	}
+
+	// Build admin set from authbox-admins group
+	adminSet := make(map[string]bool)
+	adminGroup, _ := h.deps.LDAP.GetGroup("authbox-admins")
+	if adminGroup != nil {
+		for _, memberDN := range adminGroup.Members {
+			uid := extractUIDFromMemberDN(memberDN)
+			if uid != "" {
+				adminSet[uid] = true
+			}
+		}
 	}
 
 	// Build emoji lookup from employee types
@@ -191,9 +210,17 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 			if u.Disabled {
 				disabledAttr = "true"
 			}
+			selfAttr := "false"
+			if u.UID == currentUID {
+				selfAttr = "true"
+			}
+			adminAttr := "false"
+			if adminSet[u.UID] {
+				adminAttr = "true"
+			}
 			fmt.Fprintf(w,
-				`<tr><td><input type="checkbox" class="bulk-check" value="%s" data-disabled="%s" data-type="%s" onchange="toggleRow(this)"></td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
-				escHTML(u.UID), disabledAttr, escHTML(u.EmployeeType), typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), uidDisplay, statusBadge, escHTML(u.UID),
+				`<tr><td><input type="checkbox" class="bulk-check" value="%s" data-disabled="%s" data-type="%s" data-self="%s" data-admin="%s" onchange="toggleRow(this)"></td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="/users/%s/edit" class="text-blue-600 text-sm">Edit</a></td></tr>`,
+				escHTML(u.UID), disabledAttr, escHTML(u.EmployeeType), selfAttr, adminAttr, typeBadge, escHTML(u.UID), escHTML(u.CN), escHTML(u.Mail), uidDisplay, statusBadge, escHTML(u.UID),
 			)
 		}
 	}

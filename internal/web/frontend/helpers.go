@@ -93,3 +93,16 @@ func readLogFull(dir string) ([]string, error) {
 	}
 	return lines, scanner.Err()
 }
+
+// extractUIDFromMemberDN pulls the uid value from a DN like "uid=jsmith,ou=people,dc=example,dc=com".
+func extractUIDFromMemberDN(dn string) string {
+	if len(dn) < 5 || dn[:4] != "uid=" {
+		return ""
+	}
+	for i := 4; i < len(dn); i++ {
+		if dn[i] == ',' {
+			return dn[4:i]
+		}
+	}
+	return dn[4:]
+}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/authbox/authbox/internal/auth"
 	"github.com/authbox/authbox/internal/ldap"
 	"github.com/go-chi/chi/v5"
 )
@@ -111,10 +112,26 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 func (a *API) disableUser(w http.ResponseWriter, r *http.Request) {
 	uid := chi.URLParam(r, "uid")
 
+	// Prevent self-disable
+	claims := auth.GetClaims(r.Context())
+	if claims != nil && emailToUID(claims.Email) == uid {
+		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot disable your own account")
+		return
+	}
+
 	existing, err := a.ldap.GetUser(uid)
 	if err != nil || existing == nil {
 		respondError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
 		return
+	}
+
+	// Prevent disabling the last admin
+	if a.ldap.IsUserAdmin(uid) {
+		count, _ := a.ldap.CountActiveAdmins()
+		if count <= 1 {
+			respondError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot disable the last admin")
+			return
+		}
 	}
 
 	if err := a.ldap.DisableUser(uid); err != nil {
@@ -149,6 +166,13 @@ func (a *API) enableUser(w http.ResponseWriter, r *http.Request) {
 func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
 	uid := chi.URLParam(r, "uid")
 
+	// Prevent self-deletion
+	claims := auth.GetClaims(r.Context())
+	if claims != nil && emailToUID(claims.Email) == uid {
+		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot delete your own account")
+		return
+	}
+
 	existing, err := a.ldap.GetUser(uid)
 	if err != nil || existing == nil {
 		respondError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
@@ -157,6 +181,15 @@ func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if !existing.Disabled {
 		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "user must be disabled before deletion")
 		return
+	}
+
+	// Prevent deleting the last admin
+	if a.ldap.IsUserAdmin(uid) {
+		count, _ := a.ldap.CountActiveAdmins()
+		if count <= 1 {
+			respondError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot delete the last admin")
+			return
+		}
 	}
 
 	if err := a.ldap.DeleteUser(uid); err != nil {

@@ -227,6 +227,14 @@ func (h *handlers) actionDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prevent self-deletion
+	claims := auth.GetClaims(r.Context())
+	if claims != nil && emailToUID(claims.Email) == uid {
+		flash.Set(w, flash.Error, "Cannot delete your own account")
+		http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
+		return
+	}
+
 	// Only allow deletion of disabled accounts (contacts are always deletable)
 	user, err := h.deps.LDAP.GetUser(uid)
 	if err != nil || user == nil {
@@ -238,7 +246,16 @@ func (h *handlers) actionDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims := auth.GetClaims(r.Context())
+	// Prevent deleting the last admin
+	if h.deps.LDAP.IsUserAdmin(uid) {
+		count, _ := h.deps.LDAP.CountActiveAdmins()
+		if count <= 1 {
+			flash.Set(w, flash.Error, "Cannot delete the last admin")
+			http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
+			return
+		}
+	}
+
 	actor := ""
 	if claims != nil {
 		actor = claims.Email
@@ -261,11 +278,28 @@ func (h *handlers) actionDisableUser(w http.ResponseWriter, r *http.Request) {
 		actor = claims.Email
 	}
 
+	// Prevent self-disable
+	if claims != nil && emailToUID(claims.Email) == uid {
+		flash.Set(w, flash.Error, "Cannot disable your own account")
+		http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
+		return
+	}
+
 	user, _ := h.deps.LDAP.GetUser(uid)
 	if user != nil && user.EmployeeType == "contact" {
 		flash.Set(w, flash.Error, "Contacts cannot be disabled (no login capability)")
 		http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
 		return
+	}
+
+	// Prevent disabling the last admin
+	if h.deps.LDAP.IsUserAdmin(uid) {
+		count, _ := h.deps.LDAP.CountActiveAdmins()
+		if count <= 1 {
+			flash.Set(w, flash.Error, "Cannot disable the last admin")
+			http.Redirect(w, r, "/users/"+uid+"/edit", http.StatusFound)
+			return
+		}
 	}
 
 	h.deps.Log.Info("user disabled", "uid", uid, "by", actor)
@@ -661,17 +695,31 @@ func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request
 
 	claims := auth.GetClaims(r.Context())
 	actor := ""
+	actorUID := ""
 	if claims != nil {
 		actor = claims.Email
+		actorUID = emailToUID(claims.Email)
 	}
 
 	disabled := 0
 	skipped := 0
 	for _, uid := range req.IDs {
+		if uid == actorUID {
+			skipped++
+			continue
+		}
 		user, err := h.deps.LDAP.GetUser(uid)
 		if err != nil || user == nil || user.Disabled || user.EmployeeType == "contact" {
 			skipped++
 			continue
+		}
+		// Skip last admin
+		if h.deps.LDAP.IsUserAdmin(uid) {
+			count, _ := h.deps.LDAP.CountActiveAdmins()
+			if count <= 1 {
+				skipped++
+				continue
+			}
 		}
 		h.deps.LDAP.DisableUser(uid)
 		h.deps.Repo.DeleteFIDO2Credentials(uid)
@@ -700,13 +748,19 @@ func (h *handlers) actionBulkDeleteUsers(w http.ResponseWriter, r *http.Request)
 
 	claims := auth.GetClaims(r.Context())
 	actor := ""
+	actorUID := ""
 	if claims != nil {
 		actor = claims.Email
+		actorUID = emailToUID(claims.Email)
 	}
 
 	deleted := 0
 	skipped := 0
 	for _, uid := range req.IDs {
+		if uid == actorUID {
+			skipped++
+			continue
+		}
 		user, err := h.deps.LDAP.GetUser(uid)
 		if err != nil || user == nil {
 			continue
@@ -714,6 +768,14 @@ func (h *handlers) actionBulkDeleteUsers(w http.ResponseWriter, r *http.Request)
 		if !user.Disabled && user.EmployeeType != "contact" {
 			skipped++
 			continue
+		}
+		// Skip last admin
+		if h.deps.LDAP.IsUserAdmin(uid) {
+			count, _ := h.deps.LDAP.CountActiveAdmins()
+			if count <= 1 {
+				skipped++
+				continue
+			}
 		}
 		if err := h.deps.LDAP.DeleteUser(uid); err == nil {
 			h.deps.Log.Info("user deleted (bulk)", "uid", uid, "by", actor)

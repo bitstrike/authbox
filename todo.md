@@ -729,28 +729,28 @@ Standard fix: reject self-delete/self-disable and protect the last admin account
 ### Self-Delete/Self-Disable Protection
 
 #### API endpoints
-- [ ] `DELETE /api/v1/users/{uid}`: reject if uid matches authenticated principal (400: "cannot delete your own account")
-- [ ] `POST /api/v1/users/{uid}/disable`: reject if uid matches authenticated principal (400: "cannot disable your own account")
+- [x] `DELETE /api/v1/users/{uid}`: reject if uid matches authenticated principal (400: "cannot delete your own account")
+- [x] `POST /api/v1/users/{uid}/disable`: reject if uid matches authenticated principal (400: "cannot disable your own account")
 
 #### Frontend handlers
-- [ ] `actionDeleteUser`: reject if uid == emailToUID(claims.Email)
-- [ ] `actionDisableUser`: reject if uid == emailToUID(claims.Email)
-- [ ] `actionBulkDeleteUsers`: skip current user's UID, include in skipped count with reason
-- [ ] `actionBulkDisableUsers`: skip current user's UID, include in skipped count with reason
+- [x] `actionDeleteUser`: reject if uid == emailToUID(claims.Email)
+- [x] `actionDisableUser`: reject if uid == emailToUID(claims.Email)
+- [x] `actionBulkDeleteUsers`: skip current user's UID, include in skipped count with reason
+- [x] `actionBulkDisableUsers`: skip current user's UID, include in skipped count with reason
 
 ### Last-Admin Protection
 
-- [ ] Add helper: `countActiveAdmins()` - query `authbox-admins` group members, count those not disabled
-- [ ] `actionDeleteUser`: if target is in `authbox-admins` and `countActiveAdmins() <= 1`, reject (400: "cannot delete the last admin")
-- [ ] `actionDisableUser`: same check
-- [ ] `actionBulkDeleteUsers`: skip last-admin with reason in skipped count
-- [ ] `actionBulkDisableUsers`: skip last-admin with reason in skipped count
-- [ ] API `deleteUser`: same last-admin check
-- [ ] API `disableUser`: same last-admin check
+- [x] Add helper: `CountActiveAdmins()` - query `authbox-admins` group members, count those not disabled
+- [x] `actionDeleteUser`: if target is in `authbox-admins` and `countActiveAdmins() <= 1`, reject (400: "cannot delete the last admin")
+- [x] `actionDisableUser`: same check
+- [x] `actionBulkDeleteUsers`: skip last-admin with reason in skipped count
+- [x] `actionBulkDisableUsers`: skip last-admin with reason in skipped count
+- [x] API `deleteUser`: same last-admin check
+- [x] API `disableUser`: same last-admin check
 
 ### Bulk action bar integration (nice-to-have)
 
-- [ ] Add `data-self="true"` to the current user's row checkbox
-- [ ] Add `data-admin="true"` to admin-group members' row checkboxes
-- [ ] Extend `EligibleIf` on Delete/Disable to exclude self: append `&& self!='true'`
-- [ ] Conflict row highlights the current user's row if selected for delete/disable
+- [x] Add `data-self="true"` to the current user's row checkbox
+- [x] Add `data-admin="true"` to admin-group members' row checkboxes
+- [x] Extend `EligibleIf` on Delete/Disable to exclude self: append `&& self!='true'`
+- [x] Conflict row highlights the current user's row if selected for delete/disable
