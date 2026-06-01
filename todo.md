@@ -720,3 +720,37 @@ admin can visually identify them without reading a list of UIDs.
 - [x] `actionBulkDeleteUsers`: return structured JSON with `deleted`, `skipped` counts
 - [x] `actionBulkDisableUsers`: return structured JSON with `disabled`, `skipped` counts
 - [x] Allows flash message to show precise outcome without client-side guessing
+
+## Fix: Prevent Self-Deletion and Last-Admin Lockout
+
+Admins can currently delete or disable their own account, locking themselves out permanently.
+Standard fix: reject self-delete/self-disable and protect the last admin account.
+
+### Self-Delete/Self-Disable Protection
+
+#### API endpoints
+- [ ] `DELETE /api/v1/users/{uid}`: reject if uid matches authenticated principal (400: "cannot delete your own account")
+- [ ] `POST /api/v1/users/{uid}/disable`: reject if uid matches authenticated principal (400: "cannot disable your own account")
+
+#### Frontend handlers
+- [ ] `actionDeleteUser`: reject if uid == emailToUID(claims.Email)
+- [ ] `actionDisableUser`: reject if uid == emailToUID(claims.Email)
+- [ ] `actionBulkDeleteUsers`: skip current user's UID, include in skipped count with reason
+- [ ] `actionBulkDisableUsers`: skip current user's UID, include in skipped count with reason
+
+### Last-Admin Protection
+
+- [ ] Add helper: `countActiveAdmins()` - query `authbox-admins` group members, count those not disabled
+- [ ] `actionDeleteUser`: if target is in `authbox-admins` and `countActiveAdmins() <= 1`, reject (400: "cannot delete the last admin")
+- [ ] `actionDisableUser`: same check
+- [ ] `actionBulkDeleteUsers`: skip last-admin with reason in skipped count
+- [ ] `actionBulkDisableUsers`: skip last-admin with reason in skipped count
+- [ ] API `deleteUser`: same last-admin check
+- [ ] API `disableUser`: same last-admin check
+
+### Bulk action bar integration (nice-to-have)
+
+- [ ] Add `data-self="true"` to the current user's row checkbox
+- [ ] Add `data-admin="true"` to admin-group members' row checkboxes
+- [ ] Extend `EligibleIf` on Delete/Disable to exclude self: append `&& self!='true'`
+- [ ] Conflict row highlights the current user's row if selected for delete/disable
