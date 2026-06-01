@@ -151,15 +151,15 @@
 ### New Unit Tests (recent changes)
 
 #### Flash package (`internal/flash/`)
-- [ ] `Set` writes cookie with correct format (type|message, URL-encoded)
-- [ ] `Get` reads and clears the cookie (returns message, cookie deleted after read)
-- [ ] `Get` returns nil when no cookie present
-- [ ] `Get` handles malformed cookie values gracefully (no panic)
+- [x] `Set` writes cookie with correct format (type|message, URL-encoded)
+- [x] `Get` reads and clears the cookie (returns message, cookie deleted after read)
+- [x] `Get` returns nil when no cookie present
+- [x] `Get` handles malformed cookie values gracefully (no panic)
 
 #### TruncateForRestore (`internal/db/`)
-- [ ] Truncates fido2_credentials, service_accounts, ssh_certs tables
-- [ ] Does not affect employee_types table
-- [ ] RestoreState succeeds on duplicate data after truncation (round-trip test)
+- [x] Truncates fido2_credentials, service_accounts, ssh_certs tables
+- [x] Does not affect employee_types table
+- [x] RestoreState succeeds on duplicate data after truncation (round-trip test)
 
 #### CSV import validation (`internal/web/frontend/`)
 - [ ] Contact-type rows: UID/GID forced to 0, shell forced to `/sbin/nologin`
