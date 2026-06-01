@@ -44,10 +44,11 @@ type TableConfig struct {
 
 // BulkAction defines an available bulk operation.
 type BulkAction struct {
-	Label       string
-	URL         string
-	Class       string // CSS class for the button (e.g., "btn-danger")
-	Confirm     bool   // Requires "yesiagree" confirmation
+	Label   string
+	URL     string
+	Class   string // CSS class for the button (e.g., "btn-danger")
+	Confirm bool   // Requires "yesiagree" confirmation
+	Prompt  string // If set, prompt user for this value (sent as "value" in JSON body)
 }
 
 // TableState holds the current request state for a table.
@@ -115,8 +116,12 @@ func (tr *TableRenderer) RenderHeader() {
 			if action.Confirm {
 				confirmAttr = ` data-bulk-confirm="true"`
 			}
-			fmt.Fprintf(tr.w, ` <button class="%s" data-bulk-url="%s"%s onclick="submitBulk(this)">%s</button>`,
-				cls, action.URL, confirmAttr, action.Label)
+			promptAttr := ""
+			if action.Prompt != "" {
+				promptAttr = fmt.Sprintf(` data-bulk-prompt="%s"`, action.Prompt)
+			}
+			fmt.Fprintf(tr.w, ` <button class="%s" data-bulk-url="%s"%s%s onclick="submitBulk(this)">%s</button>`,
+				cls, action.URL, confirmAttr, promptAttr, action.Label)
 		}
 		fmt.Fprint(tr.w, `</div>`)
 	}
@@ -269,18 +274,34 @@ function submitBulk(btn) {
   if (bulkSelected.size === 0) return;
   var url = btn.getAttribute('data-bulk-url');
   var needsConfirm = btn.getAttribute('data-bulk-confirm');
+  var promptText = btn.getAttribute('data-bulk-prompt');
   if (needsConfirm) {
     var input = prompt('Type "yesiagree" to confirm this action on ' + bulkSelected.size + ' items');
     if (input !== 'yesiagree') return;
   }
+  var body = {ids: Array.from(bulkSelected)};
+  if (promptText) {
+    var val = prompt(promptText);
+    if (!val) return;
+    body.value = val;
+  }
+  if (url.indexOf('/export') !== -1) {
+    fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.blob().then(function(b){return{blob:b,r:r}});})
+    .then(function(d){
+      var a=document.createElement('a');a.href=URL.createObjectURL(d.blob);
+      a.download='export.csv';document.body.appendChild(a);a.click();a.remove();
+      document.body.dispatchEvent(new CustomEvent('showFlash',{detail:{type:'success',text:'Export complete'}}));
+    }).catch(function(e){document.body.dispatchEvent(new CustomEvent('showFlash',{detail:{type:'error',text:e.message}}));});
+    return;
+  }
   fetch(url, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ids: Array.from(bulkSelected)})
+    body: JSON.stringify(body)
   }).then(function(resp) { return resp.json(); }).then(function(data) {
     bulkSelected.clear();
     document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: data.type || 'success', text: data.message || 'Done'}}));
-    htmx.trigger(document.querySelector('.table-container'), 'htmx:load');
     var container = document.querySelector('.table-container');
     if (container) { htmx.ajax('GET', '` + tr.cfg.PartialURL + `', {target: container, swap: 'innerHTML'}); }
   }).catch(function(err) {

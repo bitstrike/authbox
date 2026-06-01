@@ -41,6 +41,10 @@ func (f *Frontend) registerActions(r chi.Router) {
 		r.Post("/users/{uid}/delete", f.h.actionDeleteUser)
 		r.Post("/users/bulk/disable", f.h.actionBulkDisableUsers)
 		r.Post("/users/bulk/delete", f.h.actionBulkDeleteUsers)
+		r.Post("/users/bulk/change-type", f.h.actionBulkChangeType)
+		r.Post("/users/bulk/add-to-group", f.h.actionBulkAddToGroup)
+		r.Post("/users/bulk/remove-from-group", f.h.actionBulkRemoveFromGroup)
+		r.Post("/users/bulk/export", f.h.actionBulkExportUsers)
 	})
 
 	// Groups
@@ -636,7 +640,8 @@ func (h *handlers) actionRevokeFIDO2(w http.ResponseWriter, r *http.Request) {
 
 // Bulk action request body
 type bulkRequest struct {
-	IDs []string `json:"ids"`
+	IDs   []string `json:"ids"`
+	Value string   `json:"value,omitempty"`
 }
 
 func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request) {
@@ -791,4 +796,137 @@ func (h *handlers) actionBulkDeleteServiceAccounts(w http.ResponseWriter, r *htt
 		"type":    "success",
 		"message": fmt.Sprintf("%d service accounts deleted", deleted),
 	})
+}
+
+func (h *handlers) actionBulkChangeType(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No users selected"})
+		return
+	}
+	if req.Value == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "Employee type required"})
+		return
+	}
+	updated := 0
+	for _, uid := range req.IDs {
+		user, err := h.deps.LDAP.GetUser(uid)
+		if err != nil || user == nil {
+			continue
+		}
+		user.EmployeeType = req.Value
+		if err := h.deps.LDAP.UpdateUser(uid, user); err == nil {
+			updated++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d users changed to %s", updated, req.Value),
+	})
+}
+
+func (h *handlers) actionBulkAddToGroup(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No users selected"})
+		return
+	}
+	if req.Value == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "Group name required"})
+		return
+	}
+	group, err := h.deps.LDAP.GetGroup(req.Value)
+	if err != nil || group == nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "Group not found: " + req.Value})
+		return
+	}
+	memberSet := make(map[string]bool)
+	for _, m := range group.Members {
+		memberSet[m] = true
+	}
+	added := 0
+	for _, uid := range req.IDs {
+		if !memberSet[uid] {
+			group.Members = append(group.Members, uid)
+			memberSet[uid] = true
+			added++
+		}
+	}
+	if added > 0 {
+		h.deps.LDAP.UpdateGroupMembers(req.Value, group.Members)
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d users added to %s", added, req.Value),
+	})
+}
+
+func (h *handlers) actionBulkRemoveFromGroup(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No users selected"})
+		return
+	}
+	if req.Value == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "Group name required"})
+		return
+	}
+	group, err := h.deps.LDAP.GetGroup(req.Value)
+	if err != nil || group == nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "Group not found: " + req.Value})
+		return
+	}
+	removeSet := make(map[string]bool)
+	for _, uid := range req.IDs {
+		removeSet[uid] = true
+	}
+	var remaining []string
+	removed := 0
+	for _, m := range group.Members {
+		if removeSet[m] {
+			removed++
+		} else {
+			remaining = append(remaining, m)
+		}
+	}
+	if removed > 0 {
+		h.deps.LDAP.UpdateGroupMembers(req.Value, remaining)
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d users removed from %s", removed, req.Value),
+	})
+}
+
+func (h *handlers) actionBulkExportUsers(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Write([]byte("uid,givenName,sn,mail,uidNumber,gidNumber,homeDirectory,loginShell,employeeType,telephoneNumber,mobile,homePhone,fax,pager\n"))
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=users-export.csv")
+	w.Write([]byte("uid,givenName,sn,mail,uidNumber,gidNumber,homeDirectory,loginShell,employeeType,telephoneNumber,mobile,homePhone,fax,pager\n"))
+	for _, uid := range req.IDs {
+		user, err := h.deps.LDAP.GetUser(uid)
+		if err != nil || user == nil {
+			continue
+		}
+		fmt.Fprintf(w, "%s,%s,%s,%s,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s\n",
+			csvEscape(user.UID), csvEscape(user.GivenName), csvEscape(user.SN),
+			csvEscape(user.Mail), user.UIDNumber, user.GIDNumber,
+			csvEscape(user.HomeDirectory), csvEscape(user.LoginShell),
+			csvEscape(user.EmployeeType), csvEscape(user.TelephoneNumber),
+			csvEscape(user.Mobile), csvEscape(user.HomePhone),
+			csvEscape(user.Fax), csvEscape(user.Pager),
+		)
+	}
+}
+
+func csvEscape(s string) string {
+	if strings.ContainsAny(s, ",\"\n") {
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
+	return s
 }

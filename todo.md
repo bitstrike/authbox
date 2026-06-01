@@ -539,6 +539,12 @@ Importing an archive exported from the same instance fails because `RestoreState
 - [x] In user list partial, display `-` for UID/GID columns when employeeType is "contact"
 - [x] Matches edit form behavior (posix fields hidden for contacts)
 
+### Contact disable/delete logic
+- [ ] Skip `loginShell` modification when disabling a contact (no posixAccount, would cause Object Class Violation)
+- [ ] Allow deletion of contacts without requiring disable first (contacts have no login capability)
+- [ ] Hide Disable button in user edit form when employeeType is "contact"
+- [ ] Set `Disabled` to true for contacts in `entryToUser` (or use a separate check) so delete path works
+
 ### Import: UID/GID range validation
 - [x] Read configured UID/GID range (from config) at start of import
 - [x] For non-contact rows: validate UID/GID are within configured range
@@ -598,10 +604,10 @@ Add row selection checkboxes to the reusable TableRenderer with a bulk action ba
 ### User List Bulk Actions
 - [x] Bulk disable (set nologin, revoke FIDO2 for all selected)
 - [x] Bulk delete (only allowed for disabled accounts)
-- [ ] Bulk change employeeType
-- [ ] Bulk add to group
-- [ ] Bulk remove from group
-- [ ] Bulk export selected as CSV
+- [x] Bulk change employeeType
+- [x] Bulk add to group
+- [x] Bulk remove from group
+- [x] Bulk export selected as CSV
 
 ### Group List Bulk Actions
 - [x] Bulk delete groups
@@ -614,3 +620,8 @@ Add row selection checkboxes to the reusable TableRenderer with a bulk action ba
 
 ### Service Accounts Bulk Actions
 - [x] Bulk delete selected accounts
+
+## HTTP to HTTPS Redirect
+
+- [ ] Listen on HTTP port (80 or configurable) in addition to HTTPS
+- [ ] HTTP listener redirects all requests to HTTPS (301 permanent redirect)

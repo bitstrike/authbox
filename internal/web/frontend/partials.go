@@ -101,6 +101,10 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 		BulkActions: []BulkAction{
 			{Label: "Disable", URL: "/users/bulk/disable", Class: "btn-secondary", Confirm: true},
 			{Label: "Delete", URL: "/users/bulk/delete", Class: "btn-danger", Confirm: true},
+			{Label: "Change Type", URL: "/users/bulk/change-type", Class: "btn-secondary", Prompt: "Enter employee type (employee, contractor, service, contact)"},
+			{Label: "Add to Group", URL: "/users/bulk/add-to-group", Class: "btn-secondary", Prompt: "Enter group name (cn)"},
+			{Label: "Remove from Group", URL: "/users/bulk/remove-from-group", Class: "btn-secondary", Prompt: "Enter group name (cn)"},
+			{Label: "Export CSV", URL: "/users/bulk/export", Class: "btn-secondary"},
 		},
 	}
 
