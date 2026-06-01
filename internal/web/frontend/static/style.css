@@ -245,6 +245,14 @@ body {
 }
 .bulk-bar.hidden { display: none; }
 
+/* Conflict row highlight for ineligible bulk selections */
+.conflict-row-bg {
+  background-color: #fffbeb;
+}
+.dark .conflict-row-bg {
+  background-color: rgba(180, 83, 9, 0.15);
+}
+
 .input {
   display: block;
   width: 100%;

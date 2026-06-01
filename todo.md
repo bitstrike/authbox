@@ -650,37 +650,37 @@ admin can visually identify them without reading a list of UIDs.
 ### Implementation
 
 #### 1. Add `EligibleIf` field to `BulkAction` struct (table.go)
-- [ ] New optional field: `EligibleIf string` (JS expression evaluated per row)
-- [ ] Rendered as `data-eligible-if` attribute on the bulk action button
-- [ ] If empty, all selected rows are eligible (backward compatible, no two-phase)
-- [ ] Expression references `data-*` attributes on the row checkbox element
+- [x] New optional field: `EligibleIf string` (JS expression evaluated per row)
+- [x] Rendered as `data-eligible-if` attribute on the bulk action button
+- [x] If empty, all selected rows are eligible (backward compatible, no two-phase)
+- [x] Expression references `data-*` attributes on the row checkbox element
 
 #### 2. Add data attributes to user table row checkboxes
-- [ ] Add `data-disabled="true|false"` to each user row checkbox
-- [ ] Add `data-type="{employeeType}"` to each user row checkbox
-- [ ] Other tables only need attributes if they define `EligibleIf` rules (opt-in)
+- [x] Add `data-disabled="true|false"` to each user row checkbox
+- [x] Add `data-type="{employeeType}"` to each user row checkbox
+- [x] Other tables only need attributes if they define `EligibleIf` rules (opt-in)
 
 #### 3. Extend `submitBulk()` JS in table.go to two-phase confirm
-- [ ] First click: if `data-eligible-if` is set and button not yet confirmed:
+- [x] First click: if `data-eligible-if` is set and button not yet confirmed:
   - Evaluate eligibility expression against each selected row's data attributes
   - Add `conflict-row-bg` class to ineligible rows
   - Update bulk bar count: "25 selected (5 ineligible)"
   - Change button text to include eligible count: "Delete (20)"
   - Mark button as `bulk-confirmed` (CSS class), return without firing
-- [ ] Second click: button has `bulk-confirmed`, proceed with existing fetch logic
-- [ ] Cancel/deselect: removing selections clears `conflict-row-bg` and resets button state
-- [ ] If zero ineligible on first click, skip straight to confirm (no extra click needed)
+- [x] Second click: button has `bulk-confirmed`, proceed with existing fetch logic
+- [x] Cancel/deselect: removing selections clears `conflict-row-bg` and resets button state
+- [x] If zero ineligible on first click, skip straight to confirm (no extra click needed)
 
 #### 4. Add `evaluateEligibility(checkbox, expression)` JS helper
-- [ ] Reads `data-*` attributes from the checkbox element
-- [ ] Evaluates the expression string against those values
-- [ ] Returns boolean (true = eligible, false = conflict)
+- [x] Reads `data-*` attributes from the checkbox element
+- [x] Evaluates the expression string against those values
+- [x] Returns boolean (true = eligible, false = conflict)
 
 #### 5. CSS: `conflict-row-bg` class (style.css)
-- [ ] Light mode: soft amber/orange background (e.g. `bg-amber-50` / `#fffbeb`)
-- [ ] Dark mode: muted amber tint (e.g. `dark:bg-amber-900/20` / `rgba(180,83,9,0.2)`)
-- [ ] Must be visually distinct from selected-row highlight (blue tint)
-- [ ] Both classes can coexist on the same row (selected AND conflicting)
+- [x] Light mode: soft amber/orange background (`#fffbeb`)
+- [x] Dark mode: muted amber tint (`rgba(180, 83, 9, 0.15)`)
+- [x] Must be visually distinct from selected-row highlight (blue tint)
+- [x] Both classes can coexist on the same row (selected AND conflicting)
 
 #### 6. Define eligibility rules for user bulk actions
 
@@ -708,15 +708,15 @@ admin can visually identify them without reading a list of UIDs.
 
 ### UX Considerations
 
-- [ ] Selection state (JS Set) preserved throughout - no page reload loses it
-- [ ] Clicking a different bulk action button resets the confirmed state of other buttons
-- [ ] `conflict-row-bg` cleared when row is deselected or when action is cancelled
-- [ ] After action completes, table refreshes via HTMX and selection clears (existing behavior)
-- [ ] Flash message reports outcome: "20 users deleted (5 skipped - not disabled)"
-- [ ] Backend skip logic remains as safety net (defense in depth)
+- [x] Selection state (JS Set) preserved throughout - no page reload loses it
+- [x] Clicking a different bulk action button resets the confirmed state of other buttons
+- [x] `conflict-row-bg` cleared when row is deselected or when action is cancelled
+- [x] After action completes, table refreshes via HTMX and selection clears (existing behavior)
+- [x] Flash message reports outcome: "20 users deleted (5 skipped - not disabled)"
+- [x] Backend skip logic remains as safety net (defense in depth)
 
 ### Backend Changes (optional, improves feedback)
 
-- [ ] `actionBulkDeleteUsers`: return structured JSON with `deleted`, `skipped` counts
-- [ ] `actionBulkDisableUsers`: return structured JSON with `disabled`, `skipped` counts
-- [ ] Allows flash message to show precise outcome without client-side guessing
+- [x] `actionBulkDeleteUsers`: return structured JSON with `deleted`, `skipped` counts
+- [x] `actionBulkDisableUsers`: return structured JSON with `disabled`, `skipped` counts
+- [x] Allows flash message to show precise outcome without client-side guessing

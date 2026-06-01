@@ -666,9 +666,11 @@ func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request
 	}
 
 	disabled := 0
+	skipped := 0
 	for _, uid := range req.IDs {
 		user, err := h.deps.LDAP.GetUser(uid)
 		if err != nil || user == nil || user.Disabled || user.EmployeeType == "contact" {
+			skipped++
 			continue
 		}
 		h.deps.LDAP.DisableUser(uid)
@@ -677,9 +679,15 @@ func (h *handlers) actionBulkDisableUsers(w http.ResponseWriter, r *http.Request
 		disabled++
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{
-		"type":    "success",
-		"message": fmt.Sprintf("%d users disabled", disabled),
+	msg := fmt.Sprintf("%d users disabled", disabled)
+	if skipped > 0 {
+		msg += fmt.Sprintf(" (%d skipped)", skipped)
+	}
+	respondJSON(w, http.StatusOK, map[string]any{
+		"type":     "success",
+		"message":  msg,
+		"disabled": disabled,
+		"skipped":  skipped,
 	})
 }
 
@@ -717,7 +725,12 @@ func (h *handlers) actionBulkDeleteUsers(w http.ResponseWriter, r *http.Request)
 	if skipped > 0 {
 		msg += fmt.Sprintf(" (%d skipped - not disabled)", skipped)
 	}
-	respondJSON(w, http.StatusOK, map[string]string{"type": "success", "message": msg})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"type":    "success",
+		"message": msg,
+		"deleted": deleted,
+		"skipped": skipped,
+	})
 }
 
 func respondJSON(w http.ResponseWriter, status int, data any) {

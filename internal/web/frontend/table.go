@@ -44,11 +44,12 @@ type TableConfig struct {
 
 // BulkAction defines an available bulk operation.
 type BulkAction struct {
-	Label   string
-	URL     string
-	Class   string // CSS class for the button (e.g., "btn-danger")
-	Confirm bool   // Requires "yesiagree" confirmation
-	Prompt  string // If set, prompt user for this value (sent as "value" in JSON body)
+	Label      string
+	URL        string
+	Class      string // CSS class for the button (e.g., "btn-danger")
+	Confirm    bool   // Requires "yesiagree" confirmation
+	Prompt     string // If set, prompt user for this value (sent as "value" in JSON body)
+	EligibleIf string // JS expression evaluated per row against data-* attrs; empty = all eligible
 }
 
 // TableState holds the current request state for a table.
@@ -120,8 +121,12 @@ func (tr *TableRenderer) RenderHeader() {
 			if action.Prompt != "" {
 				promptAttr = fmt.Sprintf(` data-bulk-prompt="%s"`, action.Prompt)
 			}
-			fmt.Fprintf(tr.w, ` <button class="%s" data-bulk-url="%s"%s%s onclick="submitBulk(this)">%s</button>`,
-				cls, action.URL, confirmAttr, promptAttr, action.Label)
+			eligibleAttr := ""
+			if action.EligibleIf != "" {
+				eligibleAttr = fmt.Sprintf(` data-eligible-if="%s"`, action.EligibleIf)
+			}
+			fmt.Fprintf(tr.w, ` <button class="%s" data-bulk-url="%s"%s%s%s data-bulk-label="%s" onclick="submitBulk(this)">%s</button>`,
+				cls, action.URL, confirmAttr, promptAttr, eligibleAttr, action.Label, action.Label)
 		}
 		fmt.Fprint(tr.w, `</div>`)
 	}
@@ -257,6 +262,7 @@ function toggleSelectAll(el) {
 function toggleRow(cb) {
   var id = cb.value;
   if (cb.checked) { bulkSelected.add(id); } else { bulkSelected.delete(id); }
+  clearConflictState();
   updateBulkBar();
 }
 function updateBulkBar() {
@@ -270,12 +276,57 @@ function updateBulkBar() {
     bar.classList.add('hidden');
   }
 }
+function clearConflictState() {
+  document.querySelectorAll('.conflict-row-bg').forEach(function(tr) {
+    tr.classList.remove('conflict-row-bg');
+  });
+  document.querySelectorAll('.bulk-confirmed').forEach(function(btn) {
+    btn.classList.remove('bulk-confirmed');
+    btn.textContent = btn.getAttribute('data-bulk-label');
+  });
+  var count = document.getElementById('bulk-count');
+  if (count && bulkSelected.size > 0) {
+    count.textContent = bulkSelected.size + ' selected';
+  }
+}
+function evaluateEligibility(cb, expr) {
+  var disabled = cb.getAttribute('data-disabled') || '';
+  var type = cb.getAttribute('data-type') || '';
+  try { return (new Function('disabled','type','return (' + expr + ')'))(disabled, type); }
+  catch(e) { return true; }
+}
 function submitBulk(btn) {
   if (bulkSelected.size === 0) return;
   var url = btn.getAttribute('data-bulk-url');
   var needsConfirm = btn.getAttribute('data-bulk-confirm');
   var promptText = btn.getAttribute('data-bulk-prompt');
-  if (needsConfirm) {
+  var eligibleIf = btn.getAttribute('data-eligible-if');
+
+  // Two-phase eligibility check
+  if (eligibleIf && !btn.classList.contains('bulk-confirmed')) {
+    var eligible = 0, ineligible = 0;
+    bulkSelected.forEach(function(id) {
+      var cb = document.querySelector('.bulk-check[value="'+id+'"]');
+      if (!cb) return;
+      if (evaluateEligibility(cb, eligibleIf)) {
+        eligible++;
+      } else {
+        ineligible++;
+        var row = cb.closest('tr');
+        if (row) row.classList.add('conflict-row-bg');
+      }
+    });
+    if (ineligible > 0) {
+      var count = document.getElementById('bulk-count');
+      if (count) count.textContent = bulkSelected.size + ' selected (' + ineligible + ' ineligible)';
+      btn.textContent = btn.getAttribute('data-bulk-label') + ' (' + eligible + ')';
+      btn.classList.add('bulk-confirmed');
+      return;
+    }
+  }
+
+  // Confirmation prompt (yesiagree)
+  if (needsConfirm && !btn.classList.contains('bulk-confirmed')) {
     var input = prompt('Type "yesiagree" to confirm this action on ' + bulkSelected.size + ' items');
     if (input !== 'yesiagree') return;
   }
@@ -301,6 +352,7 @@ function submitBulk(btn) {
     body: JSON.stringify(body)
   }).then(function(resp) { return resp.json(); }).then(function(data) {
     bulkSelected.clear();
+    clearConflictState();
     document.body.dispatchEvent(new CustomEvent('showFlash', {detail: {type: data.type || 'success', text: data.message || 'Done'}}));
     var container = document.querySelector('.table-container');
     if (container) { htmx.ajax('GET', '` + tr.cfg.PartialURL + `', {target: container, swap: 'innerHTML'}); }
