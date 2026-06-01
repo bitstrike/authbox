@@ -625,3 +625,98 @@ Add row selection checkboxes to the reusable TableRenderer with a bulk action ba
 
 - [ ] Listen on HTTP port (80 or configurable) in addition to HTTPS
 - [ ] HTTP listener redirects all requests to HTTPS (301 permanent redirect)
+
+## Bulk Action UX: Smart Confirmation with State Awareness
+
+Bulk operations (especially delete) silently skip ineligible items and report after the fact.
+Admin loses selection context and must re-find skipped users manually. Fix with inline
+eligibility feedback: highlight conflicting rows and show count before the action fires.
+
+### Problem
+
+- Admin selects 20 users, clicks "Delete"
+- 6 are still active, get skipped silently
+- Response: "14 deleted (6 skipped - not disabled)"
+- Admin must now find those 6 again, bulk disable, then re-select and delete
+- Same issue with "Disable" action: contacts are silently skipped (cannot be disabled)
+
+### Proposed Solution: Two-Phase Inline Confirmation with Row Highlighting
+
+Instead of a modal dialog, use the existing bulk action bar as the confirmation UI.
+When an action has eligibility rules, the first click evaluates and highlights conflicts;
+the second click confirms. Ineligible rows get a `conflict-row-bg` background so the
+admin can visually identify them without reading a list of UIDs.
+
+### Implementation
+
+#### 1. Add `EligibleIf` field to `BulkAction` struct (table.go)
+- [ ] New optional field: `EligibleIf string` (JS expression evaluated per row)
+- [ ] Rendered as `data-eligible-if` attribute on the bulk action button
+- [ ] If empty, all selected rows are eligible (backward compatible, no two-phase)
+- [ ] Expression references `data-*` attributes on the row checkbox element
+
+#### 2. Add data attributes to user table row checkboxes
+- [ ] Add `data-disabled="true|false"` to each user row checkbox
+- [ ] Add `data-type="{employeeType}"` to each user row checkbox
+- [ ] Other tables only need attributes if they define `EligibleIf` rules (opt-in)
+
+#### 3. Extend `submitBulk()` JS in table.go to two-phase confirm
+- [ ] First click: if `data-eligible-if` is set and button not yet confirmed:
+  - Evaluate eligibility expression against each selected row's data attributes
+  - Add `conflict-row-bg` class to ineligible rows
+  - Update bulk bar count: "25 selected (5 ineligible)"
+  - Change button text to include eligible count: "Delete (20)"
+  - Mark button as `bulk-confirmed` (CSS class), return without firing
+- [ ] Second click: button has `bulk-confirmed`, proceed with existing fetch logic
+- [ ] Cancel/deselect: removing selections clears `conflict-row-bg` and resets button state
+- [ ] If zero ineligible on first click, skip straight to confirm (no extra click needed)
+
+#### 4. Add `evaluateEligibility(checkbox, expression)` JS helper
+- [ ] Reads `data-*` attributes from the checkbox element
+- [ ] Evaluates the expression string against those values
+- [ ] Returns boolean (true = eligible, false = conflict)
+
+#### 5. CSS: `conflict-row-bg` class (style.css)
+- [ ] Light mode: soft amber/orange background (e.g. `bg-amber-50` / `#fffbeb`)
+- [ ] Dark mode: muted amber tint (e.g. `dark:bg-amber-900/20` / `rgba(180,83,9,0.2)`)
+- [ ] Must be visually distinct from selected-row highlight (blue tint)
+- [ ] Both classes can coexist on the same row (selected AND conflicting)
+
+#### 6. Define eligibility rules for user bulk actions
+
+| Action | EligibleIf expression | Conflict means |
+|--------|----------------------|----------------|
+| Delete | `disabled=='true' \|\| type=='contact'` | Active non-contact user |
+| Disable | `type!='contact' && disabled!='true'` | Contact or already disabled |
+
+#### 7. No eligibility rules needed for other tables (current behavior preserved)
+- Groups bulk delete: no preconditions, all selected are eligible
+- SSH certs bulk delete: no preconditions
+- FIDO2 bulk revoke: no preconditions
+- Service accounts bulk delete: no preconditions
+
+### UX Flow Example (Delete)
+
+1. Admin selects 25 users, bar shows "25 selected"
+2. Admin clicks "Delete" button
+3. JS evaluates: 20 eligible, 5 ineligible (active non-contacts)
+4. 5 rows turn amber, bar shows "25 selected (5 ineligible)", button shows "Delete (20)"
+5. Admin either:
+   - Clicks "Delete (20)" again to confirm (deletes the 20, skips 5)
+   - Deselects the 5 amber rows manually
+   - Cancels and uses "Disable" on those 5 first, then re-runs delete
+
+### UX Considerations
+
+- [ ] Selection state (JS Set) preserved throughout - no page reload loses it
+- [ ] Clicking a different bulk action button resets the confirmed state of other buttons
+- [ ] `conflict-row-bg` cleared when row is deselected or when action is cancelled
+- [ ] After action completes, table refreshes via HTMX and selection clears (existing behavior)
+- [ ] Flash message reports outcome: "20 users deleted (5 skipped - not disabled)"
+- [ ] Backend skip logic remains as safety net (defense in depth)
+
+### Backend Changes (optional, improves feedback)
+
+- [ ] `actionBulkDeleteUsers`: return structured JSON with `deleted`, `skipped` counts
+- [ ] `actionBulkDisableUsers`: return structured JSON with `disabled`, `skipped` counts
+- [ ] Allows flash message to show precise outcome without client-side guessing
