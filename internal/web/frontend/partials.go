@@ -8,6 +8,7 @@ package frontend
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -175,6 +176,25 @@ func (h *handlers) partialUserList(w http.ResponseWriter, r *http.Request) {
 		filtered = append(filtered, userRow{u.UID, u.CN, u.Mail, u.UIDNumber, u.Disabled, u.EmployeeType})
 	}
 
+	// Sort
+	sort.Slice(filtered, func(i, j int) bool {
+		var less bool
+		switch state.Sort {
+		case "cn":
+			less = strings.ToLower(filtered[i].CN) < strings.ToLower(filtered[j].CN)
+		case "mail":
+			less = strings.ToLower(filtered[i].Mail) < strings.ToLower(filtered[j].Mail)
+		case "uidNumber":
+			less = filtered[i].UIDNumber < filtered[j].UIDNumber
+		default:
+			less = strings.ToLower(filtered[i].UID) < strings.ToLower(filtered[j].UID)
+		}
+		if state.Order == "desc" {
+			return !less
+		}
+		return less
+	})
+
 	total := len(filtered)
 	end := state.Offset + state.Limit
 	if end > total {
@@ -275,6 +295,21 @@ func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
 		}
 		filtered = append(filtered, groupRow{g.CN, g.Type, g.GIDNumber, len(g.Members)})
 	}
+
+	// Sort
+	sort.Slice(filtered, func(i, j int) bool {
+		var less bool
+		switch state.Sort {
+		case "gidNumber":
+			less = filtered[i].GIDNumber < filtered[j].GIDNumber
+		default:
+			less = strings.ToLower(filtered[i].CN) < strings.ToLower(filtered[j].CN)
+		}
+		if state.Order == "desc" {
+			return !less
+		}
+		return less
+	})
 
 	total := len(filtered)
 	end := state.Offset + state.Limit

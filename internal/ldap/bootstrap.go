@@ -118,6 +118,7 @@ func createInitialAdmin(client *Client, baseDN, email string) error {
 	req.Attribute("gidNumber", []string{"10000"})
 	req.Attribute("homeDirectory", []string{fmt.Sprintf("/home/%s", uid)})
 	req.Attribute("loginShell", []string{"/bin/bash"})
+	req.Attribute("employeeType", []string{"employee"})
 	return client.Add(req)
 }
 

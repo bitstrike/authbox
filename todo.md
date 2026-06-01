@@ -74,7 +74,7 @@
 - [x] Session management (cookie-based for web UI)
 - [x] Verify user exists in LDAP before granting access
 - [x] Support Google and Entra ID (one active at a time)
-- [ ] First name and Last Name of user will be updated from jwt information on first login
+- [x] First name and Last Name of user will be updated from jwt information on first login
 
 ## Phase 8: Web Frontend
 
@@ -720,6 +720,28 @@ admin can visually identify them without reading a list of UIDs.
 - [x] `actionBulkDeleteUsers`: return structured JSON with `deleted`, `skipped` counts
 - [x] `actionBulkDisableUsers`: return structured JSON with `disabled`, `skipped` counts
 - [x] Allows flash message to show precise outcome without client-side guessing
+
+## Fix: Table Header Sort Not Applied (Users, Groups)
+
+Sortable column headers fire HTMX requests with sort/order params but the partials
+never applied the sort to the filtered data before paginating.
+
+- [x] `partialUserList`: add `sort.Slice` on filtered rows using `state.Sort` and `state.Order`
+- [x] `partialGroupList`: add `sort.Slice` on filtered rows using `state.Sort` and `state.Order`
+- [x] Sort is case-insensitive for string fields (ToLower comparison)
+- [x] SSH certs partial already sorts via SQL query (no change needed)
+
+## Fix: Bootstrap Admin Missing employeeType
+
+- [x] `createInitialAdmin` in `bootstrap.go` now sets `employeeType: "employee"` on the initial admin user
+
+## Fix: OIDC Login Populates User Name from JWT
+
+- [x] Add LDAP client to `AuthHandlers` struct
+- [x] Extract `given_name` and `family_name` from ID token claims on callback
+- [x] If user's givenName or sn is still the uid placeholder, update from JWT claims
+- [x] Update cn to "givenName sn" when names are refreshed
+- [x] Only updates on login if names are still placeholders (does not overwrite manual edits)
 
 ## Fix: Prevent Self-Deletion and Last-Admin Lockout
 

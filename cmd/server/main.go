@@ -148,7 +148,7 @@ func main() {
 
 	// Frontend with OIDC login flow
 	if oidcAuth != nil {
-		authHandlers := frontend.NewAuthHandlers(oidcAuth, sessions, roleLookup)
+		authHandlers := frontend.NewAuthHandlers(oidcAuth, sessions, roleLookup, ldapClient)
 		deps := &frontend.Deps{
 			LDAP:     ldapClient,
 			CA:       sshCA,

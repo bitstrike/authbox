@@ -2,6 +2,8 @@
 // Handles the login redirect to the IdP, the callback that exchanges the
 // authorization code for tokens, ID token verification, session creation,
 // and logout. Verifies the user exists in LDAP before granting access.
+// Updates user's first/last name from JWT claims on login if they are
+// still set to the uid placeholder.
 package frontend
 
 import (
@@ -10,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/ldap"
 	"golang.org/x/oauth2"
 )
 
@@ -17,13 +20,15 @@ type AuthHandlers struct {
 	oidc     *auth.OIDCAuth
 	sessions *auth.SessionStore
 	roles    auth.RoleLookup
+	ldap     *ldap.Client
 }
 
-func NewAuthHandlers(oidc *auth.OIDCAuth, sessions *auth.SessionStore, roles auth.RoleLookup) *AuthHandlers {
+func NewAuthHandlers(oidc *auth.OIDCAuth, sessions *auth.SessionStore, roles auth.RoleLookup, ldapClient *ldap.Client) *AuthHandlers {
 	return &AuthHandlers{
 		oidc:     oidc,
 		sessions: sessions,
 		roles:    roles,
+		ldap:     ldapClient,
 	}
 }
 
@@ -81,7 +86,9 @@ func (h *AuthHandlers) HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Extract claims
 	var claims struct {
-		Email string `json:"email"`
+		Email      string `json:"email"`
+		GivenName  string `json:"given_name"`
+		FamilyName string `json:"family_name"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		http.Error(w, "invalid claims", http.StatusInternalServerError)
@@ -93,6 +100,27 @@ func (h *AuthHandlers) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "user not found in directory", http.StatusForbidden)
 		return
+	}
+
+	// Update first/last name from JWT if still set to uid placeholder
+	if h.ldap != nil && (claims.GivenName != "" || claims.FamilyName != "") {
+		uid := emailToUID(claims.Email)
+		user, _ := h.ldap.GetUser(uid)
+		if user != nil && (user.GivenName == "" || user.GivenName == uid || user.SN == uid) {
+			needsUpdate := false
+			if claims.GivenName != "" && (user.GivenName == "" || user.GivenName == uid) {
+				user.GivenName = claims.GivenName
+				needsUpdate = true
+			}
+			if claims.FamilyName != "" && user.SN == uid {
+				user.SN = claims.FamilyName
+				needsUpdate = true
+			}
+			if needsUpdate {
+				user.CN = user.GivenName + " " + user.SN
+				h.ldap.UpdateUser(uid, user)
+			}
+		}
 	}
 
 	// Create session

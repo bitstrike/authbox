@@ -158,6 +158,12 @@ All phone fields are optional. Empty values are not written to LDAP. Clearing a 
 - Warning presented: if the user owned files on any host, a future user assigned the same UID will inherit ownership of those files
 - Requires "yesiagree" confirmation
 - Use disable instead of delete when the user may have files on managed hosts
+- Contacts (employeeType=contact) can be deleted without disabling first (they have no login capability)
+
+### Safety Guards
+
+- **Self-protection**: Users cannot delete or disable their own account (enforced at API and frontend handler level). Bulk operations silently skip the acting user.
+- **Last-admin protection**: The last active member of `authbox-admins` cannot be deleted or disabled. Both single and bulk operations enforce this check by querying group membership and counting non-disabled admins.
 
 ## API
 
@@ -235,6 +241,16 @@ These endpoints are authenticated between containers (mutual TLS or shared secre
 - FIDO2 key enrollment (user pastes `pamu2fcfg` output)
 - OIDC provider configuration
 - Export/import for backup and disaster recovery
+
+### Bulk Actions
+
+Tables with selectable rows (users, groups, SSH certs, FIDO2 keys, service accounts) support bulk operations via a shared `TableRenderer` component. Features:
+
+- **Selection bar**: Shows count of selected items with available action buttons
+- **Two-phase eligibility confirmation**: Actions with preconditions (e.g., delete requires disabled status) use a `EligibleIf` expression evaluated client-side against row data attributes. First click highlights ineligible rows in amber and shows the eligible count. Second click confirms.
+- **Row data attributes**: User rows carry `data-disabled`, `data-type`, `data-self`, and `data-admin` attributes for client-side eligibility evaluation.
+- **Conflict highlighting**: Ineligible rows receive a `conflict-row-bg` class (amber tint in both light and dark themes) so the admin can visually identify problematic selections before confirming.
+- **Backend safety net**: Even if the frontend allows submission, backend handlers independently validate eligibility and skip ineligible items, reporting counts in the response.
 
 See [webui.md](webui.md) for full page-by-page interface documentation.
 
