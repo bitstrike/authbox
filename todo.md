@@ -866,6 +866,13 @@ The schedule form template exists but has no backend. Form POSTs to a non-existe
 - [ ] Show last backup time on backup page (read latest file timestamp from backup dir)
 - [ ] Show next scheduled run time (calculated from settings)
 
+### 8. Backup Schedule Form UX
+
+- [x] Disable time/retention inputs when checkbox is unchecked (JS `onchange` toggles `disabled`)
+- [x] Dynamic button text: "Enable Schedule" when checked, "Disable Schedule" when unchecked
+- [x] Button text updates immediately on checkbox change (no server round-trip)
+- [x] On page load, set initial button text based on checkbox state
+
 ### 7. Backup Archives Table (table renderer)
 
 Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`.
