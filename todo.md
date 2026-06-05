@@ -822,3 +822,76 @@ Selecting a checkbox reveals the bulk action bar, which pushes the table down ca
 - [x] Add `.table-toolbar` CSS with `min-height` matching bar height so container never collapses
 - [x] No changes to partials.go or table configs needed
 - [x] Update tablerenderer.md steering file with toolbar swap pattern
+
+## Backup Schedule: Full Implementation
+
+The schedule form template exists but has no backend. Form POSTs to a non-existent route.
+
+### 1. App Settings Storage (key-value table)
+
+- [x] Add `app_settings` table to SQLite migrations: `key TEXT PRIMARY KEY, value TEXT NOT NULL`
+- [x] Add repository methods: `GetSetting(key string) (string, error)`, `SetSetting(key, value string) error`
+- [x] Include `app_settings` in backup export/restore (ExportData struct, RestoreState)
+
+### 2. Fix Form Route and Add POST Handler
+
+- [x] Fix `backup_schedule.html` form action from `/settings/backup-schedule` to `/backup/schedule`
+- [x] Register `POST /backup/schedule` in admin route group (router.go)
+- [x] POST handler: parse form (enabled bool, time string, retention int), validate, save to app_settings
+- [x] Keys: `backup_schedule_enabled`, `backup_schedule_time`, `backup_schedule_retention`
+- [x] Flash success "Backup schedule updated" and return updated partial
+
+### 3. Load Persisted Settings in Partial Handler
+
+- [x] `partialBackupSchedule` reads settings from DB instead of hardcoded defaults
+- [x] Fallback to defaults if keys not set (enabled=false, time="02:00", retention=30)
+
+### 4. Scheduler Goroutine
+
+- [x] Add `internal/backup/scheduler.go` with `Scheduler` struct (repo, slapcatPath, backupDir, logger, stop chan)
+- [x] `Start()`: read settings from DB, if enabled calculate next run time, start timer
+- [x] On timer fire: run `ScheduledBackup()`, log result, re-arm for next day
+- [x] `Reconfigure()`: called after POST handler saves new settings, resets timer
+- [x] `Stop()`: clean shutdown (called on app exit)
+- [x] Handle disabled state: if not enabled, timer is not armed (no-op until reconfigured)
+
+### 5. Wire Into main.go
+
+- [x] Create Scheduler after DB init, pass to frontend Deps (so POST handler can call Reconfigure)
+- [x] Call `scheduler.Start()` before HTTP server starts
+- [x] Call `scheduler.Stop()` on shutdown
+
+### 6. Status Integration
+
+- [ ] Show last backup time on backup page (read latest file timestamp from backup dir)
+- [ ] Show next scheduled run time (calculated from settings)
+
+### 7. Backup Archives Table (table renderer)
+
+Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`.
+
+#### Table config
+- [x] Columns: Filename (sortable), Type (scheduled/pre-import, not sortable), Size (sortable), Date (sortable), _actions
+- [x] Filterable (search by filename)
+- [x] Selectable with bulk delete action (confirm required)
+- [x] Data source: `os.ReadDir` on backup directory, stat each file
+
+#### Partial and routes
+- [x] Add `backup_archives.html` partial template (just the table-container div)
+- [x] Add partial handler `partialBackupArchives` - reads dir, builds slice, filter/sort/paginate via TableRenderer
+- [x] Register `GET /partials/backup/archives` in partial routes
+- [x] Register `GET /backup/archives-panel` to serve the partial wrapper (sidebar loads this)
+- [x] Add "Archives" nav item to backup sidebar config
+
+#### Per-row actions
+- [x] `GET /backup/archives/{filename}` - stream file download (Content-Disposition: attachment)
+- [x] `POST /backup/archives/{filename}/delete` - remove file, return refreshed partial via HX-Trigger
+- [x] `POST /backup/archives/{filename}/import` - stage LDIF to `/data/live-restore/`, require yesiagree confirm, trigger restart
+
+#### Bulk actions
+- [x] `POST /backup/archives/bulk/delete` - bulk delete selected files (confirm required)
+
+#### Type detection
+- [x] Files prefixed `pre-import-backup-` = "Pre-import"
+- [x] Files prefixed `backup-` = "Scheduled"
+- [x] All others = "Manual"

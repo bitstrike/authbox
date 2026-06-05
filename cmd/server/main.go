@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/backup"
 	"github.com/authbox/authbox/internal/ca"
 	"github.com/authbox/authbox/internal/config"
 	"github.com/authbox/authbox/internal/db"
@@ -130,6 +131,11 @@ func main() {
 	repo := db.NewRepository(database)
 	apiHandler := api.New(ldapClient, sshCA, repo, cfg.SSHCertTTL, cfg.InternalSecret)
 
+	// Start backup scheduler
+	backupScheduler := backup.NewScheduler(repo, "/usr/sbin/slapcat", "/data/backups", log)
+	backupScheduler.Start()
+	defer backupScheduler.Stop()
+
 	// Session store for web UI
 	sessions := auth.NewSessionStore(30 * time.Minute)
 
@@ -150,13 +156,14 @@ func main() {
 	if oidcAuth != nil {
 		authHandlers := frontend.NewAuthHandlers(oidcAuth, sessions, roleLookup, ldapClient)
 		deps := &frontend.Deps{
-			LDAP:     ldapClient,
-			CA:       sshCA,
-			Repo:     repo,
-			Config:   cfg,
-			Sessions: sessions,
-			Roles:    roleLookup,
-			Log:      log,
+			LDAP:      ldapClient,
+			CA:        sshCA,
+			Repo:      repo,
+			Config:    cfg,
+			Sessions:  sessions,
+			Roles:     roleLookup,
+			Log:       log,
+			Scheduler: backupScheduler,
 		}
 		fe := frontend.NewFrontend(sessions, authHandlers, deps)
 		fe.RegisterRoutes(r)
@@ -164,13 +171,14 @@ func main() {
 		// Dev mode: no OIDC, auto-create admin session on first request
 		log.Warn("OIDC not configured - running in dev mode with auto-login")
 		deps := &frontend.Deps{
-			LDAP:     ldapClient,
-			CA:       sshCA,
-			Repo:     repo,
-			Config:   cfg,
-			Sessions: sessions,
-			Roles:    nil,
-			Log:      log,
+			LDAP:      ldapClient,
+			CA:        sshCA,
+			Repo:      repo,
+			Config:    cfg,
+			Sessions:  sessions,
+			Roles:     nil,
+			Log:       log,
+			Scheduler: backupScheduler,
 		}
 		fe := frontend.NewFrontendDevMode(sessions, deps)
 		fe.RegisterRoutes(r)

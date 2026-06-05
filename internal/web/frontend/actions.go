@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -1012,4 +1013,131 @@ func csvEscape(s string) string {
 		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 	}
 	return s
+}
+
+func (h *handlers) actionSaveBackupSchedule(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	enabled := r.FormValue("enabled") == "on"
+	backupTime := r.FormValue("time")
+	retention := r.FormValue("retention")
+
+	if backupTime == "" {
+		backupTime = "02:00"
+	}
+	if retention == "" {
+		retention = "30"
+	}
+
+	enabledStr := "false"
+	if enabled {
+		enabledStr = "true"
+	}
+
+	h.deps.Repo.SetSetting("backup_schedule_enabled", enabledStr)
+	h.deps.Repo.SetSetting("backup_schedule_time", backupTime)
+	h.deps.Repo.SetSetting("backup_schedule_retention", retention)
+
+	// Reconfigure scheduler if available
+	if h.deps.Scheduler != nil {
+		h.deps.Scheduler.Reconfigure()
+	}
+
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Backup schedule updated"}}`)
+	h.partialBackupSchedule(w, r)
+}
+
+func (h *handlers) actionDownloadArchive(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+	if filename == "" || strings.Contains(filename, "/") || strings.Contains(filename, "..") {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+	path := "/data/backups/" + filename
+	info, err := os.Stat(path)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	f, err := os.Open(path)
+	if err != nil {
+		http.Error(w, "read error", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	io.Copy(w, f)
+}
+
+func (h *handlers) actionDeleteArchive(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+	if filename == "" || strings.Contains(filename, "/") || strings.Contains(filename, "..") {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+	os.Remove("/data/backups/" + filename)
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Archive deleted"}}`)
+	h.partialBackupArchives(w, r)
+}
+
+func (h *handlers) actionImportArchive(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+	r.ParseForm()
+	confirm := r.FormValue("confirm")
+	if confirm != "yesiagree" {
+		http.Error(w, "confirmation required", http.StatusBadRequest)
+		return
+	}
+	if filename == "" || strings.Contains(filename, "/") || strings.Contains(filename, "..") {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+	src := "/data/backups/" + filename
+	if _, err := os.Stat(src); err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+
+	// Stage for live-restore
+	os.MkdirAll("/data/live-restore", 0750)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		http.Error(w, "read error", http.StatusInternalServerError)
+		return
+	}
+	if err := os.WriteFile("/data/live-restore/directory.ldif", data, 0640); err != nil {
+		http.Error(w, "staging failed", http.StatusInternalServerError)
+		return
+	}
+
+	h.deps.Log.Info("archive import staged", "filename", filename)
+	flash.Set(w, flash.Success, "Restore staged from "+filename+", container restarting")
+	h.deps.Log.Sync()
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(0)
+	}()
+	http.Redirect(w, r, "/backup", http.StatusFound)
+}
+
+func (h *handlers) actionBulkDeleteArchives(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"type": "error", "message": "No archives selected"})
+		return
+	}
+	deleted := 0
+	for _, filename := range req.IDs {
+		if strings.Contains(filename, "/") || strings.Contains(filename, "..") {
+			continue
+		}
+		if err := os.Remove("/data/backups/" + filename); err == nil {
+			deleted++
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]string{
+		"type":    "success",
+		"message": fmt.Sprintf("%d archives deleted", deleted),
+	})
 }

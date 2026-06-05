@@ -27,13 +27,14 @@ import (
 
 // Deps holds dependencies injected into the frontend handlers.
 type Deps struct {
-	LDAP     *ldap.Client
-	CA       *ca.CA
-	Repo     *db.Repository
-	Config   *config.Config
-	Sessions *auth.SessionStore
-	Roles    auth.RoleLookup
-	Log      *logging.Logger
+	LDAP      *ldap.Client
+	CA        *ca.CA
+	Repo      *db.Repository
+	Config    *config.Config
+	Sessions  *auth.SessionStore
+	Roles     auth.RoleLookup
+	Log       *logging.Logger
+	Scheduler *backup.Scheduler
 }
 
 // handlers holds all page handler methods.
@@ -246,6 +247,7 @@ func (h *handlers) backup(w http.ResponseWriter, r *http.Request) {
 			{Label: "Export", URL: "/backup/export-panel"},
 			{Label: "Import", URL: "/backup/import-panel"},
 			{Label: "Schedule", URL: "/backup/schedule"},
+			{Label: "Archives", URL: "/backup/archives-panel"},
 			{Label: "CA Key", URL: "/backup/ca-key"},
 		},
 	})

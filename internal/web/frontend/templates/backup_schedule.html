@@ -1,6 +1,6 @@
 {{define "backup_schedule"}}
 <h2 class="text-lg font-semibold mb-4">Scheduled Backup</h2>
-<form method="POST" action="/settings/backup-schedule">
+<form hx-post="/backup/schedule" hx-target="closest .sidebar-panel" hx-swap="innerHTML">
   <div class="space-y-3">
     <label class="flex items-center space-x-2">
       <input type="checkbox" name="enabled" {{if .BackupEnabled}}checked{{end}}>

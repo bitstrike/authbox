@@ -314,3 +314,45 @@ func (r *Repository) UpsertEmployeeType(et *EmployeeType) error {
 	)
 	return err
 }
+
+// App settings methods
+
+type AppSetting struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (r *Repository) GetSetting(key string) (string, error) {
+	var value string
+	err := r.db.QueryRow("SELECT value FROM app_settings WHERE key = ?", key).Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return value, err
+}
+
+func (r *Repository) SetSetting(key, value string) error {
+	_, err := r.db.Exec(
+		"INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+		key, value,
+	)
+	return err
+}
+
+func (r *Repository) ListSettings() ([]AppSetting, error) {
+	rows, err := r.db.Query("SELECT key, value FROM app_settings ORDER BY key")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var settings []AppSetting
+	for rows.Next() {
+		var s AppSetting
+		if err := rows.Scan(&s.Key, &s.Value); err != nil {
+			return nil, err
+		}
+		settings = append(settings, s)
+	}
+	return settings, rows.Err()
+}

@@ -8,9 +8,11 @@ package frontend
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/authbox/authbox/internal/auth"
 	"github.com/authbox/authbox/internal/db"
@@ -31,6 +33,7 @@ func (f *Frontend) registerPartials(r chi.Router) {
 	r.Get("/partials/status/replication", f.h.partialStatusReplication)
 	r.Get("/partials/status/storage", f.h.partialStatusStorage)
 	r.Get("/partials/status/alerts", f.h.partialStatusAlerts)
+	r.Get("/partials/backup/archives", f.h.partialBackupArchives)
 }
 
 // partialDashboardActivity returns recent activity HTML fragment.
@@ -798,13 +801,30 @@ func (h *handlers) partialBackupImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) partialBackupSchedule(w http.ResponseWriter, r *http.Request) {
+	enabledVal, _ := h.deps.Repo.GetSetting("backup_schedule_enabled")
+	timeVal, _ := h.deps.Repo.GetSetting("backup_schedule_time")
+	retVal, _ := h.deps.Repo.GetSetting("backup_schedule_retention")
+
+	enabled := enabledVal == "true"
+	backupTime := "02:00"
+	if timeVal != "" {
+		backupTime = timeVal
+	}
+	retention := 30
+	if retVal != "" {
+		if n, err := strconv.Atoi(retVal); err == nil && n > 0 {
+			retention = n
+		}
+	}
+
 	data := struct {
 		BackupEnabled   bool
 		BackupTime      string
 		BackupRetention int
 	}{
-		BackupTime:      "02:00",
-		BackupRetention: 30,
+		BackupEnabled:   enabled,
+		BackupTime:      backupTime,
+		BackupRetention: retention,
 	}
 	h.renderer.renderPartial(w, "backup_schedule", data)
 }
@@ -816,4 +836,129 @@ func (h *handlers) partialBackupCAKey(w http.ResponseWriter, r *http.Request) {
 		CAFingerprint: h.deps.CA.Fingerprint(),
 	}
 	h.renderer.renderPartial(w, "backup_ca_key", data)
+}
+
+func (h *handlers) partialBackupArchivesPanel(w http.ResponseWriter, r *http.Request) {
+	h.renderer.renderPartial(w, "backup_archives", nil)
+}
+
+// partialBackupArchives returns the backup archives table via TableRenderer.
+func (h *handlers) partialBackupArchives(w http.ResponseWriter, r *http.Request) {
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "filename", Label: "Filename", Sortable: true},
+			{Key: "type", Label: "Type", Sortable: false},
+			{Key: "size", Label: "Size", Sortable: true},
+			{Key: "date", Label: "Date", Sortable: true},
+			{Key: "_actions", Label: "", Sortable: false},
+		},
+		PartialURL: "/partials/backup/archives",
+		Filterable: true,
+		Selectable: true,
+		BulkActions: []BulkAction{
+			{Label: "Delete", URL: "/backup/archives/bulk/delete", Class: "btn-danger", Confirm: true},
+		},
+	}
+
+	state := ParseTableState(r, "date")
+
+	backupDir := "/data/backups"
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<p class="text-sm text-gray-500 dark:text-gray-400">No backup directory found</p>`))
+		return
+	}
+
+	type archiveRow struct {
+		Filename string
+		Type     string
+		Size     int64
+		Date     time.Time
+	}
+
+	q := strings.ToLower(state.Query)
+	var filtered []archiveRow
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		name := e.Name()
+		if q != "" && !strings.Contains(strings.ToLower(name), q) {
+			continue
+		}
+		archType := "Manual"
+		if strings.HasPrefix(name, "pre-import-backup-") {
+			archType = "Pre-import"
+		} else if strings.HasPrefix(name, "backup-") {
+			archType = "Scheduled"
+		}
+		filtered = append(filtered, archiveRow{
+			Filename: name,
+			Type:     archType,
+			Size:     info.Size(),
+			Date:     info.ModTime(),
+		})
+	}
+
+	// Sort
+	sort.Slice(filtered, func(i, j int) bool {
+		var less bool
+		switch state.Sort {
+		case "filename":
+			less = strings.ToLower(filtered[i].Filename) < strings.ToLower(filtered[j].Filename)
+		case "size":
+			less = filtered[i].Size < filtered[j].Size
+		default: // date
+			less = filtered[i].Date.Before(filtered[j].Date)
+		}
+		if state.Order == "desc" {
+			return !less
+		}
+		return less
+	})
+
+	total := len(filtered)
+	end := state.Offset + state.Limit
+	if end > total {
+		end = total
+	}
+	if state.Offset > total {
+		state.Offset = total
+	}
+	page := filtered[state.Offset:end]
+	state.Total = total
+
+	w.Header().Set("Content-Type", "text/html")
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(page) == 0 {
+		tr.RenderEmpty("No backup archives found")
+	} else {
+		for _, a := range page {
+			sizeStr := formatBytes(a.Size)
+			fmt.Fprintf(w,
+				`<tr><td><input type="checkbox" class="bulk-check" value="%s" onchange="toggleRow(this)"></td><td class="font-mono text-xs">%s</td><td>%s</td><td>%s</td><td>%s</td><td class="flex space-x-2"><a href="/backup/archives/%s" class="text-blue-600 text-xs">Download</a> <button class="text-red-500 text-xs" hx-post="/backup/archives/%s/delete" hx-target="closest .table-container" hx-confirm="Delete this archive?">Delete</button></td></tr>`,
+				escHTML(a.Filename), escHTML(a.Filename), a.Type, sizeStr,
+				a.Date.Format("2006-01-02 15:04"), escHTML(a.Filename), escHTML(a.Filename),
+			)
+		}
+	}
+
+	tr.RenderFooter()
+}
+
+func formatBytes(b int64) string {
+	if b < 1024 {
+		return fmt.Sprintf("%d B", b)
+	}
+	if b < 1024*1024 {
+		return fmt.Sprintf("%.1f KB", float64(b)/1024)
+	}
+	return fmt.Sprintf("%.1f MB", float64(b)/(1024*1024))
 }

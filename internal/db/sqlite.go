@@ -106,6 +106,10 @@ func (db *DB) migrate() error {
 		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('contractor', 'Contractor', '👷', 2)`,
 		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('service', 'Service', '🤖', 3)`,
 		`INSERT OR IGNORE INTO employee_types (value, label, emoji, sort_order) VALUES ('contact', 'Contact', '🪪', 4)`,
+		`CREATE TABLE IF NOT EXISTS app_settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)`,
 	}
 
 	for _, m := range migrations {

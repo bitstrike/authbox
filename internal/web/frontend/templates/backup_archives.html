@@ -1,0 +1,6 @@
+{{define "backup_archives"}}
+<h2 class="text-lg font-semibold mb-4">Backup Archives</h2>
+<div class="table-container" hx-get="/partials/backup/archives" hx-trigger="load" hx-swap="innerHTML">
+  <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+</div>
+{{end}}

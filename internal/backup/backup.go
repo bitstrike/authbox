@@ -34,6 +34,7 @@ type ExportData struct {
 	ServiceAccounts []db.ServiceAccount   `json:"service_accounts"`
 	SSHCerts        []db.SSHCert          `json:"ssh_certs"`
 	EmployeeTypes   []db.EmployeeType     `json:"employee_types"`
+	AppSettings     []db.AppSetting       `json:"app_settings"`
 }
 
 const (
@@ -166,6 +167,11 @@ func RestoreState(repo *db.Repository, state *ExportData) error {
 			return fmt.Errorf("restoring employee type: %w", err)
 		}
 	}
+	for i := range state.AppSettings {
+		if err := repo.SetSetting(state.AppSettings[i].Key, state.AppSettings[i].Value); err != nil {
+			return fmt.Errorf("restoring app setting: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -289,12 +295,18 @@ func exportAppState(repo *db.Repository, meta Export) (*ExportData, error) {
 		return nil, err
 	}
 
+	appSettings, err := repo.ListSettings()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ExportData{
 		Meta:            meta,
 		FIDO2:           fido2,
 		ServiceAccounts: accounts,
 		SSHCerts:        certs,
 		EmployeeTypes:   employeeTypes,
+		AppSettings:     appSettings,
 	}, nil
 }
 

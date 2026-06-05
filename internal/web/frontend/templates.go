@@ -87,7 +87,7 @@ func (tr *templateRenderer) loadAll() {
 
 	// Backup partials (no layout, rendered as fragments)
 	backupPartials := []string{
-		"backup_export", "backup_import", "backup_schedule", "backup_ca_key",
+		"backup_export", "backup_import", "backup_schedule", "backup_ca_key", "backup_archives",
 	}
 	for _, name := range backupPartials {
 		t := template.New(name + ".html").Funcs(tr.funcs)
