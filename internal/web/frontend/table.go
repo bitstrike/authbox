@@ -251,6 +251,10 @@ func (tr *TableRenderer) RenderFooter() {
 
 	fmt.Fprint(tr.w, `</div></div>`)
 
+	// Sort/page-size persistence: save current state to localStorage
+	fmt.Fprintf(tr.w, `<script>(function(){try{localStorage.setItem("tableSort:%s",JSON.stringify({sort:"%s",order:"%s",limit:%d}))}catch(e){}})()</script>`,
+		tr.cfg.PartialURL, tr.state.Sort, tr.state.Order, tr.state.Limit)
+
 	// Bulk selection JS (only when selectable)
 	if tr.cfg.Selectable {
 		fmt.Fprint(tr.w, `<script>

@@ -79,6 +79,20 @@
         }, 5000);
       }
     })();
+    document.body.addEventListener('htmx:configRequest', function(e) {
+      var target = e.detail.elt;
+      if (!target.classList || !target.classList.contains('table-container')) return;
+      var url = e.detail.path.split('?')[0];
+      if (e.detail.parameters.sort) return;
+      try {
+        var saved = JSON.parse(localStorage.getItem('tableSort:' + url));
+        if (saved && saved.sort) {
+          e.detail.parameters.sort = saved.sort;
+          e.detail.parameters.order = saved.order || 'desc';
+          if (saved.limit) e.detail.parameters.limit = saved.limit;
+        }
+      } catch(ex) {}
+    });
     document.body.addEventListener('showFlash', function(e) {
       var d = e.detail;
       var el = document.createElement('div');

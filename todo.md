@@ -776,3 +776,36 @@ Standard fix: reject self-delete/self-disable and protect the last admin account
 - [x] Add `data-admin="true"` to admin-group members' row checkboxes
 - [x] Extend `EligibleIf` on Delete/Disable to exclude self: append `&& self!='true'`
 - [x] Conflict row highlights the current user's row if selected for delete/disable
+
+## Table Sort Persistence (localStorage)
+
+Sort preferences reset to defaults when navigating away and back. Save sort/order
+per table in localStorage so the user's preferred sort is restored on page load.
+
+### Implementation
+
+#### 1. Save sort state on every partial render (table.go RenderFooter JS)
+- [x] After each partial swap, save `{sort, order}` to localStorage keyed by partial URL
+- [x] Key format: `tableSort:<partialURL>` (e.g., `tableSort:/partials/users/list`)
+- [x] Save happens in the existing `RenderFooter` script block (runs on every render)
+
+#### 2. Restore sort state on initial table load (global HTMX listener)
+- [x] Add a global `htmx:configRequest` event listener (in base layout template or static JS)
+- [x] Listener checks if the request target is a `.table-container` element
+- [x] If the request URL has no `sort` param and localStorage has a saved sort for that URL, append `sort` and `order` params to the request
+- [x] Only applies to the initial `hx-trigger="load"` request (subsequent sort clicks already have params)
+
+#### 3. Clear saved state when filter/search changes (optional)
+- [x] When the filter input fires a request, do not override the saved sort (filter and sort are independent)
+- [x] Page size changes should also preserve the saved sort (already passed via existing hx-include)
+
+#### 4. Persist page size (limit) alongside sort
+- [x] Include `limit` in the saved localStorage JSON: `{sort, order, limit}`
+- [x] Restore `limit` in the `htmx:configRequest` listener (same guard as sort)
+- [x] Page size select change triggers new request; saved sort still injected via listener (correct behavior)
+
+### Notes
+
+- Partial URL is unique per table, making it a natural localStorage key
+- No server-side changes needed - this is purely client-side JS
+- Pagination offset should NOT be saved (navigating back to page 37 is confusing)
