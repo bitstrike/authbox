@@ -184,9 +184,20 @@ Always include in destructive handlers:
 ## CSS Classes
 
 - `.table-container` - wrapper div that HTMX targets for swaps
+- `.table-toolbar` - fixed-height container holding filter bar and bulk bar (prevents layout shift)
 - `.bulk-bar` - selection action bar (light blue bg, hidden by default)
 - `.bulk-check` - checkbox class for row selection
 - `.conflict-row-bg` - amber highlight for ineligible rows (light: #fffbeb, dark: rgba(180,83,9,0.15))
+
+## Toolbar Layout (no layout shift on selection)
+
+The filter bar and bulk action bar occupy the same `.table-toolbar` container. Only one is visible at a time:
+
+- Default state: filter bar visible, bulk bar hidden
+- When checkboxes selected: bulk bar shown, filter bar hidden
+- When all deselected: filter bar restored, bulk bar hidden
+
+This prevents the page from jumping when the bulk bar appears. The container has a fixed `min-height` so it never collapses. The swap is handled by `updateBulkBar()` in the RenderFooter JS block, toggling `hidden` class on both `#bulk-action-bar` and `#filter-bar`.
 
 ## Sort and Page Size Persistence
 

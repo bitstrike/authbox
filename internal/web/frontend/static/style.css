@@ -228,13 +228,22 @@ body {
 }
 .flash-close:hover { opacity: 1; }
 
+/* Table toolbar: fixed-height container for filter bar / bulk bar swap */
+.table-toolbar {
+  min-height: 2.75rem;
+  margin-bottom: 0.75rem;
+}
+.table-toolbar .bulk-bar {
+  margin-bottom: 0;
+}
+.table-toolbar #filter-bar.hidden { display: none; }
+
 /* Bulk action bar */
 .bulk-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
   border-radius: 0.375rem;
   background: #eff6ff;
   border: 1px solid #bfdbfe;

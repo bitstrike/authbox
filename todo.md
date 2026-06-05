@@ -809,3 +809,16 @@ per table in localStorage so the user's preferred sort is restored on page load.
 - Partial URL is unique per table, making it a natural localStorage key
 - No server-side changes needed - this is purely client-side JS
 - Pagination offset should NOT be saved (navigating back to page 37 is confusing)
+
+## Bulk Action Bar: Eliminate Layout Shift
+
+Selecting a checkbox reveals the bulk action bar, which pushes the table down causing a jarring layout jump. Fix by swapping the filter bar and bulk bar in the same fixed-height container.
+
+### Implementation (table.go + style.css)
+
+- [x] Wrap filter bar and bulk bar in a shared `.table-toolbar` container
+- [x] Both bars rendered in DOM; bulk bar starts `hidden`, filter bar visible
+- [x] `updateBulkBar()` JS: toggle `hidden` on both bars (show bulk, hide filter; and vice versa)
+- [x] Add `.table-toolbar` CSS with `min-height` matching bar height so container never collapses
+- [x] No changes to partials.go or table configs needed
+- [x] Update tablerenderer.md steering file with toolbar swap pattern

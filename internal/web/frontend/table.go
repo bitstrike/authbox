@@ -104,8 +104,16 @@ func NewTableRenderer(w io.Writer, cfg TableConfig, state TableState) *TableRend
 
 // RenderHeader writes the filter input, loading indicator, and table header row.
 func (tr *TableRenderer) RenderHeader() {
+	hasBulk := tr.cfg.Selectable && len(tr.cfg.BulkActions) > 0
+	hasFilter := tr.cfg.Filterable || tr.cfg.Exportable
+
+	// Toolbar container: holds both bulk bar and filter bar in the same space
+	if hasBulk || hasFilter {
+		fmt.Fprint(tr.w, `<div class="table-toolbar">`)
+	}
+
 	// Bulk action bar (hidden by default, shown via JS when rows selected)
-	if tr.cfg.Selectable && len(tr.cfg.BulkActions) > 0 {
+	if hasBulk {
 		fmt.Fprint(tr.w, `<div id="bulk-action-bar" class="bulk-bar hidden">`)
 		fmt.Fprint(tr.w, `<span class="text-sm" id="bulk-count">0 selected</span>`)
 		for _, action := range tr.cfg.BulkActions {
@@ -132,8 +140,8 @@ func (tr *TableRenderer) RenderHeader() {
 	}
 
 	// Filter and controls bar
-	if tr.cfg.Filterable || tr.cfg.Exportable {
-		fmt.Fprint(tr.w, `<div class="flex justify-between items-center mb-3">`)
+	if hasFilter {
+		fmt.Fprint(tr.w, `<div id="filter-bar" class="flex justify-between items-center">`)
 		if tr.cfg.Filterable {
 			fmt.Fprintf(tr.w,
 				`<input type="text" name="q" value="%s" placeholder="&#128269; Filter..." class="input flex-1" hx-get="%s" hx-trigger="keyup changed delay:%s" hx-target="closest .table-container" hx-include="[name='limit']" hx-indicator=".table-loading">`,
@@ -148,6 +156,11 @@ func (tr *TableRenderer) RenderHeader() {
 				tr.cfg.PartialURL, tr.state.Query, tr.state.Sort, tr.state.Order)
 		}
 		fmt.Fprintf(tr.w, `<div class="flex items-center space-x-2">%s</div>`, rightControls)
+		fmt.Fprint(tr.w, `</div>`)
+	}
+
+	// Close toolbar container
+	if hasBulk || hasFilter {
 		fmt.Fprint(tr.w, `</div>`)
 	}
 
@@ -271,13 +284,16 @@ function toggleRow(cb) {
 }
 function updateBulkBar() {
   var bar = document.getElementById('bulk-action-bar');
+  var filter = document.getElementById('filter-bar');
   var count = document.getElementById('bulk-count');
   if (!bar) return;
   if (bulkSelected.size > 0) {
     bar.classList.remove('hidden');
+    if (filter) filter.classList.add('hidden');
     count.textContent = bulkSelected.size + ' selected';
   } else {
     bar.classList.add('hidden');
+    if (filter) filter.classList.remove('hidden');
   }
 }
 function clearConflictState() {
