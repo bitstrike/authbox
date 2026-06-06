@@ -259,7 +259,13 @@ func entryToGroup(e *goldap.Entry) *Group {
 		g.GIDNumber = gid
 		g.Members = e.GetAttributeValues("memberUid")
 	} else {
-		g.Members = e.GetAttributeValues("member")
+		// Filter out the self-DN placeholder (groupOfNames requires at least one member)
+		selfDN := e.DN
+		for _, m := range e.GetAttributeValues("member") {
+			if m != selfDN {
+				g.Members = append(g.Members, m)
+			}
+		}
 	}
 	return g
 }

@@ -980,3 +980,10 @@ Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`
 - [x] If HTMX: return refreshed member list HTML fragment (same markup as the `#member-list` div contents)
 - [x] If not HTMX: redirect as before (fallback for non-JS)
 - [x] Set `HX-Trigger` header with flash message on success (consistent with other HTMX actions)
+
+## Fix: Hide groupOfNames Self-DN Placeholder in Member List
+
+groupOfNames requires at least one `member` attribute. On creation with no members, the group's own DN is used as a placeholder. This shows up in the UI as a confusing entry.
+
+- [x] In `entryToGroup`, filter out the self-DN from the members list when type is groupOfNames
+- [x] Self-DN matches pattern `cn=<groupCN>,ou=groups,<baseDN>`
