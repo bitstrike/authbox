@@ -390,7 +390,7 @@ Custom utility CSS (`internal/web/frontend/static/style.css`) with no build step
 ### CSS Component Classes
 
 - `.card` - white box with border, rounded corners, padding. Dark mode variant.
-- `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-danger` - buttons with hover states
+- `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-danger` - buttons with hover states. `.btn:disabled` grays out (opacity 0.5, no pointer events).
 - `.badge` + `.badge-blue` / `.badge-purple` - pill labels (e.g., group type indicator)
 - `.flash` + `.flash-success` / `.flash-error` / `.flash-warning` - notification bars
 - `.input` - form inputs with focus ring and disabled state
@@ -401,6 +401,18 @@ Custom utility CSS (`internal/web/frontend/static/style.css`) with no build step
 - `.status-dot` + `.green` / `.yellow` / `.red` - colored circle indicators
 - `.bulk-bar` - bulk action toolbar (shown when rows selected)
 - `.detail-layout` - responsive 2-column grid (form left, info panels right)
+
+### Disabled-Until-Changed Pattern
+
+For settings forms where accidental saves are risky, buttons start `disabled` and enable only when a value differs from its original:
+
+```html
+<input id="my-field" value="{{.Value}}" data-original="{{.Value}}"
+  oninput="document.getElementById('my-save').disabled=(this.value===this.dataset.original)">
+<button id="my-save" class="btn btn-primary" disabled>Save</button>
+```
+
+For multi-input forms, use a shared `checkChanged()` function that compares all inputs to their `data-original` values. Applied to: settings pages, Save GID button on group edit.
 
 ### Go Render Helpers
 

@@ -4,11 +4,11 @@
   <div class="space-y-3">
     <div>
       <label class="label" for="issuer">Issuer URL</label>
-      <input type="url" id="issuer" name="issuer_url" class="input" value="{{.OIDCIssuer}}">
+      <input type="url" id="issuer" name="issuer_url" class="input" value="{{.OIDCIssuer}}" data-original="{{.OIDCIssuer}}" oninput="checkOIDCChanged()">
     </div>
     <div>
       <label class="label" for="client-id">Client ID</label>
-      <input type="text" id="client-id" name="client_id" class="input" value="{{.OIDCClientID}}">
+      <input type="text" id="client-id" name="client_id" class="input" value="{{.OIDCClientID}}" data-original="{{.OIDCClientID}}" oninput="checkOIDCChanged()">
     </div>
     <div>
       <label class="label">Client Secret</label>
@@ -17,6 +17,14 @@
       </p>
     </div>
   </div>
-  <button type="submit" class="btn btn-primary mt-4">Save</button>
+  <button type="submit" id="oidc-save" class="btn btn-primary mt-4" disabled>Save</button>
 </form>
+<script>
+function checkOIDCChanged() {
+  var issuer = document.getElementById('issuer');
+  var clientId = document.getElementById('client-id');
+  var changed = issuer.value !== issuer.dataset.original || clientId.value !== clientId.dataset.original;
+  document.getElementById('oidc-save').disabled = !changed;
+}
+</script>
 {{end}}

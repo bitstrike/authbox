@@ -3,19 +3,19 @@
 <form hx-post="/backup/schedule" hx-target="#backup-panel" hx-swap="innerHTML">
   <div class="space-y-3">
     <label class="flex items-center space-x-2">
-      <input type="checkbox" id="sched-enabled" name="enabled" {{if .BackupEnabled}}checked{{end}} onchange="toggleScheduleFields()">
+      <input type="checkbox" id="sched-enabled" name="enabled" {{if .BackupEnabled}}checked{{end}} onchange="toggleScheduleFields(); checkScheduleChanged();">
       <span class="text-sm">Enable daily slapcat backup</span>
     </label>
     <div class="field-group{{if not .BackupEnabled}} disabled{{end}}" id="fg-time">
       <label class="label" for="backup-time">Backup Time</label>
-      <input type="time" id="backup-time" name="time" class="input w-32" value="{{.BackupTime}}"{{if not .BackupEnabled}} disabled{{end}}>
+      <input type="time" id="backup-time" name="time" class="input w-32" value="{{.BackupTime}}" data-original="{{.BackupTime}}"{{if not .BackupEnabled}} disabled{{end}} oninput="checkScheduleChanged()">
     </div>
     <div class="field-group{{if not .BackupEnabled}} disabled{{end}}" id="fg-retention">
       <label class="label" for="backup-retention">Retention (days)</label>
-      <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.BackupRetention}}" min="1"{{if not .BackupEnabled}} disabled{{end}}>
+      <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.BackupRetention}}" min="1" data-original="{{.BackupRetention}}"{{if not .BackupEnabled}} disabled{{end}} oninput="checkScheduleChanged()">
     </div>
   </div>
-  <button type="submit" class="btn btn-primary mt-4">Save Schedule</button>
+  <button type="submit" id="schedule-save" class="btn btn-primary mt-4" disabled>Save Schedule</button>
 </form>
 <script>
 function toggleScheduleFields() {
@@ -34,6 +34,14 @@ function toggleScheduleFields() {
     fgTime.classList.add('disabled');
     fgRet.classList.add('disabled');
   }
+}
+function checkScheduleChanged() {
+  var cb = document.getElementById('sched-enabled');
+  var time = document.getElementById('backup-time');
+  var ret = document.getElementById('backup-retention');
+  var origEnabled = {{if .BackupEnabled}}true{{else}}false{{end}};
+  var changed = cb.checked !== origEnabled || time.value !== time.dataset.original || ret.value !== ret.dataset.original;
+  document.getElementById('schedule-save').disabled = !changed;
 }
 </script>
 {{end}}

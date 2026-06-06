@@ -1031,3 +1031,20 @@ The "Remove" buttons use `hx-delete="/groups/{cn}/members/{member}"` but no DELE
 - [x] Warning note next to button about file ownership impact
 - [x] `actionUpdateGroup` handles GID change with uniqueness validation
 - [x] Add `UpdateGroupGID(cn, gid)` method to LDAP client
+
+## UX: Disabled-Until-Changed Save Buttons
+
+Save/submit buttons on settings forms start disabled and enable only when a value differs from its original. Prevents accidental saves and makes pending changes visually obvious.
+
+### Infrastructure
+- [x] Add `.btn:disabled` rule to style.css (opacity 0.5, cursor not-allowed, pointer-events none)
+- [x] Document pattern in project.md UI Components section
+
+### Apply to forms
+- [x] Group edit: Save GID button (data-original on gidNumber input)
+- [x] Settings: UID/GID Range (two inputs, button enables if either differs)
+- [x] Settings: SSH CA cert TTL
+- [x] Settings: Session timeout
+- [x] Settings: Logging (level and/or retention)
+- [x] Settings: OIDC provider (issuer, client_id)
+- [x] Settings: Backup schedule (enabled toggle, time, retention)

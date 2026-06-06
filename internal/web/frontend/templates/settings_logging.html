@@ -4,7 +4,7 @@
   <div class="grid grid-cols-2 gap-4">
     <div>
       <label class="label" for="log-level">Log Level</label>
-      <select id="log-level" name="log_level" class="input">
+      <select id="log-level" name="log_level" class="input" data-original="{{.LogLevel}}" onchange="checkLoggingChanged()">
         <option value="debug" {{if eq .LogLevel "debug"}}selected{{end}}>Debug</option>
         <option value="info" {{if eq .LogLevel "info"}}selected{{end}}>Info</option>
         <option value="warn" {{if eq .LogLevel "warn"}}selected{{end}}>Warn</option>
@@ -13,9 +13,17 @@
     </div>
     <div>
       <label class="label" for="retention">Retention (days)</label>
-      <input type="number" id="retention" name="retention_days" class="input" value="{{.LogRetention}}" min="1" max="365">
+      <input type="number" id="retention" name="retention_days" class="input" value="{{.LogRetention}}" min="1" max="365" data-original="{{.LogRetention}}" oninput="checkLoggingChanged()">
     </div>
   </div>
-  <button type="submit" class="btn btn-primary mt-4">Save</button>
+  <button type="submit" id="logging-save" class="btn btn-primary mt-4" disabled>Save</button>
 </form>
+<script>
+function checkLoggingChanged() {
+  var level = document.getElementById('log-level');
+  var ret = document.getElementById('retention');
+  var changed = level.value !== level.dataset.original || ret.value !== ret.dataset.original;
+  document.getElementById('logging-save').disabled = !changed;
+}
+</script>
 {{end}}

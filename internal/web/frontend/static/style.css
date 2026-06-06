@@ -212,6 +212,7 @@ body {
 .dark .btn-secondary:hover { background: #4b5563; }
 .btn-danger { background: var(--color-danger); color: #fff; }
 .btn-danger:hover { background: var(--color-danger-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
 /* Badge / pill */
 .badge {

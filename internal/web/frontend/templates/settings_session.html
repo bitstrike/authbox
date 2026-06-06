@@ -3,8 +3,8 @@
 <form method="POST" action="/settings/session">
   <div>
     <label class="label" for="timeout">Session Timeout (minutes)</label>
-    <input type="number" id="timeout" name="timeout_minutes" class="input w-32" value="{{.SessionTimeout}}" min="5" max="480">
+    <input type="number" id="timeout" name="timeout_minutes" class="input w-32" value="{{.SessionTimeout}}" min="5" max="480" data-original="{{.SessionTimeout}}" oninput="document.getElementById('session-save').disabled=(this.value===this.dataset.original)">
   </div>
-  <button type="submit" class="btn btn-primary mt-4">Save</button>
+  <button type="submit" id="session-save" class="btn btn-primary mt-4" disabled>Save</button>
 </form>
 {{end}}

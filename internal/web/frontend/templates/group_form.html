@@ -31,8 +31,8 @@
       <div>
         <label class="label" for="gidNumber">GID Number</label>
         <div class="flex items-center space-x-2">
-          <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input w-32">
-          <button type="submit" class="btn btn-secondary text-sm">Save GID</button>
+          <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input w-32" data-original="{{.Content.Group.GIDNumber}}" oninput="document.getElementById('gid-save').disabled=(this.value===this.dataset.original)">
+          <button type="submit" id="gid-save" class="btn btn-primary text-sm" disabled>Save GID</button>
           <span class="text-xs text-gray-500 dark:text-gray-400">Changing GID affects file ownership on hosts using this group.</span>
         </div>
       </div>

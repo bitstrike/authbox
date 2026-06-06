@@ -4,13 +4,21 @@
   <div class="grid grid-cols-2 gap-4">
     <div>
       <label class="label" for="uid-start">Range Start</label>
-      <input type="number" id="uid-start" name="range_start" class="input" value="{{.UIDRangeStart}}">
+      <input type="number" id="uid-start" name="range_start" class="input" value="{{.UIDRangeStart}}" data-original="{{.UIDRangeStart}}" oninput="checkUIDRangeChanged()">
     </div>
     <div>
       <label class="label" for="uid-end">Range End</label>
-      <input type="number" id="uid-end" name="range_end" class="input" value="{{.UIDRangeEnd}}">
+      <input type="number" id="uid-end" name="range_end" class="input" value="{{.UIDRangeEnd}}" data-original="{{.UIDRangeEnd}}" oninput="checkUIDRangeChanged()">
     </div>
   </div>
-  <button type="submit" class="btn btn-primary mt-4">Save</button>
+  <button type="submit" id="uid-range-save" class="btn btn-primary mt-4" disabled>Save</button>
 </form>
+<script>
+function checkUIDRangeChanged() {
+  var s = document.getElementById('uid-start');
+  var e = document.getElementById('uid-end');
+  var changed = s.value !== s.dataset.original || e.value !== e.dataset.original;
+  document.getElementById('uid-range-save').disabled = !changed;
+}
+</script>
 {{end}}
