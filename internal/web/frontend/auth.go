@@ -102,17 +102,17 @@ func (h *AuthHandlers) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update first/last name from JWT if still set to uid placeholder
+	// Update first/last name from JWT on every login
 	if h.ldap != nil && (claims.GivenName != "" || claims.FamilyName != "") {
 		uid := emailToUID(claims.Email)
 		user, _ := h.ldap.GetUser(uid)
-		if user != nil && (user.GivenName == "" || user.GivenName == uid || user.SN == uid) {
+		if user != nil {
 			needsUpdate := false
-			if claims.GivenName != "" && (user.GivenName == "" || user.GivenName == uid) {
+			if claims.GivenName != "" && user.GivenName != claims.GivenName {
 				user.GivenName = claims.GivenName
 				needsUpdate = true
 			}
-			if claims.FamilyName != "" && user.SN == uid {
+			if claims.FamilyName != "" && user.SN != claims.FamilyName {
 				user.SN = claims.FamilyName
 				needsUpdate = true
 			}

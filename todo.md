@@ -76,7 +76,7 @@
 - [x] Session management (cookie-based for web UI)
 - [x] Verify user exists in LDAP before granting access
 - [x] Support Google and Entra ID (one active at a time)
-- [x] First name and Last Name of user will be updated from jwt information on first login
+- [x] First name and Last Name of user will be updated from jwt information on every login
 
 ## Phase 8: Web Frontend
 
