@@ -39,14 +39,15 @@
         </div>
         <div class="mt-2" style="position:relative">
           <div class="flex space-x-2">
-            <input type="text" name="new_member" placeholder="Add member (uid)" class="input flex-1"
+            <input type="text" name="new_member" id="new-member-input" placeholder="Add member (uid)" class="input flex-1"
               hx-get="/users/search"
               hx-trigger="keyup changed delay:300ms, focus"
               hx-target="#member-suggestions"
               hx-include="this"
               autocomplete="off"
+              oninput="document.getElementById('add-member-btn').disabled=!this.value.trim()"
               onblur="setTimeout(function(){document.getElementById('member-suggestions').innerHTML=''},200)">
-            <button type="button" class="btn btn-secondary"
+            <button type="button" id="add-member-btn" class="btn btn-secondary" disabled
               hx-post="/groups/{{.Content.Group.CN}}/members"
               hx-include="[name='new_member']"
               hx-target="#member-list">Add</button>

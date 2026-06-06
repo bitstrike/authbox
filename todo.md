@@ -1012,3 +1012,14 @@ The "Remove" buttons use `hx-delete="/groups/{cn}/members/{member}"` but no DELE
 - [x] Add `actionRemoveMember` handler
 - [x] Register `Delete("/groups/{cn}/members/*")` in admin route group
 - [x] Handler removes the member from the group and returns refreshed member list HTML
+
+## Fix: Group Edit - Validate UID Before Add, Disable Button When Empty
+
+- [x] In `actionAddMember`, verify uid exists via `GetUser` before adding to group
+- [x] Return HTMX error flash if user not found
+- [x] Disable "Add" button by default, enable via `oninput` when field is non-empty
+
+## Fix: Group Edit - Prevent Duplicate Member Add
+
+- [x] In `actionAddMember`, check if memberValue already exists in group.Members before appending
+- [x] Return warning flash if user is already a member

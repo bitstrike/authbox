@@ -520,6 +520,20 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
 		return
 	}
+
+	// Verify uid exists in LDAP
+	user, err := h.deps.LDAP.GetUser(newMember)
+	if err != nil || user == nil {
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"User `+escHTML(newMember)+` not found"}}`)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+		flash.Set(w, flash.Error, "User "+newMember+" not found")
+		http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+		return
+	}
+
 	group, err := h.deps.LDAP.GetGroup(cn)
 	if err != nil || group == nil {
 		http.Error(w, "group not found", http.StatusNotFound)
@@ -530,6 +544,20 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 	memberValue := newMember
 	if group.Type == "groupOfNames" {
 		memberValue = h.deps.LDAP.UserDN(newMember)
+	}
+
+	// Check for duplicate
+	for _, m := range group.Members {
+		if m == memberValue {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Trigger", `{"showFlash":{"type":"warning","text":"User `+escHTML(newMember)+` is already a member of `+escHTML(cn)+`"}}`)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			flash.Set(w, flash.Warning, "User "+newMember+" is already a member of "+cn)
+			http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+			return
+		}
 	}
 
 	group.Members = append(group.Members, memberValue)
