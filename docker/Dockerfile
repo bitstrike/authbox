@@ -19,6 +19,7 @@ RUN apk add --no-cache \
     openldap-clients \
     openssl \
     ca-certificates \
+    tzdata \
     tini
 
 # LDAP data and config directories

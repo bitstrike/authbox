@@ -20,6 +20,8 @@
 - [x] Initialize SQLite schema
 - [x] Read secrets from `RUNTIME_SECRETS` volume mount
 - [x] Implement entrypoint.sh slapd startup and readiness check
+- [x] Install `tzdata` in Dockerfile for timezone support
+- [x] Add `TZ` env var to docker-compose (defaults to UTC, set IANA timezone to override)
 
 ## Phase 3: API Core
 

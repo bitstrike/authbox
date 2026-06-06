@@ -16,6 +16,7 @@ services:
       - /etc/secrets/authbox:/etc/secrets/authbox:ro
     environment:
       - ROLE=${ROLE:-primary}
+      - TZ=${TZ:-UTC}
       - RUNTIME_SECRETS=${RUNTIME_SECRETS:-/etc/secrets/authbox}
       - LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=com}
       - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-https://accounts.google.com}
@@ -48,6 +49,7 @@ services:
       - /etc/secrets/authbox:/etc/secrets/authbox:ro
     environment:
       - ROLE=replica
+      - TZ=${TZ:-UTC}
       - PRIMARY_HOST=${PRIMARY_HOST:-primary}
       - RUNTIME_SECRETS=${RUNTIME_SECRETS:-/etc/secrets/authbox}
       - LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=com}
