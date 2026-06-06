@@ -503,6 +503,9 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	newMember := r.FormValue("new_member")
 	if newMember == "" {
+		if r.Header.Get("HX-Request") == "true" {
+			return
+		}
 		http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
 		return
 	}
@@ -513,8 +516,28 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 	}
 	group.Members = append(group.Members, newMember)
 	h.deps.LDAP.UpdateGroupMembers(cn, group.Members)
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Member `+escHTML(newMember)+` added to `+escHTML(cn)+`"}}`)
+		w.Header().Set("Content-Type", "text/html")
+		h.renderMemberList(w, cn, group.Members)
+		return
+	}
 	flash.Set(w, flash.Success, "Member "+newMember+" added to "+cn)
 	http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+}
+
+func (h *handlers) renderMemberList(w http.ResponseWriter, cn string, members []string) {
+	if len(members) == 0 {
+		fmt.Fprint(w, `<p class="text-sm text-gray-500 dark:text-gray-400">No members</p>`)
+		return
+	}
+	for _, m := range members {
+		fmt.Fprintf(w,
+			`<div class="flex justify-between items-center py-1"><span class="text-sm">%s</span><button type="button" class="text-red-500 text-xs hover:text-red-700" hx-delete="/groups/%s/members/%s" hx-target="#member-list" hx-confirm="Remove this member?">Remove</button></div>`,
+			escHTML(m), escHTML(cn), escHTML(m),
+		)
+	}
 }
 
 func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {

@@ -971,3 +971,12 @@ Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`
 - [x] Each suggestion is a clickable item that fills the input value (inline onclick JS)
 - [x] Suggestions dismiss on selection or blur
 - [x] Style suggestions as a dropdown overlay (absolute positioned, bordered, max-height with scroll)
+
+## Fix: Add Member to Group Returns Full Page in HTMX Target
+
+`actionAddMember` does `http.Redirect` which HTMX follows, fetching the full page HTML into `#member-list`.
+
+- [x] In `actionAddMember`, check `HX-Request` header
+- [x] If HTMX: return refreshed member list HTML fragment (same markup as the `#member-list` div contents)
+- [x] If not HTMX: redirect as before (fallback for non-JS)
+- [x] Set `HX-Trigger` header with flash message on success (consistent with other HTMX actions)
