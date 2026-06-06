@@ -55,6 +55,7 @@ func (f *Frontend) registerActions(r chi.Router) {
 		r.Post("/groups/{cn}", f.h.actionUpdateGroup)
 		r.Post("/groups/{cn}/delete", f.h.actionDeleteGroup)
 		r.Post("/groups/{cn}/members", f.h.actionAddMember)
+		r.Delete("/groups/{cn}/members/*", f.h.actionRemoveMember)
 		r.Post("/groups/bulk/delete", f.h.actionBulkDeleteGroups)
 	})
 
@@ -472,6 +473,16 @@ func (h *handlers) actionCreateGroup(w http.ResponseWriter, r *http.Request) {
 func (h *handlers) actionUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	cn := chi.URLParam(r, "cn")
 	r.ParseForm()
+
+	// Only update members if the form explicitly contains a members field.
+	// The edit form manages members via HTMX (Add/Remove buttons) and does
+	// not submit a members field, so we skip to avoid wiping the list.
+	if r.FormValue("members") == "" {
+		flash.Set(w, flash.Success, "Group "+cn+" updated")
+		http.Redirect(w, r, "/groups", http.StatusFound)
+		return
+	}
+
 	members := strings.Split(r.FormValue("members"), "\n")
 	var cleaned []string
 	for _, m := range members {
@@ -545,6 +556,33 @@ func (h *handlers) renderMemberList(w http.ResponseWriter, cn string, members []
 			escHTML(m), escHTML(cn), escHTML(m),
 		)
 	}
+}
+
+func (h *handlers) actionRemoveMember(w http.ResponseWriter, r *http.Request) {
+	cn := chi.URLParam(r, "cn")
+	member := chi.URLParam(r, "*")
+	if member == "" {
+		http.Error(w, "member required", http.StatusBadRequest)
+		return
+	}
+
+	group, err := h.deps.LDAP.GetGroup(cn)
+	if err != nil || group == nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+
+	var updated []string
+	for _, m := range group.Members {
+		if m != member {
+			updated = append(updated, m)
+		}
+	}
+	h.deps.LDAP.UpdateGroupMembers(cn, updated)
+
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Member removed from `+escHTML(cn)+`"}}`)
+	w.Header().Set("Content-Type", "text/html")
+	h.renderMemberList(w, cn, updated)
 }
 
 func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {

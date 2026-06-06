@@ -996,3 +996,19 @@ groupOfNames requires at least one `member` attribute. On creation with no membe
 - [x] If groupOfNames: convert uid to DN via LDAP client's `UserDN(uid)` helper
 - [x] Add `UserDN(uid string) string` method to LDAP client (returns `uid=<uid>,ou=people,<baseDN>`)
 - [x] posixGroup path unchanged (plain uid is correct)
+
+## Fix: Group Edit "Update" Button Wipes Member List
+
+The form POSTs to `actionUpdateGroup` which reads `r.FormValue("members")` - but the template has no `members` form field. Result: `UpdateGroupMembers(cn, [])` clears all members.
+
+- [x] Remove "Update" submit button from group_form.html in edit mode (members are managed via HTMX Add/Remove)
+- [x] Change "Cancel" link text to "Back" in edit mode
+- [x] Guard `actionUpdateGroup` to skip member replacement when members field is absent (belt-and-suspenders)
+
+## Fix: Group Edit Remove Member Button (hx-delete route missing)
+
+The "Remove" buttons use `hx-delete="/groups/{cn}/members/{member}"` but no DELETE route is registered.
+
+- [x] Add `actionRemoveMember` handler
+- [x] Register `Delete("/groups/{cn}/members/*")` in admin route group
+- [x] Handler removes the member from the group and returns refreshed member list HTML

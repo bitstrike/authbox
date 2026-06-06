@@ -64,8 +64,10 @@
     {{end}}
 
     <div class="mt-6 flex space-x-3">
-      <button type="submit" class="btn btn-primary">{{if .Content.IsEdit}}Update{{else}}Create{{end}}</button>
-      <a href="/groups" class="btn btn-secondary">Cancel</a>
+      {{if not .Content.IsEdit}}
+      <button type="submit" class="btn btn-primary">Create</button>
+      {{end}}
+      <a href="/groups" class="btn btn-secondary">{{if .Content.IsEdit}}Back{{else}}Cancel{{end}}</a>
     </div>
   </form>
 </div>
