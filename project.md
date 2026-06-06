@@ -382,3 +382,29 @@ SQLite keeps the stack to two components (Go app + OpenLDAP). Postgres adds a th
 
 ### Single IdP at a Time
 Supporting both Google and Entra simultaneously adds identity mapping complexity. One active IdP keeps user identity unambiguous.
+
+## UI Components
+
+Custom utility CSS (`internal/web/frontend/static/style.css`) with no build step. Dark mode via `.dark` class on `<html>`.
+
+### CSS Component Classes
+
+- `.card` - white box with border, rounded corners, padding. Dark mode variant.
+- `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-danger` - buttons with hover states
+- `.badge` + `.badge-blue` / `.badge-purple` - pill labels (e.g., group type indicator)
+- `.flash` + `.flash-success` / `.flash-error` / `.flash-warning` - notification bars
+- `.input` - form inputs with focus ring and disabled state
+- `.label` - form field labels
+- `.table` - bordered table with header and row styling
+- `.nav-link` - top navigation links with active state
+- `.sidebar-nav-item` - sidebar navigation links with active/hover states
+- `.status-dot` + `.green` / `.yellow` / `.red` - colored circle indicators
+- `.bulk-bar` - bulk action toolbar (shown when rows selected)
+- `.detail-layout` - responsive 2-column grid (form left, info panels right)
+
+### Go Render Helpers
+
+- `TableRenderer` / `TableConfig` - sortable, filterable, paginated tables with bulk actions and HTMX partials
+- `SidebarRenderer` / `SidebarConfig` - two-column layout with nav links and HTMX content panel
+- `flash.Set(w, type, message)` / `flash.Get(w, r)` - server-side one-time flash messages (cookie-based)
+- `pageDataFromRequest(w, r, title, content)` - base page data builder (populates nav, role bools, flash)
