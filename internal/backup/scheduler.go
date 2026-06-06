@@ -29,10 +29,11 @@ type Scheduler struct {
 	backupDir   string
 	log         *logging.Logger
 
-	mu      sync.Mutex
-	timer   *time.Timer
-	stopCh  chan struct{}
-	stopped bool
+	mu         sync.Mutex
+	timer      *time.Timer
+	stopCh     chan struct{}
+	reconfigCh chan struct{}
+	stopped    bool
 }
 
 // NewScheduler creates a backup scheduler.
@@ -43,6 +44,7 @@ func NewScheduler(repo *db.Repository, slapcatPath, backupDir string, log *loggi
 		backupDir:   backupDir,
 		log:         log,
 		stopCh:      make(chan struct{}),
+		reconfigCh:  make(chan struct{}, 1),
 	}
 }
 
@@ -65,21 +67,13 @@ func (s *Scheduler) Stop() {
 	}
 }
 
-// Reconfigure re-reads settings and resets the timer.
+// Reconfigure signals the scheduler to re-read settings and reset the timer.
 func (s *Scheduler) Reconfigure() {
-	s.mu.Lock()
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
+	select {
+	case s.reconfigCh <- struct{}{}:
+	default:
+		// Already signaled, loop will pick it up
 	}
-	s.mu.Unlock()
-	// Send a zero-duration signal to re-enter the loop immediately
-	// The loop checks settings on each iteration
-	s.mu.Lock()
-	if !s.stopped {
-		s.timer = time.NewTimer(0)
-	}
-	s.mu.Unlock()
 }
 
 func (s *Scheduler) loop() {
@@ -104,7 +98,11 @@ func (s *Scheduler) loop() {
 
 		select {
 		case <-s.stopCh:
+			s.timer.Stop()
 			return
+		case <-s.reconfigCh:
+			s.timer.Stop()
+			continue
 		case <-s.timer.C:
 			if !enabled {
 				// Re-check after idle sleep

@@ -15,12 +15,11 @@
       <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.BackupRetention}}" min="1"{{if not .BackupEnabled}} disabled{{end}}>
     </div>
   </div>
-  <button type="submit" id="sched-btn" class="btn btn-primary mt-4">{{if .BackupEnabled}}Enable Schedule{{else}}Disable Schedule{{end}}</button>
+  <button type="submit" class="btn btn-primary mt-4">Save Schedule</button>
 </form>
 <script>
 function toggleScheduleFields() {
   var cb = document.getElementById('sched-enabled');
-  var btn = document.getElementById('sched-btn');
   var timeInput = document.getElementById('backup-time');
   var retInput = document.getElementById('backup-retention');
   var fgTime = document.getElementById('fg-time');
@@ -35,7 +34,6 @@ function toggleScheduleFields() {
     fgTime.classList.add('disabled');
     fgRet.classList.add('disabled');
   }
-  btn.textContent = enabled ? 'Enable Schedule' : 'Disable Schedule';
 }
 </script>
 {{end}}

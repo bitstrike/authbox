@@ -871,9 +871,9 @@ The schedule form template exists but has no backend. Form POSTs to a non-existe
 ### 8. Backup Schedule Form UX
 
 - [x] Disable time/retention inputs when checkbox is unchecked (JS `onchange` toggles `disabled`)
-- [x] Dynamic button text: "Enable Schedule" when checked, "Disable Schedule" when unchecked
-- [x] Button text updates immediately on checkbox change (no server round-trip)
-- [x] On page load, set initial button text based on checkbox state
+- [ ] Button text is static "Save Schedule" (no dynamic text changes)
+- [ ] Remove JS that swaps button text on checkbox change
+- [ ] Remove template conditional around button text
 
 ### 9. Disabled Field Styling (global, style.css)
 
@@ -912,3 +912,22 @@ Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`
 - [x] Files prefixed `pre-import-backup-` = "Pre-import"
 - [x] Files prefixed `backup-` = "Scheduled"
 - [x] All others = "Manual"
+
+## Backup Schedule API Endpoints
+
+- [ ] `GET /api/v1/config/backup-schedule` - return current schedule settings (enabled, time, retention)
+- [ ] `PUT /api/v1/config/backup-schedule` - update schedule settings, call `scheduler.Reconfigure()`
+- [ ] `GET /api/v1/config/backups` - list backup archive files (filename, size, modified, type)
+- [ ] `DELETE /api/v1/config/backups/{filename}` - delete a specific backup archive
+
+## Fix: Backup Scheduler Reconfigure Does Not Wake Loop
+
+`Reconfigure()` stops the old timer and assigns a new zero-duration timer to `s.timer`, but the `loop()` goroutine's `select` is already blocked on the old timer's channel. Replacing the struct field doesn't unblock the select. The loop won't re-read settings until the old timer would have fired (up to 24h) or the idle sleep expires (1h).
+
+- [x] Add `reconfigCh chan struct{}` field to `Scheduler` (unbuffered or capacity 1)
+- [x] Initialize `reconfigCh` in `NewScheduler`
+- [x] Add `case <-s.reconfigCh:` to the select in `loop()` (alongside stopCh and timer.C)
+- [x] When reconfigCh fires, stop the current timer and `continue` the loop (re-reads settings, recomputes duration)
+- [x] In `Reconfigure()`, send on `reconfigCh` (non-blocking) instead of manipulating `s.timer` directly
+- [x] Remove the two-phase lock/unlock and `time.NewTimer(0)` hack from `Reconfigure()`
+- [ ] Verify: saving a new schedule time takes effect within seconds, not on next loop iteration
