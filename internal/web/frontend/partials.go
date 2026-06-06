@@ -682,6 +682,47 @@ func escHTML(s string) string {
 
 // Settings partial handlers
 
+func (h *handlers) userSearch(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if q == "" {
+		q = strings.TrimSpace(r.URL.Query().Get("new_member"))
+	}
+	w.Header().Set("Content-Type", "text/html")
+	if len(q) < 2 {
+		return
+	}
+
+	users, _, err := h.deps.LDAP.ListUsers(0, 1000)
+	if err != nil {
+		return
+	}
+
+	ql := strings.ToLower(q)
+	var matches []struct{ UID, CN string }
+	for _, u := range users {
+		if strings.Contains(strings.ToLower(u.UID), ql) ||
+			strings.Contains(strings.ToLower(u.CN), ql) ||
+			strings.Contains(strings.ToLower(u.Mail), ql) {
+			matches = append(matches, struct{ UID, CN string }{u.UID, u.CN})
+		}
+		if len(matches) >= 10 {
+			break
+		}
+	}
+
+	if len(matches) == 0 {
+		fmt.Fprint(w, `<div class="text-xs text-gray-500 p-2">No matches</div>`)
+		return
+	}
+
+	for _, m := range matches {
+		fmt.Fprintf(w,
+			`<div class="p-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" onclick="document.querySelector('[name=new_member]').value='%s'; document.getElementById('member-suggestions').innerHTML=''">%s <span class="text-gray-500 text-xs">(%s)</span></div>`,
+			escHTML(m.UID), escHTML(m.UID), escHTML(m.CN),
+		)
+	}
+}
+
 func (h *handlers) partialSettingsOIDC(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		OIDCIssuer           string

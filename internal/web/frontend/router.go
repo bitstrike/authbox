@@ -93,6 +93,7 @@ func (f *Frontend) RegisterRoutes(r chi.Router) {
 			r.Use(requireFrontendRole(auth.RoleAdmin))
 			r.Get("/groups/new", f.h.groupNew)
 			r.Get("/groups/{cn}/edit", f.h.groupEdit)
+			r.Get("/users/search", f.h.userSearch)
 			r.Get("/service-accounts", f.h.serviceAccounts)
 			r.Get("/logs", f.h.logs)
 			r.Get("/settings", f.h.settings)

@@ -37,12 +37,21 @@
           <p class="text-sm text-gray-500 dark:text-gray-400">No members</p>
           {{end}}
         </div>
-        <div class="mt-2 flex space-x-2">
-          <input type="text" name="new_member" placeholder="Add member (uid)" class="input flex-1">
-          <button type="button" class="btn btn-secondary"
-            hx-post="/groups/{{.Content.Group.CN}}/members"
-            hx-include="[name='new_member']"
-            hx-target="#member-list">Add</button>
+        <div class="mt-2" style="position:relative">
+          <div class="flex space-x-2">
+            <input type="text" name="new_member" placeholder="Add member (uid)" class="input flex-1"
+              hx-get="/users/search"
+              hx-trigger="keyup changed delay:300ms, focus"
+              hx-target="#member-suggestions"
+              hx-include="this"
+              autocomplete="off"
+              onblur="setTimeout(function(){document.getElementById('member-suggestions').innerHTML=''},200)">
+            <button type="button" class="btn btn-secondary"
+              hx-post="/groups/{{.Content.Group.CN}}/members"
+              hx-include="[name='new_member']"
+              hx-target="#member-list">Add</button>
+          </div>
+          <div id="member-suggestions" style="position:absolute;z-index:50;left:0;right:5rem;max-height:12rem;overflow-y:auto" class="border rounded dark:border-gray-700 bg-white dark:bg-gray-800 shadow"></div>
         </div>
       </div>
       {{end}}

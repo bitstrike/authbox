@@ -960,3 +960,14 @@ Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`
 ### Right column: Quick Info panel
 - [x] Show FIDO2 key count for this user (link to FIDO2 page)
 - [x] Show SSH cert count for this user (link to SSH page)
+
+## Group Edit: Typeahead User Search for Add Member
+
+- [x] Add `GET /users/search?q=<term>` endpoint returning HTML fragment of matching users (uid + name)
+- [x] LDAP substring filter on uid, cn, mail (max 10 results)
+- [x] Endpoint accessible to admin role (same as group edit)
+- [x] Update group_form.html "Add member" input with `hx-get="/users/search"` and `hx-trigger="keyup changed delay:300ms"`
+- [x] Add `<div id="member-suggestions">` below input to receive results
+- [x] Each suggestion is a clickable item that fills the input value (inline onclick JS)
+- [x] Suggestions dismiss on selection or blur
+- [x] Style suggestions as a dropdown overlay (absolute positioned, bordered, max-height with scroll)
