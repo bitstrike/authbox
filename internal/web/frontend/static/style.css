@@ -282,6 +282,10 @@ body {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
 }
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .label {
   display: block;
@@ -291,6 +295,12 @@ body {
   color: #374151;
 }
 .dark .label { color: #d1d5db; }
+.field-group.disabled .label {
+  color: #9ca3af;
+}
+.dark .field-group.disabled .label {
+  color: #6b7280;
+}
 
 .table {
   width: 100%;

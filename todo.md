@@ -873,6 +873,14 @@ The schedule form template exists but has no backend. Form POSTs to a non-existe
 - [x] Button text updates immediately on checkbox change (no server round-trip)
 - [x] On page load, set initial button text based on checkbox state
 
+### 9. Disabled Field Styling (global, style.css)
+
+- [x] Add `.input:disabled` rule: `opacity: 0.5; cursor: not-allowed;`
+- [x] Add `.label` grey text when sibling input is disabled (wrap label+input in `.field-group`, toggle `.disabled` class via JS)
+- [x] Dark mode variant: disabled label uses `#6b7280` (gray-500)
+- [x] Update `toggleScheduleFields()` in backup_schedule.html to toggle `.disabled` on parent divs
+- [x] Applies globally to any future form with conditional disabled fields
+
 ### 7. Backup Archives Table (table renderer)
 
 Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`.

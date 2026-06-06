@@ -6,11 +6,11 @@
       <input type="checkbox" id="sched-enabled" name="enabled" {{if .BackupEnabled}}checked{{end}} onchange="toggleScheduleFields()">
       <span class="text-sm">Enable daily slapcat backup</span>
     </label>
-    <div>
+    <div class="field-group{{if not .BackupEnabled}} disabled{{end}}" id="fg-time">
       <label class="label" for="backup-time">Backup Time</label>
       <input type="time" id="backup-time" name="time" class="input w-32" value="{{.BackupTime}}"{{if not .BackupEnabled}} disabled{{end}}>
     </div>
-    <div>
+    <div class="field-group{{if not .BackupEnabled}} disabled{{end}}" id="fg-retention">
       <label class="label" for="backup-retention">Retention (days)</label>
       <input type="number" id="backup-retention" name="retention" class="input w-32" value="{{.BackupRetention}}" min="1"{{if not .BackupEnabled}} disabled{{end}}>
     </div>
@@ -23,9 +23,18 @@ function toggleScheduleFields() {
   var btn = document.getElementById('sched-btn');
   var timeInput = document.getElementById('backup-time');
   var retInput = document.getElementById('backup-retention');
+  var fgTime = document.getElementById('fg-time');
+  var fgRet = document.getElementById('fg-retention');
   var enabled = cb.checked;
   timeInput.disabled = !enabled;
   retInput.disabled = !enabled;
+  if (enabled) {
+    fgTime.classList.remove('disabled');
+    fgRet.classList.remove('disabled');
+  } else {
+    fgTime.classList.add('disabled');
+    fgRet.classList.add('disabled');
+  }
   btn.textContent = enabled ? 'Enable Schedule' : 'Disable Schedule';
 }
 </script>
