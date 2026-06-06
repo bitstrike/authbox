@@ -42,8 +42,11 @@ Without OIDC configured, the app runs in dev mode with auto-login as admin.
 | `SSH_CERT_TTL` | `12h` | Default SSH certificate lifetime |
 | `UID_RANGE_START` | `10000` | Start of auto-assigned UID range |
 | `UID_RANGE_END` | `60000` | End of auto-assigned UID range |
+| `TZ` | `UTC` | Timezone (must be IANA format, e.g. `America/Chicago`) |
 | `LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
 | `LOG_DIR` | `/app/logs` | Log output directory |
+
+**Timezone note:** The `TZ` variable must be a valid IANA timezone name (e.g. `America/Chicago`, `US/Eastern`). POSIX-style values like `CST6DST` are not recognized by Go's time library and will silently fall back to UTC.
 
 ### Secrets Directory
 
