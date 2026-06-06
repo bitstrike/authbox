@@ -931,3 +931,32 @@ Add an "Archives" sidebar item to browse/manage backup files in `/data/backups/`
 - [x] In `Reconfigure()`, send on `reconfigCh` (non-blocking) instead of manipulating `s.timer` directly
 - [x] Remove the two-phase lock/unlock and `time.NewTimer(0)` hack from `Reconfigure()`
 - [ ] Verify: saving a new schedule time takes effect within seconds, not on next loop iteration
+
+## User Edit Page: Two-Column Detail Layout
+
+### CSS detail-layout class (style.css)
+- [x] Add `.detail-layout` class: single column on mobile, `2fr 1fr` grid at `lg` breakpoint
+- [x] Gap between columns: `1.5rem`
+
+### User edit template restructure
+- [x] Remove `max-w-2xl` constraint from the card wrapper
+- [x] Wrap content in `.detail-layout` grid
+- [x] Left column: edit form (uid, name, email, phones, employee type, posix fields, submit/cancel)
+- [x] Right column: read-only info panels as stacked cards
+
+### Right column: Group Membership panel
+- [x] Add `GetUserPosixGroups(uid string) ([]string, error)` to LDAP client (filter: `(&(objectClass=posixGroup)(memberUid=<uid>))`)
+- [x] In `userEdit` handler, call `GetUserGroups` (groupOfNames) and `GetUserPosixGroups`
+- [x] Pass both lists to the template content struct
+- [x] Render "posixGroups" section with linked group names (`/groups/<cn>/edit`)
+- [x] Render "Role Groups" section (groupOfNames) with linked group names
+- [x] Show "No groups" placeholder when both lists are empty
+
+### Right column: Account Status panel
+- [x] Move account status display, disable/enable button, and delete section out of the form card
+- [x] Render as a separate card in the right column
+- [x] Same logic as current (role-based visibility, confirmation patterns)
+
+### Right column: Quick Info panel
+- [x] Show FIDO2 key count for this user (link to FIDO2 page)
+- [x] Show SSH cert count for this user (link to SSH page)

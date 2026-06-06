@@ -164,6 +164,29 @@ func (c *Client) GetUserGroups(uid string) ([]string, error) {
 	return groups, nil
 }
 
+// GetUserPosixGroups returns posixGroup groups that contain the user's uid in memberUid.
+func (c *Client) GetUserPosixGroups(uid string) ([]string, error) {
+	dn := fmt.Sprintf("ou=groups,%s", c.baseDN)
+	req := goldap.NewSearchRequest(
+		dn,
+		goldap.ScopeSingleLevel,
+		goldap.NeverDerefAliases,
+		0, 0, false,
+		fmt.Sprintf("(&(objectClass=posixGroup)(memberUid=%s))", goldap.EscapeFilter(uid)),
+		[]string{"cn"},
+		nil,
+	)
+	result, err := c.Search(req)
+	if err != nil {
+		return nil, err
+	}
+	var groups []string
+	for _, entry := range result.Entries {
+		groups = append(groups, entry.GetAttributeValue("cn"))
+	}
+	return groups, nil
+}
+
 // IsUserAdmin checks if a user is a member of the authbox-admins group.
 func (c *Client) IsUserAdmin(uid string) bool {
 	groups, err := c.GetUserGroups(uid)

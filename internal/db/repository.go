@@ -254,6 +254,13 @@ func (r *Repository) DeleteSSHCert(id int) error {
 	return err
 }
 
+// CountSSHCertsByUser returns the number of SSH certs issued to a user.
+func (r *Repository) CountSSHCertsByUser(username string) int {
+	var count int
+	r.db.QueryRow("SELECT COUNT(*) FROM ssh_certs WHERE username = ?", username).Scan(&count)
+	return count
+}
+
 // CleanExpiredCerts removes cert records that expired more than retentionDays ago.
 func (r *Repository) CleanExpiredCerts(retentionDays int) (int64, error) {
 	result, err := r.db.Exec(

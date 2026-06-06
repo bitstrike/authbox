@@ -110,6 +110,16 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 	employeeTypes, _ := h.deps.Repo.ListEmployeeTypes()
 	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
 	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+
+	// Group membership
+	roleGroups, _ := h.deps.LDAP.GetUserGroups(uid)
+	posixGroups, _ := h.deps.LDAP.GetUserPosixGroups(uid)
+
+	// Quick info counts
+	fido2Creds, _ := h.deps.Repo.GetFIDO2Credentials(uid)
+	fido2Count := len(fido2Creds)
+	sshCertCount := h.deps.Repo.CountSSHCertsByUser(uid)
+
 	content := struct {
 		IsEdit        bool
 		Action        string
@@ -118,6 +128,10 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 		EmployeeTypes []db.EmployeeType
 		UIDRangeStart int
 		UIDRangeEnd   int
+		RoleGroups    []string
+		PosixGroups   []string
+		FIDO2Count    int
+		SSHCertCount  int
 	}{
 		IsEdit:        true,
 		Action:        "/users/" + uid,
@@ -125,6 +139,10 @@ func (h *handlers) userEdit(w http.ResponseWriter, r *http.Request) {
 		EmployeeTypes: employeeTypes,
 		UIDRangeStart: rangeStart,
 		UIDRangeEnd:   rangeEnd,
+		RoleGroups:    roleGroups,
+		PosixGroups:   posixGroups,
+		FIDO2Count:    fido2Count,
+		SSHCertCount:  sshCertCount,
 	}
 	data := pageDataFromRequest(w, r, "Edit User", content)
 	h.renderer.renderPage(w, "user_form", data)

@@ -1,120 +1,148 @@
 {{define "content"}}
 <h1 class="text-2xl font-semibold mb-6">{{if .Content.IsEdit}}Edit User{{else}}Create User{{end}}</h1>
 
-<div class="card max-w-2xl">
-  <form method="POST" action="{{.Content.Action}}" id="user-form">
-    <div class="space-y-4">
-      <div>
-        <label class="label" for="uid">Username (uid)</label>
-        <input type="text" id="uid" name="uid" value="{{.Content.User.UID}}" class="input" {{if .Content.IsEdit}}readonly{{end}} required>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
+<div class="{{if .Content.IsEdit}}detail-layout{{end}}">
+  <!-- Left column: Edit form -->
+  <div class="card">
+    <form method="POST" action="{{.Content.Action}}" id="user-form">
+      <div class="space-y-4">
         <div>
-          <label class="label" for="givenName">First Name</label>
-          <input type="text" id="givenName" name="givenName" value="{{.Content.User.GivenName}}" class="input" required>
+          <label class="label" for="uid">Username (uid)</label>
+          <input type="text" id="uid" name="uid" value="{{.Content.User.UID}}" class="input" {{if .Content.IsEdit}}readonly{{end}} required>
         </div>
-        <div>
-          <label class="label" for="sn">Last Name</label>
-          <input type="text" id="sn" name="sn" value="{{.Content.User.SN}}" class="input" required>
-        </div>
-      </div>
-      <div>
-        <label class="label" for="mail">Email</label>
-        <input type="email" id="mail" name="mail" value="{{.Content.User.Mail}}" class="input" required>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="label" for="telephoneNumber">Work Phone</label>
-          <input type="tel" id="telephoneNumber" name="telephoneNumber" value="{{.Content.User.TelephoneNumber}}" class="input">
-        </div>
-        <div>
-          <label class="label" for="mobile">Mobile</label>
-          <input type="tel" id="mobile" name="mobile" value="{{.Content.User.Mobile}}" class="input">
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-4">
-        <div>
-          <label class="label" for="homePhone">Home Phone</label>
-          <input type="tel" id="homePhone" name="homePhone" value="{{.Content.User.HomePhone}}" class="input">
-        </div>
-        <div>
-          <label class="label" for="fax">Fax</label>
-          <input type="tel" id="fax" name="fax" value="{{.Content.User.Fax}}" class="input">
-        </div>
-        <div>
-          <label class="label" for="pager">Pager</label>
-          <input type="tel" id="pager" name="pager" value="{{.Content.User.Pager}}" class="input">
-        </div>
-      </div>
-      <div>
-        <label class="label" for="employeeType">Employee Type</label>
-        <select id="employeeType" name="employeeType" class="input">
-          <option value="">-- None --</option>
-          {{range .Content.EmployeeTypes}}
-          <option value="{{.Value}}" {{if eq $.Content.User.EmployeeType .Value}}selected{{end}}>{{.Emoji}} {{.Label}}</option>
-          {{end}}
-        </select>
-      </div>
-
-      <div id="posix-fields">
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="label" for="uidNumber">UID Number</label>
-              <input type="number" id="uidNumber" name="uidNumber" value="{{if .Content.User.UIDNumber}}{{.Content.User.UIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
-            </div>
-            <div>
-              <label class="label" for="gidNumber">GID Number</label>
-              <input type="number" id="gidNumber" name="gidNumber" value="{{if .Content.User.GIDNumber}}{{.Content.User.GIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
-            </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="givenName">First Name</label>
+            <input type="text" id="givenName" name="givenName" value="{{.Content.User.GivenName}}" class="input" required>
           </div>
           <div>
-            <label class="label" for="homeDirectory">Home Directory</label>
-            <input type="text" id="homeDirectory" name="homeDirectory" value="{{.Content.User.HomeDirectory}}" class="input" placeholder="/home/username">
+            <label class="label" for="sn">Last Name</label>
+            <input type="text" id="sn" name="sn" value="{{.Content.User.SN}}" class="input" required>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="mail">Email</label>
+          <input type="email" id="mail" name="mail" value="{{.Content.User.Mail}}" class="input" required>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="telephoneNumber">Work Phone</label>
+            <input type="tel" id="telephoneNumber" name="telephoneNumber" value="{{.Content.User.TelephoneNumber}}" class="input">
           </div>
           <div>
-            <label class="label" for="loginShell">Login Shell</label>
-            <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
+            <label class="label" for="mobile">Mobile</label>
+            <input type="tel" id="mobile" name="mobile" value="{{.Content.User.Mobile}}" class="input">
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <label class="label" for="homePhone">Home Phone</label>
+            <input type="tel" id="homePhone" name="homePhone" value="{{.Content.User.HomePhone}}" class="input">
+          </div>
+          <div>
+            <label class="label" for="fax">Fax</label>
+            <input type="tel" id="fax" name="fax" value="{{.Content.User.Fax}}" class="input">
+          </div>
+          <div>
+            <label class="label" for="pager">Pager</label>
+            <input type="tel" id="pager" name="pager" value="{{.Content.User.Pager}}" class="input">
+          </div>
+        </div>
+        <div>
+          <label class="label" for="employeeType">Employee Type</label>
+          <select id="employeeType" name="employeeType" class="input">
+            <option value="">-- None --</option>
+            {{range .Content.EmployeeTypes}}
+            <option value="{{.Value}}" {{if eq $.Content.User.EmployeeType .Value}}selected{{end}}>{{.Emoji}} {{.Label}}</option>
+            {{end}}
+          </select>
+        </div>
+
+        <div id="posix-fields">
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="label" for="uidNumber">UID Number</label>
+                <input type="number" id="uidNumber" name="uidNumber" value="{{if .Content.User.UIDNumber}}{{.Content.User.UIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
+              </div>
+              <div>
+                <label class="label" for="gidNumber">GID Number</label>
+                <input type="number" id="gidNumber" name="gidNumber" value="{{if .Content.User.GIDNumber}}{{.Content.User.GIDNumber}}{{end}}" class="input" min="{{.Content.UIDRangeStart}}" max="{{.Content.UIDRangeEnd}}">
+              </div>
+            </div>
+            <div>
+              <label class="label" for="homeDirectory">Home Directory</label>
+              <input type="text" id="homeDirectory" name="homeDirectory" value="{{.Content.User.HomeDirectory}}" class="input" placeholder="/home/username">
+            </div>
+            <div>
+              <label class="label" for="loginShell">Login Shell</label>
+              <input type="text" id="loginShell" name="loginShell" value="{{.Content.User.LoginShell}}" class="input" placeholder="/bin/bash">
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {{if .Content.Error}}
-    <div class="mt-4 p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
-      {{.Content.Error}}
-    </div>
-    {{end}}
+      {{if .Content.Error}}
+      <div class="mt-4 p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        {{.Content.Error}}
+      </div>
+      {{end}}
 
-    <div class="mt-6 flex space-x-3">
-      <button type="submit" class="btn btn-primary">{{if .Content.IsEdit}}Update{{else}}Create{{end}}</button>
-      <a href="/users" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
+      <div class="mt-6 flex space-x-3">
+        <button type="submit" class="btn btn-primary">{{if .Content.IsEdit}}Update{{else}}Create{{end}}</button>
+        <a href="/users" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
 
   {{if .Content.IsEdit}}
-  <div class="mt-6 pt-6 border-t dark:border-gray-700">
-    <div class="flex items-center justify-between">
-      <div>
-        <span class="text-sm font-medium">Account Status:</span>
+  <!-- Right column: Info panels -->
+  <div class="space-y-4">
+    <!-- Group Membership -->
+    <div class="card">
+      <h3 class="font-semibold text-sm mb-3">Group Membership</h3>
+      {{if or .Content.PosixGroups .Content.RoleGroups}}
+        {{if .Content.PosixGroups}}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">posixGroups</p>
+        <div class="space-y-1 mb-3">
+          {{range .Content.PosixGroups}}
+          <a href="/groups/{{.}}/edit" class="block text-sm text-blue-600 hover:text-blue-600">{{.}}</a>
+          {{end}}
+        </div>
+        {{end}}
+        {{if .Content.RoleGroups}}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Role Groups</p>
+        <div class="space-y-1">
+          {{range .Content.RoleGroups}}
+          <a href="/groups/{{.}}/edit" class="block text-sm text-blue-600 hover:text-blue-600">{{.}}</a>
+          {{end}}
+        </div>
+        {{end}}
+      {{else}}
+        <p class="text-sm text-gray-500 dark:text-gray-400">No groups</p>
+      {{end}}
+    </div>
+
+    <!-- Account Status -->
+    <div class="card">
+      <h3 class="font-semibold text-sm mb-3">Account Status</h3>
+      <div class="mb-3">
         {{if eq .Content.User.EmployeeType "contact"}}
-        <span class="ml-2 text-gray-500 dark:text-gray-400 font-medium">Contact (no login)</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400 font-medium">Contact (no login)</span>
         {{else if .Content.User.Disabled}}
-        <span class="ml-2 text-red-600 dark:text-red-400 font-medium">Disabled</span>
+        <span class="text-sm text-red-600 dark:text-red-400 font-medium">Disabled</span>
         {{else}}
-        <span class="ml-2 text-green-800 dark:text-green-400 font-medium">Active</span>
+        <span class="text-sm text-green-800 dark:text-green-400 font-medium">Active</span>
         {{end}}
       </div>
       {{if eq .Content.User.EmployeeType "contact"}}
-        {{/* Contacts cannot be disabled - no action buttons here */}}
+        {{/* Contacts cannot be disabled */}}
       {{else if .Content.User.Disabled}}
         {{if .IsAdmin}}
-        <div class="flex space-x-2">
-          <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account? You must type the confirmation word to proceed.');">
-            <input type="hidden" name="confirm" value="yesiagree">
-            <button type="submit" class="btn btn-primary text-sm">Enable</button>
-          </form>
-        </div>
+        <form method="POST" action="/users/{{.Content.User.UID}}/enable" onsubmit="return confirm('Re-enable this account?');">
+          <input type="hidden" name="confirm" value="yesiagree">
+          <button type="submit" class="btn btn-primary text-sm">Enable</button>
+        </form>
         {{end}}
       {{else}}
         {{if or .IsAdmin .IsOperator}}
@@ -125,13 +153,29 @@
         {{end}}
       {{end}}
     </div>
+
+    <!-- Quick Info -->
+    <div class="card">
+      <h3 class="font-semibold text-sm mb-3">Quick Info</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-500 dark:text-gray-400">FIDO2 Keys</span>
+          <a href="/fido2" class="text-blue-600 hover:text-blue-600">{{.Content.FIDO2Count}}</a>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500 dark:text-gray-400">SSH Certs</span>
+          <a href="/ssh" class="text-blue-600 hover:text-blue-600">{{.Content.SSHCertCount}}</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete User -->
     {{if and .IsAdmin (or .Content.User.Disabled (eq .Content.User.EmployeeType "contact"))}}
-    <div class="mt-4 pt-4 border-t dark:border-gray-700">
-      <p class="text-sm text-red-600 dark:text-red-400 mb-2 font-medium">Permanently Delete User</p>
+    <div class="card">
+      <h3 class="font-semibold text-sm mb-2 text-red-600 dark:text-red-400">Delete User</h3>
       <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">
         This removes the user from the directory. The UID/GID will become available for reassignment.
         If this user owned files on any host, a future user with the same UID will inherit those files.
-        Disable is preferred over delete if unsure.
       </p>
       <form method="POST" action="/users/{{.Content.User.UID}}/delete">
         <div class="mb-4">
