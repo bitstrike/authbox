@@ -987,3 +987,12 @@ groupOfNames requires at least one `member` attribute. On creation with no membe
 
 - [x] In `entryToGroup`, filter out the self-DN from the members list when type is groupOfNames
 - [x] Self-DN matches pattern `cn=<groupCN>,ou=groups,<baseDN>`
+
+## Fix: groupOfNames Add Member Stores UID Instead of DN
+
+`actionAddMember` appends the raw uid string to the member list. For posixGroup (`memberUid`) this is correct. For groupOfNames (`member`) it must be a full DN like `uid=jsmith,ou=people,dc=example,dc=com`.
+
+- [x] In `actionAddMember`, check group type before appending
+- [x] If groupOfNames: convert uid to DN via LDAP client's `UserDN(uid)` helper
+- [x] Add `UserDN(uid string) string` method to LDAP client (returns `uid=<uid>,ou=people,<baseDN>`)
+- [x] posixGroup path unchanged (plain uid is correct)

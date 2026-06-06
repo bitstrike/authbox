@@ -64,6 +64,11 @@ func (c *Client) BaseDN() string {
 	return c.baseDN
 }
 
+// UserDN returns the full distinguished name for a user uid.
+func (c *Client) UserDN(uid string) string {
+	return fmt.Sprintf("uid=%s,ou=people,%s", uid, c.baseDN)
+}
+
 // Ping checks if the LDAP connection is alive.
 func (c *Client) Ping() error {
 	req := goldap.NewSearchRequest(

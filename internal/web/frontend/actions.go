@@ -514,7 +514,14 @@ func (h *handlers) actionAddMember(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "group not found", http.StatusNotFound)
 		return
 	}
-	group.Members = append(group.Members, newMember)
+
+	// groupOfNames stores full DNs, posixGroup stores plain uids
+	memberValue := newMember
+	if group.Type == "groupOfNames" {
+		memberValue = h.deps.LDAP.UserDN(newMember)
+	}
+
+	group.Members = append(group.Members, memberValue)
 	h.deps.LDAP.UpdateGroupMembers(cn, group.Members)
 
 	if r.Header.Get("HX-Request") == "true" {
