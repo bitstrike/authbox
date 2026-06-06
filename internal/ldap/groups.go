@@ -116,6 +116,14 @@ func (c *Client) UpdateGroupMembers(cn string, members []string) error {
 	return c.Modify(req)
 }
 
+// UpdateGroupGID modifies the gidNumber of a posixGroup.
+func (c *Client) UpdateGroupGID(cn string, gid int) error {
+	dn := fmt.Sprintf("cn=%s,ou=groups,%s", cn, c.baseDN)
+	req := goldap.NewModifyRequest(dn, nil)
+	req.Replace("gidNumber", []string{strconv.Itoa(gid)})
+	return c.Modify(req)
+}
+
 func (c *Client) DeleteGroup(cn string) error {
 	dn := fmt.Sprintf("cn=%s,ou=groups,%s", cn, c.baseDN)
 	del := goldap.NewDelRequest(dn, nil)

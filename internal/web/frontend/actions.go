@@ -474,6 +474,35 @@ func (h *handlers) actionUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	cn := chi.URLParam(r, "cn")
 	r.ParseForm()
 
+	// Handle GID update for posixGroups
+	if gidStr := r.FormValue("gidNumber"); gidStr != "" {
+		gidNum, _ := strconv.Atoi(gidStr)
+		if gidNum > 0 {
+			group, err := h.deps.LDAP.GetGroup(cn)
+			if err != nil || group == nil {
+				http.Error(w, "group not found", http.StatusNotFound)
+				return
+			}
+			if group.Type == "posixGroup" && gidNum != group.GIDNumber {
+				// Validate GID uniqueness
+				exists, err := h.deps.LDAP.GIDExists(gidNum)
+				if err == nil && exists {
+					flash.Set(w, flash.Error, "GID "+gidStr+" already in use")
+					http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+					return
+				}
+				if err := h.deps.LDAP.UpdateGroupGID(cn, gidNum); err != nil {
+					flash.Set(w, flash.Error, "Failed to update GID: "+err.Error())
+					http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+					return
+				}
+				flash.Set(w, flash.Success, "Group "+cn+" GID updated")
+				http.Redirect(w, r, "/groups/"+cn+"/edit", http.StatusFound)
+				return
+			}
+		}
+	}
+
 	// Only update members if the form explicitly contains a members field.
 	// The edit form manages members via HTMX (Add/Remove buttons) and does
 	// not submit a members field, so we skip to avoid wiping the list.

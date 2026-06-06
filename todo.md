@@ -1023,3 +1023,11 @@ The "Remove" buttons use `hx-delete="/groups/{cn}/members/{member}"` but no DELE
 
 - [x] In `actionAddMember`, check if memberValue already exists in group.Members before appending
 - [x] Return warning flash if user is already a member
+
+## Fix: Group Edit - Show Group Type Badge and Allow GID Edit
+
+- [x] Add colored pill badge next to heading showing `posixGroup` (blue) or `groupOfNames` (purple)
+- [x] Show editable GID field with "Save GID" button for posixGroups in edit mode
+- [x] Warning note next to button about file ownership impact
+- [x] `actionUpdateGroup` handles GID change with uniqueness validation
+- [x] Add `UpdateGroupGID(cn, gid)` method to LDAP client
