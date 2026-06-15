@@ -72,6 +72,12 @@
         group: root
         mode: "0644"
 
+    - name: Enable pam_mkhomedir (auto-create home on first login)
+      lineinfile:
+        path: "{{ '/etc/pam.d/common-session' if ansible_os_family == 'Debian' else '/etc/pam.d/base-session' }}"
+        regexp: "pam_mkhomedir"
+        line: "session required pam_mkhomedir.so skel=/etc/skel umask=0022"
+
   handlers:
     - name: restart sshd
       service:

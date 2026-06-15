@@ -226,6 +226,78 @@ Replace `dc=example,dc=com` with your `LDAP_BASE_DN`.
 curl -sk https://localhost:8443/api/v1/ssh/ca.pub
 ```
 
+## Client Configuration
+
+To authenticate users on a Linux host against authbox, three things are configured: name resolution (NSS), SSH certificate trust, and optionally FIDO2 for console login.
+
+### Files Modified
+
+| File | Purpose |
+|---|---|
+| `/etc/nslcd.conf` | Points nslcd at authbox's LDAP (host, base DN, TLS) |
+| `/etc/nsswitch.conf` | Adds `ldap` to passwd/group/shadow lookups |
+| `/etc/ssh/trusted_ca.pub` | SSH CA public key (fetched from authbox API) |
+| `/etc/ssh/sshd_config` | `TrustedUserCAKeys /etc/ssh/trusted_ca.pub` |
+| `/etc/pam.d/u2f-auth` | PAM config for FIDO2 hardware key login (optional) |
+| `/etc/u2f_mappings` | FIDO2 credential mappings synced from authbox (optional) |
+
+### What Each Layer Does
+
+- **NSS (nslcd)** - Resolves LDAP users/groups system-wide. `getent passwd`, `ls -l`, `id username` all work with LDAP entries.
+- **SSH CA trust** - Users sign their pubkey via authbox web UI, then SSH in without per-host key distribution. No passwords involved.
+- **FIDO2 (pam_u2f)** - Physical console/GDM login using a YubiKey. Works fully offline.
+
+### Automated Setup (Ansible)
+
+The included playbook configures all three layers. Requires Ansible on a control machine with SSH access to the target host:
+
+```bash
+ansible-playbook ansible/playbooks/enroll-host.yml \
+  -i "target-host," \
+  -e platform_host=authbox.example.com \
+  -e ldap_base_dn=dc=example,dc=com \
+  --become
+```
+
+Or.. if you have root access to the remote host over ssh already..
+```bash
+ansible-playbook ansible/playbooks/enroll-host.yml \
+  -i "10.17.34.194," \
+  -u root \
+  -e platform_host=auth.cloud.bitcrash.net \
+  -e ldap_base_dn=dc=bitcrash,dc=net \
+  -e ansible_become=false
+```
+
+Replace `target-host` with the hostname or IP, and adjust `platform_host` and `ldap_base_dn` for your environment.
+
+To sync FIDO2 mappings (run periodically or after key enrollment):
+
+```bash
+LINUX_AUTH_TOKEN=<service-account-token> \
+ansible-playbook ansible/playbooks/sync-fido2-mappings.yml \
+  -i "target-host," \
+  -e platform_host=authbox.example.com \
+  --become
+```
+
+### Manual Verification
+
+After enrollment, verify NSS resolution:
+
+```bash
+getent passwd          # should list LDAP users
+getent group           # should list LDAP posixGroups
+id someuser            # should resolve a provisioned user
+```
+
+### Notes
+
+- Only users with `posixAccount` (UID/GID > 0) are visible via NSS. Contacts do not appear.
+- SSH cert auth requires no local password. The user signs their key through the web UI or API.
+- PAM password authentication is not supported (authbox uses OIDC, not stored passwords). Use SSH certs or FIDO2.
+- Alpine Linux uses different package names (`nss-pam-ldapd`, `pam-u2f`, `openssh`). The playbook handles this automatically.
+
 ## Architecture
 
 See [project.md](project.md) for full architecture documentation.

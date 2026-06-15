@@ -1060,3 +1060,11 @@ Package names differ between Alpine and Debian. Config files and paths are ident
 - [ ] Test: Alpine VM resolves LDAP users via `getent passwd`
 - [ ] Test: Alpine VM resolves LDAP posixGroups via `getent group`
 - [ ] Test: SSH cert auth works (sshd trusts CA, user signs key via platform, connects)
+
+## Fix: Docker Compose Network - Use Existing docker0 Bridge
+
+Docker daemon has a single /24 pool configured. Compose creating its own bridge exhausted the pool. Switched to external bridge network.
+
+- [x] Remove per-project bridge network (was creating `br-xxxx` that conflicted with daemon pool)
+- [x] Add `networks: default: external: true, name: bridge` to use docker0 directly
+- [x] Move `networks:` block to top of docker-compose.yml for visibility

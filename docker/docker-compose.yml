@@ -1,6 +1,7 @@
 networks:
   default:
-    driver: bridge
+    external: true
+    name: bridge
 
 services:
   primary:
@@ -75,7 +76,6 @@ volumes:
   ldap-data-replica:
   ldap-config-replica:
   app-data-replica:
-
 
 # Secrets directory layout (/etc/secrets/authbox/):
 #
