@@ -1,13 +1,12 @@
+networks:
+  default:
+    driver: bridge
+
 services:
   primary:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    networks:
-      default:
-        driver: bridge
-        driver_opts:
-          com.doicker.netwwork.bridge.name: docker0
     ports:
       - "389:389"
       - "636:636"
@@ -76,6 +75,7 @@ volumes:
   ldap-data-replica:
   ldap-config-replica:
   app-data-replica:
+
 
 # Secrets directory layout (/etc/secrets/authbox/):
 #
