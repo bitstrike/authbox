@@ -3,6 +3,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    networks:
+      default:
+        driver: bridge
+        driver_opts:
+          com.doicker.netwwork.bridge.name: docker0
     ports:
       - "389:389"
       - "636:636"

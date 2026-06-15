@@ -1048,3 +1048,15 @@ Save/submit buttons on settings forms start disabled and enable only when a valu
 - [x] Settings: Logging (level and/or retention)
 - [x] Settings: OIDC provider (issuer, client_id)
 - [x] Settings: Backup schedule (enabled toggle, time, retention)
+
+## Ansible: Multi-Distro Support (Alpine + Debian/Ubuntu)
+
+Package names differ between Alpine and Debian. Config files and paths are identical.
+
+- [ ] Add OS-conditional vars to `enroll-host.yml` for package names (nslcd, pam-u2f, openssh)
+- [ ] Replace hardcoded package list with variable references
+- [ ] Add TLS config to `nslcd.conf.j2` (ssl start_tls, tls_reqcert, optional CA cert path)
+- [ ] Add `pam_mkhomedir` to package list and PAM config (auto-create home dirs on first login)
+- [ ] Test: Alpine VM resolves LDAP users via `getent passwd`
+- [ ] Test: Alpine VM resolves LDAP posixGroups via `getent group`
+- [ ] Test: SSH cert auth works (sshd trusts CA, user signs key via platform, connects)
