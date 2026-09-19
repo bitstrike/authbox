@@ -8,8 +8,8 @@
     <div class="mb-4 p-3 rounded bg-blue-50 dark:bg-blue-900/30 text-sm">
       <p class="font-medium mb-1">Instructions:</p>
       <p>On your workstation, run:</p>
-      <code class="block mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs">pamu2fcfg -n</code>
-      <p class="mt-2">Paste the output below.</p>
+      <code class="block mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs">pamu2fcfg -n -o pam://authbox -i pam://authbox</code>
+      <p class="mt-2">Paste the output below. The fixed <code>pam://authbox</code> origin binds the credential to authbox rather than a single hostname, so the same key works on every enrolled host.</p>
     </div>
     <form method="POST" action="/fido2/register">
       {{if or .IsAdmin .IsOperator}}

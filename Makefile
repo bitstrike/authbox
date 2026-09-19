@@ -35,6 +35,8 @@ clean:
 docker-build:
 	$(COMPOSE) build primary
 
+# run on boot
+# docker update --restart unless-stopped docker_primary_1
 run: docker-build
 	$(COMPOSE) up primary
 

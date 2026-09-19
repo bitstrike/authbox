@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/constants"
 	"github.com/authbox/authbox/internal/db"
 	"github.com/authbox/authbox/internal/flash"
 	"github.com/authbox/authbox/internal/ldap"
@@ -714,7 +715,7 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) actionRegisterFIDO2(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	credential := strings.TrimSpace(r.FormValue("credential"))
+	credential := normalizePamU2FCredential(r.FormValue("credential"))
 	if credential == "" {
 		http.Error(w, "credential required", http.StatusBadRequest)
 		return
@@ -1265,4 +1266,34 @@ func (h *handlers) actionBulkDeleteArchives(w http.ResponseWriter, r *http.Reque
 		"type":    "success",
 		"message": fmt.Sprintf("%d archives deleted", deleted),
 	})
+}
+
+func (h *handlers) actionSaveSSHSettings(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	enforceCertValidation := "false"
+	if r.FormValue("enforce_cert_validation") == "on" {
+		enforceCertValidation = "true"
+	}
+	certCacheInterval := r.FormValue("cert_cache_interval")
+	if certCacheInterval == "" {
+		certCacheInterval = constants.DefaultSSHCertCacheInterval
+	}
+
+	killDisabledSessions := "false"
+	if r.FormValue("kill_disabled_sessions") == "on" {
+		killDisabledSessions = "true"
+	}
+	sessionCheckInterval := r.FormValue("session_check_interval")
+	if sessionCheckInterval == "" {
+		sessionCheckInterval = constants.DefaultSSHSessionCheckInterval
+	}
+
+	h.deps.Repo.SetSetting(constants.SettingSSHEnforceCertValidation, enforceCertValidation)
+	h.deps.Repo.SetSetting(constants.SettingSSHCertCacheInterval, certCacheInterval)
+	h.deps.Repo.SetSetting(constants.SettingSSHKillDisabledSessions, killDisabledSessions)
+	h.deps.Repo.SetSetting(constants.SettingSSHSessionCheckInterval, sessionCheckInterval)
+
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"SSH settings updated"}}`)
+	h.partialSettingsSSHCA(w, r)
 }

@@ -1068,3 +1068,116 @@ Docker daemon has a single /24 pool configured. Compose creating its own bridge 
 - [x] Remove per-project bridge network (was creating `br-xxxx` that conflicted with daemon pool)
 - [x] Add `networks: default: external: true, name: bridge` to use docker0 directly
 - [x] Move `networks:` block to top of docker-compose.yml for visibility
+
+
+## SSH Cert Validation at Login (optional, toggle in Settings)
+
+- [x] Add setting: `ssh_enforce_cert_validation` (bool, default false)
+- [x] Add setting: `ssh_cert_cache_interval` (duration, default "5m")
+- [x] Add API endpoint: `GET /api/v1/ssh/valid-serials` (unauthenticated, plain text, one `serial:principal` per line)
+- [x] Endpoint returns only non-expired, non-deleted certs
+- [x] Add Ansible template: `/usr/local/bin/authbox-cert-cache-refresh.sh` (curls valid-serials, writes to /var/cache/authbox/valid-certs)
+- [x] Add Ansible template: `/usr/local/bin/authbox-cert-check.sh` (reads cache, outputs principal if serial found)
+- [x] Add Ansible task: deploy scripts, create /var/cache/authbox/, add cron entry (conditional on setting)
+- [x] Add Ansible task: configure sshd AuthorizedPrincipalsCommand + AuthorizedPrincipalsCommandUser (conditional)
+- [x] Expose toggle and interval in Settings UI (SSH CA section)
+- [ ] Document: revocation delay equals cache interval
+
+## Terminate Active Sessions on User Disable (optional, toggle in Settings)
+
+- [x] Add setting: `ssh_kill_disabled_sessions` (bool, default false)
+- [x] Add setting: `ssh_session_check_interval` (duration, default "60s")
+- [x] Add Ansible template: `/usr/local/bin/authbox-session-check.sh` (checks logged-in users against getent shell, pkills nologin users)
+- [x] Add Ansible task: deploy script, add cron entry (conditional on setting)
+- [x] Expose toggle and interval in Settings UI (SSH CA section)
+- [ ] Document: kill delay equals check interval + nslcd cache TTL
+
+## Fix: pamu2fcfg -n Leading Colon Breaks u2f_mappings (double colon)
+
+The FIDO page instructs operators to run `pamu2fcfg -n`, which blanks the username
+field and emits output beginning with a colon (`:keyhandle,pubkey,es256,+presence`).
+`validatePamU2FCredential` splits on commas only, so the leading colon rides along in
+`parts[0]` and passes validation. The colon is then stored in `CredentialData`. When
+`GET /api/v1/fido2/credentials?format=pam` emits `username:CredentialData`, the result is
+a double colon: `kirawafobi::keyhandle,...`. pam_u2f parses that as an empty keyhandle and
+authentication fails.
+
+Since the documented workflow is `pamu2fcfg -n`, the server must accept that output.
+- [x] Strip a single leading colon from `credential_data` on registration (server-side), so `-n` output is stored as `keyhandle,pubkey,es256,+presence` (NormalizePamU2FCredential in fido2.go)
+- [x] Apply the strip in both entry points: API `registerFIDO2` and frontend `actionRegisterFIDO2`
+- [x] Confirm `validatePamU2FCredential` still passes on stripped input (parts[0] = keyhandle, not empty)
+- [ ] Deploy the rebuilt server (the fix only helps once the new binary is running)
+- [ ] Migration: existing stored credentials that begin with a colon (e.g. kirawafobi ID 2) must be re-enrolled after deploy (revoke + re-register; in-place edit does not go through the fixed path)
+- [ ] Verify on client: `cat /etc/u2f_mappings` shows a single colon (`kirawafobi:keyhandle,...`) after re-sync
+- [ ] Do not wire pam_u2f into the login stack until the mapping shows a single colon (no password fallback = lockout risk)
+
+## Fix: pam_u2f not wired into login stack (enroll-host.yml)
+
+The existing "Configure PAM for FIDO2" task in enroll-host.yml copies
+/etc/pam.d/u2f-auth but never includes it into a login stack, so console login
+never invokes pam_u2f.
+- [x] Add task to enroll-host.yml: insert `@include u2f-auth` at BOF of /etc/pam.d/login (console scope only)
+- [x] Change pam-u2f-auth control field from `required` to `[success=done default=ignore]` so key success ends the auth stack (no unsatisfiable pam_unix password prompt) and failure falls through to common-auth for local recovery
+- [ ] Scope confirmed console-only; SSH (cert auth) and GDM intentionally untouched
+- [ ] Re-run enroll-host.yml against the VM, then verify `grep -r pam_u2f /etc/pam.d/` shows the include in /etc/pam.d/login
+- [ ] Test login on a second console (Ctrl+Alt+F3) with a root session held open before relying on it
+
+## Feature: FIDO2 (YubiKey) login for GDM desktop
+
+Users need graphical desktop access, so pam_u2f must also be wired into GDM, not
+just the text console. Mirrors the console-login wiring already added for
+/etc/pam.d/login.
+- [ ] Add task to enroll-host.yml: insert `@include u2f-auth` into the GDM auth stack (`/etc/pam.d/gdm-password` on Debian/Ubuntu)
+- [ ] Gate the GDM task so it only runs when GDM is installed (e.g. check for /etc/pam.d/gdm-password), since server hosts may not have a desktop
+- [ ] Decide policy: pam_u2f `required` (key mandatory, matches console) vs `sufficient`/`required` interplay with the greeter, confirm the greeter can prompt for PIN + touch
+- [ ] Verify GDM greeter surfaces the `cue` touch prompt and `pinverification=1` PIN entry (greeter UX differs from console)
+- [ ] Confirm interaction with pam_mkhomedir on first graphical login (home dir creation timing)
+- [ ] Test on the VM with a root session held open; a bad GDM auth line can lock the desktop (no password fallback)
+- [ ] Consider whether other display managers (lightdm/sddm) are in scope or GDM-only
+z
+## Fix: FIDO2 credentials bound to per-host origin (pam://<hostname>)
+
+pam_u2f authentication failed with "Key not found in authenticator" even with a
+correct single-colon mapping and the key present. Root cause: FIDO2 credentials
+are scoped to an origin/appid. `pamu2fcfg` defaults origin to `pam://<hostname>`
+of the machine where it was run, and pam_u2f on the client defaults to
+`pam://<client-hostname>`. Enrolling on one host and logging in on another
+(hostname `debian`) meant the key had no credential for `pam://debian`.
+
+Fix: use a fixed, environment-wide origin so a key works on every enrolled host.
+- [x] Enroll with fixed origin: `pamu2fcfg -n -o pam://authbox -i pam://authbox`
+- [x] Match origin/appid on the PAM line in ansible/files/pam-u2f-auth (`origin=pam://authbox appid=pam://authbox`)
+- [x] Update FIDO2 page instructions (fido2.html) to include `-o pam://authbox -i pam://authbox`
+- [ ] Re-deploy authbox build on dmx, re-enroll kirawafobi with the fixed-origin string, re-sync mappings
+- [ ] Mirror the pam-u2f-auth change to /etc/pam.d/u2f-auth on the VM (or re-run enroll-host.yml) and confirm origin matches at auth time
+- [ ] Re-test: `pamtester login kirawafobi authenticate` should prompt for touch/PIN and succeed (no "Key not found")
+- [ ] Confirm the YubiKey has a FIDO2 PIN set (pinverification=1 requires one); drop pinverification=1 if not using a PIN
+- [ ] Document the fixed-origin requirement in README client config section
+
+## Security: Gate /api/v1/ssh/valid-serials behind viewer-role bearer token
+
+Endpoint is currently unauthenticated (registered alongside /ssh/ca.pub) and emits
+`serial:principal` lines. Low severity (usernames are already discoverable via
+anonymous LDAP / getent), but it adds an activity/liveness oracle: serials are
+nanosecond timestamps, so polling reveals who authenticated and when. Gate it
+behind auth to remove that.
+
+- [ ] Move the route out of the unauthenticated block into the authenticated group with `RequireRole(auth.RoleViewer)` (mirror /ssh/certs)
+- [ ] Note: HasRole is non-hierarchical (admin overrides, but operator does NOT imply viewer). The cert-cache-refresh service account must be granted the `viewer` role specifically, or use an admin token
+- [ ] Update client script `authbox-cert-cache-refresh.sh.j2` to send `Authorization: Bearer <token>`
+- [ ] Handle token lifecycle in the refresh script: service tokens are in-memory with a 1h TTL, so fetch a fresh token via /oauth/token (client_id/secret) each run rather than caching a bearer token
+- [ ] Provision a service account (client_id/secret) to each enrolled host via enroll-host.yml; distribute like LINUX_AUTH_TOKEN
+- [ ] Verify cron refresh still populates /var/cache/authbox/valid-certs after the auth change
+
+## Fix: authbox-cert-check.sh fail-closed behavior and comment mismatch
+
+authbox-cert-check.sh.j2 (AuthorizedPrincipalsCommand) has a comment saying
+"No cache file - fail closed (deny login)" but then does `exit 0` on a missing
+cache. As an AuthorizedPrincipalsCommand, exit 0 with no stdout yields no
+principals (deny), so it happens to deny, but the code/comment mismatch is
+misleading and the intent around a stale/missing cache was never resolved.
+
+- [ ] Make the missing-cache path explicit: return no principals AND make the deny intent obvious (e.g. `echo` nothing + `exit 0` with a clear comment, or `exit 1`), so behavior matches the "fail closed" comment
+- [ ] Decide policy on a STALE cache (refresh cron failed but old file exists): current code trusts stale entries. Consider a max-age check so a long-dead refresh doesn't keep honoring revoked certs indefinitely
+- [ ] Confirm exit-code/stdout semantics against sshd's AuthorizedPrincipalsCommand contract (empty stdout = no principals = deny)
+- [ ] Test: rename/remove /var/cache/authbox/valid-certs and confirm login is denied; restore and confirm allowed

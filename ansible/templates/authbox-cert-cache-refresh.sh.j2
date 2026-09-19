@@ -1,0 +1,18 @@
+#!/bin/sh
+# authbox-cert-cache-refresh.sh - fetch valid cert serials from authbox
+# Deployed by Ansible. Do not edit manually.
+
+CACHE_DIR="/var/cache/authbox"
+CACHE_FILE="${CACHE_DIR}/valid-certs"
+PLATFORM_URL="{{ platform_url }}"
+
+mkdir -p "$CACHE_DIR"
+
+TMPFILE=$(mktemp "${CACHE_FILE}.XXXXXX")
+if curl -sf --max-time 10 "${PLATFORM_URL}/api/v1/ssh/valid-serials" -o "$TMPFILE"; then
+  mv "$TMPFILE" "$CACHE_FILE"
+  chmod 644 "$CACHE_FILE"
+else
+  rm -f "$TMPFILE"
+  # Keep stale cache on failure rather than removing it
+fi

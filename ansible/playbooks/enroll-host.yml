@@ -5,7 +5,11 @@
   vars:
     platform_url: "https://{{ platform_host }}:8443"
     ldap_uri: "ldap://{{ platform_host }}"
-    ldap_base_dn: "dc=example,dc=com"
+    ldap_base_dn: "dc=bitcrash,dc=net"
+    ssh_enforce_cert_validation: false
+    ssh_cert_cache_interval: "5m"
+    ssh_kill_disabled_sessions: false
+    ssh_session_check_interval: "60s"
 
   tasks:
     - name: Install required packages
@@ -72,11 +76,105 @@
         group: root
         mode: "0644"
 
+    # Wire the u2f-auth service into the console login stack. Without this the
+    # standalone /etc/pam.d/u2f-auth file is never consulted. Inserted at the top
+    # of the auth stack so the YubiKey is checked before other auth modules.
+    # Scope is intentionally console login only (/etc/pam.d/login); SSH uses
+    # certificate auth (not PAM) and GDM is out of scope.
+    - name: Wire FIDO2 into console login stack
+      lineinfile:
+        path: /etc/pam.d/login
+        line: "@include u2f-auth"
+        insertbefore: BOF
+        firstmatch: true
+
     - name: Enable pam_mkhomedir (auto-create home on first login)
       lineinfile:
         path: "{{ '/etc/pam.d/common-session' if ansible_os_family == 'Debian' else '/etc/pam.d/base-session' }}"
         regexp: "pam_mkhomedir"
         line: "session required pam_mkhomedir.so skel=/etc/skel umask=0022"
+
+    # SSH cert validation (optional)
+    - name: Create authbox cache directory
+      file:
+        path: /var/cache/authbox
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: ssh_enforce_cert_validation or ssh_kill_disabled_sessions
+
+    - name: Deploy cert cache refresh script
+      template:
+        src: ../templates/authbox-cert-cache-refresh.sh.j2
+        dest: /usr/local/bin/authbox-cert-cache-refresh.sh
+        owner: root
+        group: root
+        mode: "0755"
+      when: ssh_enforce_cert_validation
+
+    - name: Deploy cert check script (AuthorizedPrincipalsCommand)
+      template:
+        src: ../templates/authbox-cert-check.sh.j2
+        dest: /usr/local/bin/authbox-cert-check.sh
+        owner: root
+        group: root
+        mode: "0755"
+      when: ssh_enforce_cert_validation
+
+    - name: Configure sshd AuthorizedPrincipalsCommand
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: "# {mark} AUTHBOX CERT VALIDATION"
+        block: |
+          AuthorizedPrincipalsCommand /usr/local/bin/authbox-cert-check.sh %u %i
+          AuthorizedPrincipalsCommandUser nobody
+      notify: restart sshd
+      when: ssh_enforce_cert_validation
+
+    - name: Remove sshd AuthorizedPrincipalsCommand when disabled
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: "# {mark} AUTHBOX CERT VALIDATION"
+        state: absent
+      notify: restart sshd
+      when: not ssh_enforce_cert_validation
+
+    - name: Add cert cache refresh cron job
+      cron:
+        name: "authbox cert cache refresh"
+        job: "/usr/local/bin/authbox-cert-cache-refresh.sh"
+        minute: "*/{{ ssh_cert_cache_interval | regex_replace('[^0-9]', '') }}"
+      when: ssh_enforce_cert_validation
+
+    - name: Remove cert cache refresh cron job when disabled
+      cron:
+        name: "authbox cert cache refresh"
+        state: absent
+      when: not ssh_enforce_cert_validation
+
+    # Session termination for disabled users (optional)
+    - name: Deploy session check script
+      template:
+        src: ../templates/authbox-session-check.sh.j2
+        dest: /usr/local/bin/authbox-session-check.sh
+        owner: root
+        group: root
+        mode: "0755"
+      when: ssh_kill_disabled_sessions
+
+    - name: Add session check cron job
+      cron:
+        name: "authbox session check"
+        job: "/usr/local/bin/authbox-session-check.sh"
+        minute: "*"
+      when: ssh_kill_disabled_sessions
+
+    - name: Remove session check cron job when disabled
+      cron:
+        name: "authbox session check"
+        state: absent
+      when: not ssh_kill_disabled_sessions
 
   handlers:
     - name: restart sshd

@@ -46,6 +46,7 @@ func (a *API) RegisterRoutesWithDeps(r chi.Router, authMiddleware func(http.Hand
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
 		r.Get("/ssh/ca.pub", a.getCAPublicKey)
+		r.Get("/ssh/valid-serials", a.validSerials)
 
 		// Authenticated endpoints
 		r.Group(func(r chi.Router) {

@@ -1,0 +1,12 @@
+#!/bin/sh
+# authbox-session-check.sh - kill active sessions for disabled users
+# Checks logged-in users against their shell via NSS (nslcd/LDAP).
+# Users with /sbin/nologin are terminated.
+# Deployed by Ansible. Do not edit manually.
+
+for user in $(who | awk '{print $1}' | sort -u); do
+  shell=$(getent passwd "$user" | cut -d: -f7)
+  if [ "$shell" = "/sbin/nologin" ]; then
+    pkill -u "$user"
+  fi
+done

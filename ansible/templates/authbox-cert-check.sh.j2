@@ -1,0 +1,21 @@
+#!/bin/sh
+# authbox-cert-check.sh - AuthorizedPrincipalsCommand script
+# Called by sshd with arguments: %u (username) %i (key ID / cert serial)
+# Outputs the principal if the serial is found in the cache, nothing otherwise.
+# Deployed by Ansible. Do not edit manually.
+
+CACHE_FILE="/var/cache/authbox/valid-certs"
+USERNAME="$1"
+SERIAL="$2"
+
+if [ ! -f "$CACHE_FILE" ]; then
+  # No cache file - fail closed (deny login)
+  exit 0
+fi
+
+# Look up serial in cache (format: serial:principal)
+PRINCIPAL=$(grep "^${SERIAL}:" "$CACHE_FILE" | cut -d: -f2)
+
+if [ -n "$PRINCIPAL" ] && [ "$PRINCIPAL" = "$USERNAME" ]; then
+  echo "$PRINCIPAL"
+fi

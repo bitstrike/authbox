@@ -261,6 +261,27 @@ func (r *Repository) CountSSHCertsByUser(username string) int {
 	return count
 }
 
+// ListValidSSHCerts returns all certs that have not yet expired.
+func (r *Repository) ListValidSSHCerts() ([]SSHCert, error) {
+	rows, err := r.db.Query(
+		"SELECT id, username, serial, principal, issued_at, expires_at FROM ssh_certs WHERE expires_at > datetime('now')",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var certs []SSHCert
+	for rows.Next() {
+		var c SSHCert
+		if err := rows.Scan(&c.ID, &c.Username, &c.Serial, &c.Principal, &c.IssuedAt, &c.ExpiresAt); err != nil {
+			return nil, err
+		}
+		certs = append(certs, c)
+	}
+	return certs, rows.Err()
+}
+
 // CleanExpiredCerts removes cert records that expired more than retentionDays ago.
 func (r *Repository) CleanExpiredCerts(retentionDays int) (int64, error) {
 	result, err := r.db.Exec(

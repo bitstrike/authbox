@@ -42,9 +42,19 @@ const (
 
 // Defaults
 const (
-	DefaultSSHCertTTLSeconds uint64 = 43200 // 12 hours
-	DefaultLogRetentionDays         = 90
-	DefaultSessionTimeoutMin        = 30
-	DefaultBackupTime               = "02:00"
-	DefaultBackupRetentionDays      = 30
+	DefaultSSHCertTTLSeconds        uint64 = 43200 // 12 hours
+	DefaultLogRetentionDays                = 90
+	DefaultSessionTimeoutMin               = 30
+	DefaultBackupTime                      = "02:00"
+	DefaultBackupRetentionDays             = 30
+	DefaultSSHCertCacheInterval            = "5m"
+	DefaultSSHSessionCheckInterval         = "60s"
+)
+
+// App settings keys
+const (
+	SettingSSHEnforceCertValidation = "ssh_enforce_cert_validation"
+	SettingSSHCertCacheInterval     = "ssh_cert_cache_interval"
+	SettingSSHKillDisabledSessions  = "ssh_kill_disabled_sessions"
+	SettingSSHSessionCheckInterval  = "ssh_session_check_interval"
 )

@@ -1,1 +1,1 @@
-auth required pam_u2f.so authfile=/etc/u2f_mappings pinverification=1 cue
+auth [success=done default=ignore] pam_u2f.so authfile=/etc/u2f_mappings origin=pam://authbox appid=pam://authbox pinverification=1 cue

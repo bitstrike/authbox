@@ -8,5 +8,9 @@ export INITIAL_ADMIN_EMAIL="$(pass show authbox/INITIAL_ADMIN_EMAIL)"
 export TLS_DOMAIN="$(pass show authbox/TLS_DOMAIN)"
 export TLS_ACME_EMAIL="$(pass show authbox/TLS_ACME_EMAIL)"
 export AWS_HOSTED_ZONE_ID="$(pass show authbox/AWS_HOSTED_ZONE_ID)"
-make run
+export TZ=America/Chicago
+
+# cleanup pinentry ?
+reset
+make run logs
 

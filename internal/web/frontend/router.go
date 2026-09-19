@@ -101,6 +101,7 @@ func (f *Frontend) RegisterRoutes(r chi.Router) {
 			r.Get("/settings/session", f.h.partialSettingsSession)
 			r.Get("/settings/uid-range", f.h.partialSettingsUIDRange)
 			r.Get("/settings/ssh-ca", f.h.partialSettingsSSHCA)
+			r.Post("/settings/ssh-ca", f.h.actionSaveSSHSettings)
 			r.Get("/settings/ldap", f.h.partialSettingsLDAP)
 			r.Get("/settings/logging", f.h.partialSettingsLogging)
 			r.Get("/settings/employee-types", f.h.partialSettingsEmployeeTypes)

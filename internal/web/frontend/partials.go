@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/constants"
 	"github.com/authbox/authbox/internal/db"
 	"github.com/go-chi/chi/v5"
 )
@@ -757,12 +758,31 @@ func (h *handlers) partialSettingsUIDRange(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *handlers) partialSettingsSSHCA(w http.ResponseWriter, r *http.Request) {
+	enforceCert, _ := h.deps.Repo.GetSetting(constants.SettingSSHEnforceCertValidation)
+	certCacheInterval, _ := h.deps.Repo.GetSetting(constants.SettingSSHCertCacheInterval)
+	if certCacheInterval == "" {
+		certCacheInterval = constants.DefaultSSHCertCacheInterval
+	}
+	killSessions, _ := h.deps.Repo.GetSetting(constants.SettingSSHKillDisabledSessions)
+	sessionCheckInterval, _ := h.deps.Repo.GetSetting(constants.SettingSSHSessionCheckInterval)
+	if sessionCheckInterval == "" {
+		sessionCheckInterval = constants.DefaultSSHSessionCheckInterval
+	}
+
 	data := struct {
-		CAPublicKey string
-		SSHCertTTL  string
+		CAPublicKey            string
+		SSHCertTTL             string
+		EnforceCertValidation  bool
+		CertCacheInterval      string
+		KillDisabledSessions   bool
+		SessionCheckInterval   string
 	}{
-		CAPublicKey: h.deps.CA.PublicKeyString(),
-		SSHCertTTL:  h.deps.Config.SSHCertTTL,
+		CAPublicKey:           h.deps.CA.PublicKeyString(),
+		SSHCertTTL:            h.deps.Config.SSHCertTTL,
+		EnforceCertValidation: enforceCert == "true",
+		CertCacheInterval:     certCacheInterval,
+		KillDisabledSessions:  killSessions == "true",
+		SessionCheckInterval:  sessionCheckInterval,
 	}
 	h.renderer.renderPartial(w, "settings_ssh_ca", data)
 }

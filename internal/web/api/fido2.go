@@ -54,7 +54,7 @@ func (a *API) registerFIDO2(w http.ResponseWriter, r *http.Request) {
 
 	err := a.repo.CreateFIDO2Credential(&db.FIDO2Credential{
 		UID:            uid,
-		CredentialData: body.CredentialData,
+		CredentialData: NormalizePamU2FCredential(body.CredentialData),
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "INTERNAL", "failed to store credential")
@@ -131,11 +131,23 @@ func (a *API) deleteFIDO2Credential(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
+// NormalizePamU2FCredential cleans up pamu2fcfg output for storage. `pamu2fcfg -n`
+// blanks the username field and emits output beginning with a colon
+// (":keyhandle,pubkey,es256,+presence"). Since the pam_u2f mappings line is later
+// assembled as "username:CredentialData", a stored leading colon produces a broken
+// double colon ("username::keyhandle,..."). Strip a single leading colon so `-n`
+// output is stored as "keyhandle,pubkey,es256,+presence".
+func NormalizePamU2FCredential(data string) string {
+	data = strings.TrimSpace(data)
+	data = strings.TrimPrefix(data, ":")
+	return data
+}
+
 // validatePamU2FCredential checks that the credential data looks like pamu2fcfg output.
 // Expected format: <credential_id>,<public_key>,<key_type>,<options>
 // Example: ABCdef123...,DEFabc456...,es256,+presence
 func validatePamU2FCredential(data string) error {
-	data = strings.TrimSpace(data)
+	data = NormalizePamU2FCredential(data)
 	if data == "" {
 		return fmt.Errorf("credential_data is empty")
 	}

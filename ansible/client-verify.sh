@@ -81,6 +81,31 @@ else
   fail "sshd_config missing TrustedUserCAKeys"
 fi
 
+# 5b. SSH cert validation (optional)
+if grep -q 'AuthorizedPrincipalsCommand' /etc/ssh/sshd_config 2>/dev/null; then
+  pass "sshd_config has AuthorizedPrincipalsCommand (cert validation enabled)"
+  if [ -f /usr/local/bin/authbox-cert-check.sh ]; then
+    pass "authbox-cert-check.sh deployed"
+  else
+    fail "authbox-cert-check.sh missing"
+  fi
+  if [ -f /var/cache/authbox/valid-certs ]; then
+    CERTS=$(wc -l < /var/cache/authbox/valid-certs)
+    pass "cert cache exists ($CERTS entries)"
+  else
+    warn "cert cache not yet populated (/var/cache/authbox/valid-certs)"
+  fi
+else
+  warn "AuthorizedPrincipalsCommand not configured (cert validation disabled)"
+fi
+
+# 5c. Session termination (optional)
+if [ -f /usr/local/bin/authbox-session-check.sh ]; then
+  pass "authbox-session-check.sh deployed (session kill enabled)"
+else
+  warn "authbox-session-check.sh not found (session kill disabled)"
+fi
+
 # 6. pam_mkhomedir
 echo ""
 echo "--- pam_mkhomedir ---"

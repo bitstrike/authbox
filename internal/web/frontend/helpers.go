@@ -21,6 +21,17 @@ func emailToUID(email string) string {
 	return email
 }
 
+// normalizePamU2FCredential cleans up pamu2fcfg output for storage. `pamu2fcfg -n`
+// blanks the username field and emits output beginning with a colon, which would
+// produce a broken double colon once assembled as "username:CredentialData" in the
+// pam_u2f mappings file. Strip a single leading colon so `-n` output is stored as
+// "keyhandle,pubkey,es256,+presence".
+func normalizePamU2FCredential(data string) string {
+	data = strings.TrimSpace(data)
+	data = strings.TrimPrefix(data, ":")
+	return data
+}
+
 // readLogTail reads the last N lines from the most recent log file in dir.
 func readLogTail(dir string, maxLines int) ([]string, error) {
 	entries, err := os.ReadDir(dir)

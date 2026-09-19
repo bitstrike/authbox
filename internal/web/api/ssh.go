@@ -104,3 +104,15 @@ func emailToUID(email string) string {
 	}
 	return email
 }
+
+func (a *API) validSerials(w http.ResponseWriter, r *http.Request) {
+	certs, err := a.repo.ListValidSSHCerts()
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	for _, c := range certs {
+		fmt.Fprintf(w, "%s:%s\n", c.Serial, c.Principal)
+	}
+}

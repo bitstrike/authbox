@@ -13,4 +13,35 @@
     </div>
   </form>
 </div>
+
+<h3 class="text-md font-semibold mt-6 mb-3">Host Enforcement (Ansible-deployed)</h3>
+<form method="POST" action="/settings/ssh-ca" hx-post="/settings/ssh-ca" hx-target="#settings-panel" hx-swap="innerHTML">
+  <div class="space-y-4">
+    <div class="card p-4">
+      <div class="flex items-center space-x-2 mb-2">
+        <input type="checkbox" id="enforce-cert-validation" name="enforce_cert_validation" class="w-4 h-4" {{if .EnforceCertValidation}}checked{{end}}>
+        <label class="label mb-0" for="enforce-cert-validation">Enforce cert validation at login</label>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 ml-6 mb-2">Hosts check cert serial against a cached list from this server. Deleted certs are rejected at next login.</p>
+      <div class="ml-6">
+        <label class="label text-xs" for="cert-cache-interval">Cache refresh interval</label>
+        <input type="text" id="cert-cache-interval" name="cert_cache_interval" class="input w-24" value="{{.CertCacheInterval}}" placeholder="5m">
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex items-center space-x-2 mb-2">
+        <input type="checkbox" id="kill-disabled-sessions" name="kill_disabled_sessions" class="w-4 h-4" {{if .KillDisabledSessions}}checked{{end}}>
+        <label class="label mb-0" for="kill-disabled-sessions">Terminate sessions on user disable</label>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 ml-6 mb-2">Hosts periodically check logged-in users and kill sessions for those with /sbin/nologin shell.</p>
+      <div class="ml-6">
+        <label class="label text-xs" for="session-check-interval">Session check interval</label>
+        <input type="text" id="session-check-interval" name="session_check_interval" class="input w-24" value="{{.SessionCheckInterval}}" placeholder="60s">
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Host Enforcement</button>
+  </div>
+</form>
 {{end}}

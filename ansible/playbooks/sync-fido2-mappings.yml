@@ -9,7 +9,7 @@
   tasks:
     - name: Fetch all FIDO2 credential mappings
       uri:
-        url: "{{ platform_url }}/api/v1/fido2/credentials"
+        url: "{{ platform_url }}/api/v1/fido2/credentials?format=pam"
         headers:
           Authorization: "Bearer {{ api_token }}"
         return_content: true
