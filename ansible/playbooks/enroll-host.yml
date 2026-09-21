@@ -1,5 +1,18 @@
 ---
 # Enrolls a host to trust the platform's SSH CA and configure FIDO2 + nslcd
+#
+# If ssh_enforce_cert_validation is enabled, you must export service account
+# credentials in the environment before running this playbook:
+#
+#   export CERT_REFRESH_CLIENT_ID="<client_id>"
+#   export CERT_REFRESH_CLIENT_SECRET="<client_secret>"
+#   ansible-playbook -i inventory.ini ansible/playbooks/enroll-host.yml
+#
+# These credentials are used by the authbox-client-creds.j2 template to populate
+# /etc/secrets/authbox/authbox-cert-cache-refresh on the enrolled host (mode 0640).
+# The refresh script sources this file at runtime to authenticate to the valid-serials
+# endpoint and obtain a bearer token.
+#
 - hosts: all
   become: true
   vars:
@@ -12,6 +25,20 @@
     ssh_session_check_interval: "60s"
 
   tasks:
+    - name: Validate service account credentials when cert validation is enabled
+      assert:
+        that:
+          - lookup('env', 'CERT_REFRESH_CLIENT_ID') | length > 0
+          - lookup('env', 'CERT_REFRESH_CLIENT_SECRET') | length > 0
+        fail_msg: |
+          CERT_REFRESH_CLIENT_ID and CERT_REFRESH_CLIENT_SECRET environment variables
+          are required when ssh_enforce_cert_validation is enabled.
+          Export them before running this playbook:
+            export CERT_REFRESH_CLIENT_ID="<client_id>"
+            export CERT_REFRESH_CLIENT_SECRET="<client_secret>"
+            ansible-playbook -i inventory.ini ansible/playbooks/enroll-host.yml
+      when: ssh_enforce_cert_validation
+
     - name: Install required packages
       package:
         name:
