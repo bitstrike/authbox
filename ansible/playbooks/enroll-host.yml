@@ -113,6 +113,24 @@
         mode: "0755"
       when: ssh_enforce_cert_validation
 
+    - name: Create authbox secrets directory
+      file:
+        path: /etc/secrets/authbox
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      when: ssh_enforce_cert_validation
+
+    - name: Deploy cert cache refresh credentials
+      template:
+        src: ../templates/authbox-client-creds.j2
+        dest: /etc/secrets/authbox/authbox-cert-cache-refresh
+        owner: root
+        group: root
+        mode: "0640"
+      when: ssh_enforce_cert_validation
+
     - name: Deploy cert check script (AuthorizedPrincipalsCommand)
       template:
         src: ../templates/authbox-cert-check.sh.j2

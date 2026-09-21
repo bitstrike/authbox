@@ -1,18 +1,51 @@
 #!/bin/sh
 # authbox-cert-cache-refresh.sh - fetch valid cert serials from authbox
+# Requires credentials in /etc/secrets/authbox/authbox-cert-cache-refresh (sourced at runtime)
 # Deployed by Ansible. Do not edit manually.
 
 CACHE_DIR="/var/cache/authbox"
 CACHE_FILE="${CACHE_DIR}/valid-certs"
+CREDS_FILE="/etc/secrets/authbox/authbox-cert-cache-refresh"
 PLATFORM_URL="{{ platform_url }}"
+
+# Load service account credentials
+if [ ! -f "$CREDS_FILE" ]; then
+  echo "Error: credentials file not found at $CREDS_FILE" >&2
+  exit 1
+fi
+source "$CREDS_FILE"
+
+if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+  echo "Error: CLIENT_ID or CLIENT_SECRET not set" >&2
+  exit 1
+fi
 
 mkdir -p "$CACHE_DIR"
 
+# Obtain bearer token via OAuth2 client credentials grant
+TOKEN_RESPONSE=$(curl -sf --max-time 10 -X POST \
+  "${PLATFORM_URL}/oauth/token" \
+  -d "grant_type=client_credentials&client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}")
+
+if [ $? -ne 0 ]; then
+  echo "Error: failed to obtain bearer token" >&2
+  exit 1
+fi
+
+ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+if [ -z "$ACCESS_TOKEN" ]; then
+  echo "Error: no access_token in response" >&2
+  exit 1
+fi
+
+# Fetch valid serials with bearer token
 TMPFILE=$(mktemp "${CACHE_FILE}.XXXXXX")
-if curl -sf --max-time 10 "${PLATFORM_URL}/api/v1/ssh/valid-serials" -o "$TMPFILE"; then
+if curl -sf --max-time 10 -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "${PLATFORM_URL}/api/v1/ssh/valid-serials" -o "$TMPFILE"; then
   mv "$TMPFILE" "$CACHE_FILE"
   chmod 644 "$CACHE_FILE"
 else
   rm -f "$TMPFILE"
-  # Keep stale cache on failure rather than removing it
+  echo "Error: failed to fetch valid-serials" >&2
+  exit 1
 fi

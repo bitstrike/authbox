@@ -86,8 +86,8 @@ Expected layout on the host:
 Google OIDC credentials. Key names follow Google's JSON credential format.
 
 ```
-client_id=123456789-abc.apps.googleusercontent.com
-client_secret=GOCSPX-xxxxx
+CLIENT_ID=123456789-abc.apps.googleusercontent.com
+CLIENT_SECRET=GOCSPX-xxxxx
 ```
 
 #### `/etc/secrets/authbox/entra`
@@ -264,10 +264,10 @@ ansible-playbook ansible/playbooks/enroll-host.yml \
 Or.. if you have root access to the remote host over ssh already..
 ```bash
 ansible-playbook ansible/playbooks/enroll-host.yml \
-  -i "10.17.34.194," \
+  -i "remote-1," \
   -u root \
-  -e platform_host=auth.cloud.bitcrash.net \
-  -e ldap_base_dn=dc=bitcrash,dc=net \
+  -e platform_host=authbox.example.com \
+  -e ldap_base_dn=dc=example,dc=com \
   -e ansible_become=false
 ```
 
@@ -300,7 +300,346 @@ id someuser            # should resolve a provisioned user
 - PAM password authentication is not supported (authbox uses OIDC, not stored passwords). Use SSH certs or FIDO2.
 - Alpine Linux uses different package names (`nss-pam-ldapd`, `pam-u2f`, `openssh`). The playbook handles this automatically.
 
-## Architecture
+### FIDO2 Console Login
+
+FIDO2 lets a user log in at the physical console or GDM with a YubiKey. It is
+independent of SSH (SSH uses certificates, not the key). Setup has four parts:
+enroll the key, sync the mapping to the host, wire PAM, and test.
+
+#### 1. Enroll the key
+
+On the machine with the YubiKey attached, run:
+
+```bash
+pamu2fcfg -n -o pam://authbox -i pam://authbox
+```
+
+Paste the output into the authbox FIDO2 page. Leave the User (uid) field blank
+to enroll for yourself; an admin may set another uid.
+
+Notes:
+- `-n` blanks the username field; the server assigns the uid. The server strips
+  the leading colon this produces, so the stored mapping is `uid:keyhandle,...`.
+- `-o`/`-i` pin a fixed origin (`pam://authbox`). This is required. Without it,
+  `pamu2fcfg` and pam_u2f default the origin to `pam://<hostname>`, so a key
+  enrolled on one host will not validate on another. The PAM config uses the
+  same `origin=pam://authbox appid=pam://authbox`, so they must match.
+
+#### 2. Sync the mapping to the host
+
+Enrollment only stores the credential in authbox. Push it to the host's
+`/etc/u2f_mappings` with the sync playbook. It needs a service-account bearer
+token (see below for minting one):
+
+```bash
+LINUX_AUTH_TOKEN=<service-account-token> \
+ansible-playbook ansible/playbooks/sync-fido2-mappings.yml \
+  -i "remote-1," \
+  -e platform_host=authbox.example.com \
+  --become
+```
+
+Mint a token from a service account (client_id/client_secret). The `client_id` and `client_secret` are obtained when you create the Authbox service account.:
+
+```bash
+read -s CLIENT_ID
+read -s CLIENT_SECRET
+export LINUX_AUTH_TOKEN=$(curl -sk -X POST \
+  https://authbox.example.com:8443/oauth/token \
+  -d grant_type=client_credentials \
+  -d client_id=$CLIENT_ID \
+  -d client_secret=$CLIENT_SECRET | jq -r .access_token)
+```
+
+Service tokens are in-memory with a 1-hour TTL and are invalidated on server
+restart, so re-mint if you get `401 Unauthorized`.
+
+Verify on the host (single colon, keyhandle first):
+
+```bash
+grep '^someuser:' /etc/u2f_mappings
+```
+
+#### 3. PAM wiring
+
+`enroll-host.yml` deploys `/etc/pam.d/u2f-auth` and includes it into the console
+login stack (`@include u2f-auth` at the top of `/etc/pam.d/login`). The rule is:
+
+```
+auth [success=done default=ignore] pam_u2f.so authfile=/etc/u2f_mappings origin=pam://authbox appid=pam://authbox cue
+```
+
+- `[success=done default=ignore]` - a successful key ends the auth stack (no
+  password prompt). On failure it falls through to `common-auth`, leaving a
+  local password path for recovery.
+- `cue` - prompts the user to touch the key.
+
+#### 4. Touch-only vs PIN
+
+Two modes are supported. The credential enrollment and the PAM line must match:
+a touch-only credential fails against a PIN-required PAM line with
+`Unsupported options, skipping authenticator`, and vice versa.
+
+**Touch-only (default).** Login requires only a physical touch of the key.
+
+Enroll:
+
+```bash
+pamu2fcfg -n -o pam://authbox -i pam://authbox
+```
+
+PAM line (`ansible/files/pam-u2f-auth`):
+
+```
+auth [success=done default=ignore] pam_u2f.so authfile=/etc/u2f_mappings origin=pam://authbox appid=pam://authbox cue
+```
+
+**PIN + touch.** Login requires the key's FIDO2 PIN and a touch. The credential
+must be enrolled with PIN verification.
+
+Set a PIN on the key, then enroll with PIN required (`-N`; confirm the flag with
+`pamu2fcfg --help`):
+
+```bash
+ykman fido access change-pin                     # set the PIN if not already set
+pamu2fcfg -n -N -o pam://authbox -i pam://authbox
+```
+
+PAM line (`ansible/files/pam-u2f-auth`), add `pinverification=1`:
+
+```
+auth [success=done default=ignore] pam_u2f.so authfile=/etc/u2f_mappings origin=pam://authbox appid=pam://authbox pinverification=1 cue
+```
+
+The PIN is the key's FIDO2 PIN, entered at the login prompt, verified on the key
+(never sent to authbox). It cannot be recovered, only checked or reset:
+
+```bash
+ykman fido info               # shows whether a PIN is set
+ykman fido access change-pin  # set/change the PIN
+```
+
+#### Switching between touch-only and PIN
+
+Switching modes changes **both** the credential and the PAM config, so both
+playbooks are involved:
+
+1. Set/verify the PIN on the key (`ykman`) if moving to PIN mode.
+2. Re-enroll the key with the matching flags (with or without `-N`) and paste
+   into the FIDO2 page. Revoke the old credential first.
+3. Run `sync-fido2-mappings.yml` to push the new credential to
+   `/etc/u2f_mappings`.
+4. Edit `ansible/files/pam-u2f-auth` to add or remove `pinverification=1`, then
+   run `enroll-host.yml` to redeploy the PAM line to the hosts.
+
+Steps 3 and 4 must both happen; updating only one leaves the credential and PAM
+line mismatched.
+
+#### When to re-run the playbooks
+
+- Re-run `sync-fido2-mappings.yml` after any enrollment, revocation, or
+  re-enrollment, so `/etc/u2f_mappings` reflects the current credentials.
+- Re-run `enroll-host.yml` after changing the PAM config (`pam-u2f-auth`,
+  including adding/removing `pinverification=1`), or when enrolling a new host.
+
+#### Debugging
+
+Add `debug` to the PAM line and test the stack without logging out:
+
+```bash
+pamtester login someuser authenticate
+```
+
+Read the pam_u2f debug output (Debian minimal installs use the journal, not
+`/var/log/auth.log`):
+
+```bash
+journalctl -b | grep -i u2f
+```
+
+Common failures seen in the debug output:
+
+- **`Key not found in authenticator`** with `origin ... pam://<hostname>` - the
+  origin does not match. The credential was enrolled under a different origin
+  than the PAM line uses. Re-enroll with `-o pam://authbox -i pam://authbox` and
+  set matching `origin=`/`appid=` on the PAM line.
+- **Double colon in `/etc/u2f_mappings`** (`uid::keyhandle`) - the credential
+  was stored with the leading colon from `pamu2fcfg -n`. Requires the fixed
+  server build; re-enroll and re-sync.
+- **`Unsupported options, skipping authenticator`** - the PAM line has
+  `pinverification=1` but the credential is touch-only. Remove
+  `pinverification=1` or re-enroll the key with a PIN.
+- **Password prompt after a valid key** - the auth stack fell through because
+  the key step did not succeed (one of the above), or the PAM rule is not
+  `[success=done ...]`.
+
+Test PAM changes on a second console (Ctrl+Alt+F3) with a root session held
+open. The key path has no password fallback, so a broken config can lock the
+console.
+
+## Cert Expiration and Offboarding Automation
+
+### The problem: certs can't be revoked, and sessions outlive the account
+
+Authbox SSH access is certificate-based. When a user signs their key, the CA
+issues a short-lived certificate (default TTL, see `SSH_CERT_TTL`). An OpenSSH
+certificate is a self-contained, signed token: once issued, `sshd` accepts it
+until it expires. There is no built-in revocation channel that authbox can push
+to a fleet of hosts, so the standard offboarding actions do **not** immediately
+stop access:
+
+- **Removing the user from LDAP** stops NSS from resolving the account and
+  blocks *future* logins that depend on the directory, but it does nothing to a
+  certificate already in the user's possession, and nothing to a session already
+  open.
+- **Invalidating / "revoking" the cert in authbox** removes it from authbox's
+  own records, but the signed cert on the user's laptop is still cryptographically
+  valid until its TTL expires. `sshd` on each host has no way to know it was
+  revoked.
+- **Either action leaves active sessions untouched.** A user who is already
+  logged in (SSH or console) keeps their shell, and any child processes keep
+  running, regardless of what changes in the directory or in authbox.
+
+Two optional mechanisms close these gaps. They are complementary: one blocks
+*new* logins faster than TTL expiry, the other evicts *existing* sessions. Both
+are off by default and enabled per-host via `enroll-host.yml` variables.
+
+Because both rely on cron jobs and helper scripts that live on the login hosts,
+enabling them requires configuration in two places: a small amount on the
+**authbox server** (an endpoint plus, for revocation, a service account), and
+per-host setup on **every client the user can log in to or SSH into**. A host
+that is never enrolled with these settings will keep honoring valid certs and
+keep active sessions alive.
+
+### Certificate revocation (valid-serials allowlist)
+
+Normally a signed cert is valid until it expires. This mechanism lets you revoke
+a cert immediately: the host only accepts certs whose serials appear in a locally
+cached allowlist fetched from authbox.
+
+**How it works:**
+
+- Authbox serves `GET /api/v1/ssh/valid-serials`, a bearer-token-authenticated
+  endpoint that returns a plain-text list of `serial:principal` lines for every
+  non-expired cert.
+- On each host, `authbox-cert-cache-refresh.sh` runs on a cron. It obtains a
+  bearer token by exchanging service account credentials, then uses the token to
+  fetch the valid serials list and writes it to `/var/cache/authbox/valid-certs`.
+- `sshd` is configured with an `AuthorizedPrincipalsCommand` pointing at
+  `authbox-cert-check.sh`, which emits the principal only if the cert's serial
+  is in the cache. Revoke a cert in authbox and it drops off the list; the next
+  refresh removes it locally and further logins with that cert are denied.
+
+**Enable in `enroll-host.yml`:**
+
+```yaml
+ssh_enforce_cert_validation: true
+ssh_cert_cache_interval: "5m"   # cron refresh interval
+```
+
+**Revocation delay:** a revoked cert keeps working until the next cache refresh,
+so worst case is one `ssh_cert_cache_interval`.
+
+**Fail-closed:** if the cache file is missing, `authbox-cert-check.sh` emits no
+principal, so login is denied. Note the current script trusts a *stale* cache
+(if a refresh fails but an old file exists, its entries are still honored), so a
+long-dead refresh could keep honoring an already-revoked cert.
+
+### Service account for the cache refresh
+
+`authbox-cert-cache-refresh.sh` authenticates to `GET /api/v1/ssh/valid-serials`
+using OAuth2 service account credentials. Set it up:
+
+**On the authbox server:**
+
+1. Create a service account via the web UI (Admin role required).
+2. Assign it the **viewer** role (required to call `valid-serials`).
+3. Capture the one-time `client_id` and `client_secret` shown at creation.
+4. Share these with your Ansible controller operator (next step).
+
+Note: `HasRole` is not hierarchical except for admin. An `operator` token does
+**not** satisfy a viewer check, so grant the account `viewer` specifically
+(not `operator`). Use `admin` role only if the service account needs broader
+platform access.
+
+**On your Ansible controller:**
+
+Pass the credentials as environment variables when running `enroll-host.yml`:
+
+```bash
+export CERT_REFRESH_CLIENT_ID="<client_id_from_ui>"
+export CERT_REFRESH_CLIENT_SECRET="<client_secret_from_ui>"
+ansible-playbook -i inventory.ini ansible/playbooks/enroll-host.yml
+```
+
+The playbook deploys the credentials securely to `/etc/secrets/authbox/authbox-cert-cache-refresh` on each host (mode 0640, readable only by root). The refresh script sources this file at runtime and exchanges the credentials for a bearer token on each cron tick.
+
+**On each enrolled host:**
+
+After Ansible runs:
+- Credentials are stored at `/etc/secrets/authbox/authbox-cert-cache-refresh` (root-only, mode 0640).
+- The `authbox-cert-cache-refresh.sh` script (deployed to `/usr/local/bin/`) runs on the configured interval via cron.
+- Each run: obtains a token, fetches valid serials, and updates the local cache.
+- Cron logs any errors to syslog (e.g., if credentials are invalid or authbox is unreachable).
+
+**Credential rotation:**
+
+To rotate credentials, create a new service account in the UI, update the Ansible controller environment variables, and re-run the playbook on affected hosts. Old credentials stop working immediately (the old service account can be deleted).
+
+### Session termination for disabled users
+
+Revocation blocks new logins but does not kick out active sessions. This is the
+mechanism that solves the "user is disabled/removed but their shell is still
+open" problem described in the problem section above. It applies to any local
+session (SSH or console), not just SSH, because it acts on running processes
+rather than on the login path.
+
+**What it accomplishes:** a user who is disabled in authbox has their active
+sessions terminated automatically within roughly one check interval, without an
+operator having to hunt down and `kill` processes by hand on each host.
+
+**How it works:**
+
+- Disabling a user in authbox sets their login shell to `/sbin/nologin` in LDAP
+  (and revokes their FIDO2 credentials).
+- On each enrolled host, `authbox-session-check.sh` runs on a cron. It lists
+  logged-in users (`who`), looks up each one's shell via NSS (which resolves
+  through nslcd to LDAP), and `pkill`s any user whose shell is now
+  `/sbin/nologin`.
+- On the next tick after the disable propagates, the user's processes are
+  killed, ending their sessions.
+
+**Configure on the authbox server:** nothing specific to this mechanism. It
+relies only on the existing disable action setting `/sbin/nologin`, which is
+already part of the platform. The hosts read the shell over the normal LDAP/NSS
+path configured during enrollment.
+
+**Configure on every client the user can log in to / SSH into** (via
+`enroll-host.yml`):
+
+```yaml
+ssh_kill_disabled_sessions: true
+ssh_session_check_interval: "60s"
+```
+
+This deploys `authbox-session-check.sh` to `/usr/local/bin/` and installs the
+"authbox session check" cron job. Hosts that skip this stay vulnerable: a
+disabled user's existing session keeps running there.
+
+**Kill delay:** a disabled user's sessions persist until the next check plus the
+nslcd cache TTL (the host must first see the updated `/sbin/nologin` shell via
+LDAP).
+
+### What to configure where (summary)
+
+| Scope | Certificate revocation | Session termination |
+| --- | --- | --- |
+| **Authbox server** | Serves `GET /api/v1/ssh/valid-serials` (viewer-role bearer token required); provision a viewer-role service account | Nothing extra (disable action already sets `/sbin/nologin`) |
+| **Every login/SSH client** | `ssh_enforce_cert_validation: true` (+ `ssh_cert_cache_interval`) in `enroll-host.yml`; provide service account credentials to Ansible via `CERT_REFRESH_CLIENT_ID` and `CERT_REFRESH_CLIENT_SECRET` env vars | `ssh_kill_disabled_sessions: true` (+ `ssh_session_check_interval`) in `enroll-host.yml` |
+
+Both host-side settings must be applied to *every* host an authbox user can
+reach. An unenrolled or partially-enrolled host silently keeps honoring valid
+certs and keeps active sessions alive.
 
 See [project.md](project.md) for full architecture documentation.
 See [webstack.md](webstack.md) for web framework details.

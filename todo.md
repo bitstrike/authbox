@@ -1081,7 +1081,7 @@ Docker daemon has a single /24 pool configured. Compose creating its own bridge 
 - [x] Add Ansible task: deploy scripts, create /var/cache/authbox/, add cron entry (conditional on setting)
 - [x] Add Ansible task: configure sshd AuthorizedPrincipalsCommand + AuthorizedPrincipalsCommandUser (conditional)
 - [x] Expose toggle and interval in Settings UI (SSH CA section)
-- [ ] Document: revocation delay equals cache interval
+- [x] Document: revocation delay equals cache interval (README "Cert Expiration and Offboarding Automation")
 
 ## Terminate Active Sessions on User Disable (optional, toggle in Settings)
 
@@ -1090,7 +1090,7 @@ Docker daemon has a single /24 pool configured. Compose creating its own bridge 
 - [x] Add Ansible template: `/usr/local/bin/authbox-session-check.sh` (checks logged-in users against getent shell, pkills nologin users)
 - [x] Add Ansible task: deploy script, add cron entry (conditional on setting)
 - [x] Expose toggle and interval in Settings UI (SSH CA section)
-- [ ] Document: kill delay equals check interval + nslcd cache TTL
+- [x] Document: kill delay equals check interval + nslcd cache TTL (README "Cert Expiration and Offboarding Automation")
 
 ## Fix: pamu2fcfg -n Leading Colon Breaks u2f_mappings (double colon)
 
@@ -1106,10 +1106,10 @@ Since the documented workflow is `pamu2fcfg -n`, the server must accept that out
 - [x] Strip a single leading colon from `credential_data` on registration (server-side), so `-n` output is stored as `keyhandle,pubkey,es256,+presence` (NormalizePamU2FCredential in fido2.go)
 - [x] Apply the strip in both entry points: API `registerFIDO2` and frontend `actionRegisterFIDO2`
 - [x] Confirm `validatePamU2FCredential` still passes on stripped input (parts[0] = keyhandle, not empty)
-- [ ] Deploy the rebuilt server (the fix only helps once the new binary is running)
-- [ ] Migration: existing stored credentials that begin with a colon (e.g. kirawafobi ID 2) must be re-enrolled after deploy (revoke + re-register; in-place edit does not go through the fixed path)
-- [ ] Verify on client: `cat /etc/u2f_mappings` shows a single colon (`kirawafobi:keyhandle,...`) after re-sync
-- [ ] Do not wire pam_u2f into the login stack until the mapping shows a single colon (no password fallback = lockout risk)
+- [x] Deploy the rebuilt server (the fix only helps once the new binary is running)
+- [x] Migration: re-enrolled after deploy (revoke + re-register); new credential stored with single colon
+- [x] Verify on client: `cat /etc/u2f_mappings` shows a single colon after re-sync (confirmed via successful pamtester run)
+- [x] Do not wire pam_u2f into the login stack until the mapping shows a single colon (no password fallback = lockout risk)
 
 ## Fix: pam_u2f not wired into login stack (enroll-host.yml)
 
@@ -1148,11 +1148,11 @@ Fix: use a fixed, environment-wide origin so a key works on every enrolled host.
 - [x] Enroll with fixed origin: `pamu2fcfg -n -o pam://authbox -i pam://authbox`
 - [x] Match origin/appid on the PAM line in ansible/files/pam-u2f-auth (`origin=pam://authbox appid=pam://authbox`)
 - [x] Update FIDO2 page instructions (fido2.html) to include `-o pam://authbox -i pam://authbox`
-- [ ] Re-deploy authbox build on dmx, re-enroll kirawafobi with the fixed-origin string, re-sync mappings
-- [ ] Mirror the pam-u2f-auth change to /etc/pam.d/u2f-auth on the VM (or re-run enroll-host.yml) and confirm origin matches at auth time
-- [ ] Re-test: `pamtester login kirawafobi authenticate` should prompt for touch/PIN and succeed (no "Key not found")
-- [ ] Confirm the YubiKey has a FIDO2 PIN set (pinverification=1 requires one); drop pinverification=1 if not using a PIN
-- [ ] Document the fixed-origin requirement in README client config section
+- [x] Re-deploy authbox build, re-enroll with the fixed-origin string, re-sync mappings
+- [x] Mirror the pam-u2f-auth change to /etc/pam.d/u2f-auth on the VM and confirm origin matches at auth time
+- [x] Re-test: `pamtester login <user> authenticate` succeeds (touch only, no "Key not found")
+- [x] Confirm PIN: key was touch-only (no PIN set); dropped pinverification=1 from the PAM line
+- [x] Document the fixed-origin requirement in README client config section
 
 ## Security: Gate /api/v1/ssh/valid-serials behind viewer-role bearer token
 
@@ -1181,3 +1181,9 @@ misleading and the intent around a stale/missing cache was never resolved.
 - [ ] Decide policy on a STALE cache (refresh cron failed but old file exists): current code trusts stale entries. Consider a max-age check so a long-dead refresh doesn't keep honoring revoked certs indefinitely
 - [ ] Confirm exit-code/stdout semantics against sshd's AuthorizedPrincipalsCommand contract (empty stdout = no principals = deny)
 - [ ] Test: rename/remove /var/cache/authbox/valid-certs and confirm login is denied; restore and confirm allowed
+
+## Docs: Expand README session-termination / offboarding section
+
+- [x] Frame the problem: SSH certs are non-revocable by design (valid until TTL expiry), and removing a user from LDAP or invalidating a cert does not evict already-established sessions
+- [x] Describe the cron mechanism (authbox-session-check.sh + valid-serials allowlist) and what it accomplishes
+- [x] Document what must be configured on the authbox server vs on every client the user can log in / SSH to

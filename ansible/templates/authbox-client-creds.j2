@@ -1,0 +1,6 @@
+# authbox-cert-cache-refresh service account credentials
+# Sourced by authbox-cert-cache-refresh.sh
+# Deployed by Ansible. Do not edit manually.
+
+export CLIENT_ID="{{ lookup('env', 'CERT_REFRESH_CLIENT_ID') }}"
+export CLIENT_SECRET="{{ lookup('env', 'CERT_REFRESH_CLIENT_SECRET') }}"
