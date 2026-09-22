@@ -51,7 +51,10 @@ func (a *API) signSSHKey(w http.ResponseWriter, r *http.Request) {
 	// Use configured TTL
 	ttlSeconds := a.certTTLSeconds()
 
-	certBytes, err := a.ca.SignPublicKey([]byte(body.PublicKey), principal, ttlSeconds)
+	// Generate serial (use UnixNano for uniqueness)
+	serial := uint64(time.Now().UnixNano())
+
+	certBytes, err := a.ca.SignPublicKey([]byte(body.PublicKey), principal, ttlSeconds, serial)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "failed to sign key: "+err.Error())
 		return
@@ -59,10 +62,9 @@ func (a *API) signSSHKey(w http.ResponseWriter, r *http.Request) {
 
 	// Record the issued cert
 	expiresAt := time.Now().Add(time.Duration(ttlSeconds) * time.Second)
-	serial := fmt.Sprintf("%d", time.Now().UnixNano())
 	a.repo.CreateSSHCert(&db.SSHCert{
 		Username:  principal,
-		Serial:    serial,
+		Serial:    fmt.Sprintf("%d", serial),
 		Principal: principal,
 		ExpiresAt: expiresAt,
 	})

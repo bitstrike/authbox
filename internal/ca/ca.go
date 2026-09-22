@@ -42,7 +42,7 @@ func (ca *CA) Fingerprint() string {
 	return ssh.FingerprintSHA256(ca.publicKey)
 }
 
-func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uint64) ([]byte, error) {
+func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uint64, serial uint64) ([]byte, error) {
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("parsing public key: %w", err)
@@ -57,6 +57,7 @@ func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uin
 		Key:             pubKey,
 		CertType:        ssh.UserCert,
 		KeyId:           principal,
+		Serial:          serial,
 		ValidPrincipals: []string{principal},
 		ValidAfter:      uint64(0),
 		ValidBefore:     ssh.CertTimeInfinity,

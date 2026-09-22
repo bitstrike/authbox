@@ -1,0 +1,7 @@
+---
+packages:
+  - nslcd
+  - libpam-u2f
+  - openssh-server
+  - curl
+  - wget

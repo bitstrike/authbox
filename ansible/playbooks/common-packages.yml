@@ -1,0 +1,13 @@
+---
+# Installs common packages from client-packages.yml
+#
+- hosts: all
+  become: true
+  vars_files:
+    - ../client-packages.yml
+
+  tasks:
+    - name: Install common packages
+      package:
+        name: "{{ packages }}"
+        state: present

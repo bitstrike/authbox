@@ -15,6 +15,8 @@
 #
 - hosts: all
   become: true
+  vars_files:
+    - ../client-packages.yml
   vars:
     platform_url: "https://{{ platform_host }}:8443"
     ldap_uri: "ldap://{{ platform_host }}"
@@ -41,10 +43,7 @@
 
     - name: Install required packages
       package:
-        name:
-          - nslcd
-          - libpam-u2f
-          - openssh-server
+        name: "{{ packages }}"
         state: present
 
     - name: Fetch SSH CA public key from platform
