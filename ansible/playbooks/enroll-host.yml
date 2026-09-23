@@ -27,6 +27,9 @@
     ssh_session_check_interval: "60s"
 
   tasks:
+    # Validate that service account credentials are provided when SSH certificate
+    # validation is enabled. These credentials are required to authenticate to the
+    # platform's valid-serials endpoint and obtain bearer tokens for cert verification.
     - name: Validate service account credentials when cert validation is enabled
       assert:
         that:
@@ -41,11 +44,14 @@
             ansible-playbook -i inventory.ini ansible/playbooks/enroll-host.yml
       when: ssh_enforce_cert_validation
 
+    # Install all required packages defined in client-packages.yml (ssh, nslcd, pam-u2f, etc.)
     - name: Install required packages
       package:
         name: "{{ packages }}"
         state: present
 
+    # Fetch the platform's SSH CA public key from the API endpoint. This key will be
+    # used by sshd to verify that incoming SSH certificates were signed by the trusted CA.
     - name: Fetch SSH CA public key from platform
       uri:
         url: "{{ platform_url }}/api/v1/ssh/ca.pub"
@@ -53,6 +59,8 @@
         validate_certs: true
       register: ca_pub
 
+    # Deploy the fetched CA public key to /etc/ssh/trusted_ca.pub. This file contains
+    # the CA's public key that sshd will use to verify user certificates.
     - name: Deploy SSH CA public key
       copy:
         content: "{{ ca_pub.content }}"
@@ -62,6 +70,8 @@
         mode: "0644"
       notify: restart sshd
 
+    # Enable sshd to trust certificates signed by the platform's CA by setting the
+    # TrustedUserCAKeys directive in sshd_config.
     - name: Configure sshd to trust CA
       lineinfile:
         path: /etc/ssh/sshd_config
@@ -69,6 +79,10 @@
         line: "TrustedUserCAKeys /etc/ssh/trusted_ca.pub"
       notify: restart sshd
 
+    # Configure nslcd (Name Service LDAP daemon) to enable LDAP user/group lookups.
+    # This creates /etc/nslcd.conf pointing to the platform's LDAP server.
+    # Combined with the nsswitch.conf change below, this allows the system to
+    # resolve users and groups from LDAP instead of local /etc/passwd and /etc/group.
     - name: Configure nslcd
       template:
         src: ../templates/nslcd.conf.j2
@@ -78,12 +92,16 @@
         mode: "0640"
       notify: restart nslcd
 
+    # Start the nslcd service and ensure it starts automatically on boot.
     - name: Enable and start nslcd
       service:
         name: nslcd
         state: started
         enabled: true
 
+    # Modify /etc/nsswitch.conf to include 'ldap' as a source for passwd, group,
+    # and shadow lookups. This tells the system to query LDAP for user and group
+    # information in addition to local files.
     - name: Configure nsswitch for LDAP
       lineinfile:
         path: /etc/nsswitch.conf
@@ -94,6 +112,9 @@
         - { db: group }
         - { db: shadow }
 
+    # Create a PAM service definition file for FIDO2 authentication at /etc/pam.d/u2f-auth.
+    # This file defines the PAM configuration that will be included into login or SSH.
+    # It specifies how PAM should interact with the U2F authentication device.
     - name: Configure PAM for FIDO2
       copy:
         src: ../files/pam-u2f-auth
@@ -102,11 +123,9 @@
         group: root
         mode: "0644"
 
-    # Wire the u2f-auth service into the console login stack. Without this the
-    # standalone /etc/pam.d/u2f-auth file is never consulted. Inserted at the top
-    # of the auth stack so the YubiKey is checked before other auth modules.
-    # Scope is intentionally console login only (/etc/pam.d/login); SSH uses
-    # certificate auth (not PAM) and GDM is out of scope.
+    # Wire the u2f-auth service into the console login stack by including it at the
+    # top of /etc/pam.d/login. This enables FIDO2 two-factor authentication for
+    # local console logins. SSH logins use certificate-based auth instead of PAM.
     - name: Wire FIDO2 into console login stack
       lineinfile:
         path: /etc/pam.d/login
@@ -114,13 +133,18 @@
         insertbefore: BOF
         firstmatch: true
 
+    # Enable automatic home directory creation for LDAP users on their first login.
+    # The pam_mkhomedir module creates the home directory with files from /etc/skel
+    # and applies the specified umask (0022 = permissions 755).
     - name: Enable pam_mkhomedir (auto-create home on first login)
       lineinfile:
         path: "{{ '/etc/pam.d/common-session' if ansible_os_family == 'Debian' else '/etc/pam.d/base-session' }}"
         regexp: "pam_mkhomedir"
         line: "session required pam_mkhomedir.so skel=/etc/skel umask=0022"
 
-    # SSH cert validation (optional)
+    # SSH certificate validation (optional). When enabled, creates scripts and cron jobs
+    # to validate SSH certificates against the platform's API, refresh the CA serial cache,
+    # and terminate sessions for disabled users.
     - name: Create authbox cache directory
       file:
         path: /var/cache/authbox
@@ -130,6 +154,8 @@
         mode: "0755"
       when: ssh_enforce_cert_validation or ssh_kill_disabled_sessions
 
+    # Deploy the cert cache refresh script that fetches valid CA serials from the
+    # platform's valid-serials endpoint and caches them locally for certificate validation.
     - name: Deploy cert cache refresh script
       template:
         src: ../templates/authbox-cert-cache-refresh.sh.j2
@@ -139,6 +165,8 @@
         mode: "0755"
       when: ssh_enforce_cert_validation
 
+    # Create a protected directory to store service account credentials used by the
+    # cert cache refresh script to authenticate to the platform API.
     - name: Create authbox secrets directory
       file:
         path: /etc/secrets/authbox
@@ -148,6 +176,8 @@
         mode: "0750"
       when: ssh_enforce_cert_validation
 
+    # Deploy the credentials file that contains the service account client ID and secret.
+    # This file is sourced by the cert cache refresh script at runtime.
     - name: Deploy cert cache refresh credentials
       template:
         src: ../templates/authbox-client-creds.j2
@@ -157,6 +187,8 @@
         mode: "0640"
       when: ssh_enforce_cert_validation
 
+    # Deploy the AuthorizedPrincipalsCommand script that sshd calls to validate
+    # each SSH certificate against the platform's API before granting access.
     - name: Deploy cert check script (AuthorizedPrincipalsCommand)
       template:
         src: ../templates/authbox-cert-check.sh.j2
@@ -166,16 +198,20 @@
         mode: "0755"
       when: ssh_enforce_cert_validation
 
+    # Configure sshd to use the cert check script as the AuthorizedPrincipalsCommand.
+    # This makes sshd validate each certificate's principal against the platform's
+    # API before allowing the SSH session to proceed.
     - name: Configure sshd AuthorizedPrincipalsCommand
       blockinfile:
         path: /etc/ssh/sshd_config
         marker: "# {mark} AUTHBOX CERT VALIDATION"
         block: |
-          AuthorizedPrincipalsCommand /usr/local/bin/authbox-cert-check.sh %u %i
+          AuthorizedPrincipalsCommand /usr/local/bin/authbox-cert-check.sh %u %s
           AuthorizedPrincipalsCommandUser nobody
       notify: restart sshd
       when: ssh_enforce_cert_validation
 
+    # Remove the AuthorizedPrincipalsCommand configuration when cert validation is disabled.
     - name: Remove sshd AuthorizedPrincipalsCommand when disabled
       blockinfile:
         path: /etc/ssh/sshd_config
@@ -184,6 +220,8 @@
       notify: restart sshd
       when: not ssh_enforce_cert_validation
 
+    # Add a cron job to periodically refresh the cert cache by running the refresh script.
+    # The interval is configurable via ssh_cert_cache_interval (default: 5 minutes).
     - name: Add cert cache refresh cron job
       cron:
         name: "authbox cert cache refresh"
@@ -191,13 +229,15 @@
         minute: "*/{{ ssh_cert_cache_interval | regex_replace('[^0-9]', '') }}"
       when: ssh_enforce_cert_validation
 
+    # Remove the cert cache refresh cron job when disabled.
     - name: Remove cert cache refresh cron job when disabled
       cron:
         name: "authbox cert cache refresh"
         state: absent
       when: not ssh_enforce_cert_validation
 
-    # Session termination for disabled users (optional)
+    # Session termination for disabled users (optional). When enabled, deploys a script
+    # that checks if users are still enabled in LDAP and terminates their SSH sessions.
     - name: Deploy session check script
       template:
         src: ../templates/authbox-session-check.sh.j2
@@ -207,6 +247,8 @@
         mode: "0755"
       when: ssh_kill_disabled_sessions
 
+    # Add a cron job that runs every minute to check for disabled users and terminate
+    # their active SSH sessions. This enforces immediate session revocation.
     - name: Add session check cron job
       cron:
         name: "authbox session check"
@@ -214,6 +256,7 @@
         minute: "*"
       when: ssh_kill_disabled_sessions
 
+    # Remove the session check cron job when disabled.
     - name: Remove session check cron job when disabled
       cron:
         name: "authbox session check"
@@ -221,11 +264,13 @@
       when: not ssh_kill_disabled_sessions
 
   handlers:
+    # Restart sshd to apply changes to sshd_config, trusted CA keys, or PAM configuration.
     - name: restart sshd
       service:
         name: sshd
         state: restarted
 
+    # Restart nslcd to apply changes to /etc/nslcd.conf.
     - name: restart nslcd
       service:
         name: nslcd
