@@ -672,7 +672,10 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principal, 43200) // 12h default
+	// Generate serial (use UnixNano for consistency with API)
+	serial := uint64(time.Now().UnixNano())
+
+	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principal, 43200, serial) // 12h default
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(fmt.Sprintf(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Signing failed: %s</div>`, escHTML(err.Error()))))
@@ -682,10 +685,9 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	certStr := strings.TrimSpace(string(cert))
 
 	// Record in audit log
-	serial := generateRandomHex(8)
 	h.deps.Repo.CreateSSHCert(&db.SSHCert{
 		Username:  principal,
-		Serial:    serial,
+		Serial:    fmt.Sprintf("%d", serial),
 		Principal: principal,
 		ExpiresAt: time.Now().Add(12 * time.Hour),
 	})
