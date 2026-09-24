@@ -534,7 +534,7 @@ cached allowlist fetched from authbox.
 
 ```yaml
 ssh_enforce_cert_validation: true
-ssh_cert_cache_interval: "5m"   # cron refresh interval
+ssh_cert_cache_interval: 5   # cron refresh interval, minutes (integer 1-59)
 ```
 
 **Revocation delay:** a revoked cert keeps working until the next cache refresh,
@@ -619,7 +619,7 @@ path configured during enrollment.
 
 ```yaml
 ssh_kill_disabled_sessions: true
-ssh_session_check_interval: "60s"
+ssh_session_check_interval: 1   # cron check interval, minutes (integer 1-59)
 ```
 
 This deploys `authbox-session-check.sh` to `/usr/local/bin/` and installs the

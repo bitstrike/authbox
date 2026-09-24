@@ -1187,3 +1187,36 @@ misleading and the intent around a stale/missing cache was never resolved.
 - [x] Frame the problem: SSH certs are non-revocable by design (valid until TTL expiry), and removing a user from LDAP or invalidating a cert does not evict already-established sessions
 - [x] Describe the cron mechanism (authbox-session-check.sh + valid-serials allowlist) and what it accomplishes
 - [x] Document what must be configured on the authbox server vs on every client the user can log in / SSH to
+
+## Fix: enroll-host.yml cron jobs not all in /etc/cron.d (cache went stale)
+
+The cert-cache-refresh cron job used no `cron_file`/`user`, so Ansible wrote it to
+root's user crontab instead of /etc/cron.d. On the VM the refresh job never ran
+(cache stuck at Sep 23), so a renewed cert's new serial was never cached and sshd
+rejected login with "Certificate does not contain an authorized principal". The
+session-check cron used `cron_file: authbox-session-check` and did run every minute,
+confirming the asymmetry.
+
+- [x] Add `user: root` and `cron_file: authbox-cert-cache-refresh` to the "Add cert cache refresh cron job" task (lands in /etc/cron.d)
+- [x] Add matching `cron_file: authbox-cert-cache-refresh` to the "Remove cert cache refresh cron job when disabled" task
+- [x] Validate playbook: YAML parse + `ansible-playbook --syntax-check` pass
+- [ ] Re-run enroll-host.yml against the VM, confirm /etc/cron.d/authbox-cert-cache-refresh exists and refresh runs on interval
+
+### Prior enroll-host.yml edits (this branch) - retroactive checklist
+- [x] Add service account credential validation assert block (CERT_REFRESH_CLIENT_ID / CERT_REFRESH_CLIENT_SECRET) when ssh_enforce_cert_validation (commit 86ab278)
+- [x] Add comprehensive inline documentation to enroll-host playbook (commit dbd712f)
+
+## Bug: cron interval regex_replace mangles non-minute units (enroll-host.yml)
+
+Both cron jobs derive the minute field from `ssh_cert_cache_interval` (and the
+session-check interval) via `regex_replace('[^0-9]', '')`, which strips all
+non-digits and drops the unit. This only works for minute values:
+- `"5m"`  -> `minute: */5`  (correct)
+- `"1h"`  -> `minute: */1`  (WRONG - runs every minute, not hourly)
+- `"90m"` -> `minute: */90` (WRONG - invalid cron minute field, >59)
+
+- [x] Decide contract: either constrain the var to a plain minute count, or parse the unit properly (chose Option A: plain minute integers)
+- [x] Option A: document that `ssh_cert_cache_interval` / `ssh_session_check_interval` are minute integers (e.g. `5`, not `"5m"`), drop the regex, validate range 1-59
+- [~] Option B: parse value+unit and map to correct cron fields (m -> `*/N` minute, h -> `0 */N` hour), reject N>59 for minutes (not chosen; Option A implemented instead)
+- [x] Apply the same fix to the session-check cron job (now uses `*/{{ ssh_session_check_interval }}`, previously hardcoded `minute: "*"`)
+- [x] Add an assert/validation task that fails fast on an out-of-range or unparseable interval

@@ -20,13 +20,33 @@
   vars:
     platform_url: "https://{{ platform_host }}:8443"
     ldap_uri: "ldap://{{ platform_host }}"
-    ldap_base_dn: "dc=bitcrash,dc=net"
+    ldap_base_dn: "{{ base_dn }}"
     ssh_enforce_cert_validation: false
-    ssh_cert_cache_interval: "5m"
+    # Cron intervals are plain minute counts (integers, 1-59). Cron granularity is
+    # per-minute, so sub-minute values are not representable; 1 means every minute.
+    ssh_cert_cache_interval: 5
     ssh_kill_disabled_sessions: false
-    ssh_session_check_interval: "60s"
+    ssh_session_check_interval: 1
 
   tasks:
+    # Validate cron interval variables up front. Both are used as cron minute fields
+    # (*/N), so they must be integers in the range 1-59. Fail fast on bad input
+    # rather than writing an invalid crontab entry.
+    - name: Validate cron interval variables
+      assert:
+        that:
+          - ssh_cert_cache_interval is integer
+          - ssh_cert_cache_interval >= 1
+          - ssh_cert_cache_interval <= 59
+          - ssh_session_check_interval is integer
+          - ssh_session_check_interval >= 1
+          - ssh_session_check_interval <= 59
+        fail_msg: |
+          ssh_cert_cache_interval and ssh_session_check_interval must be integers
+          between 1 and 59 (minute counts for the cron */N field).
+          Got ssh_cert_cache_interval={{ ssh_cert_cache_interval }},
+          ssh_session_check_interval={{ ssh_session_check_interval }}.
+
     # Validate that service account credentials are provided when SSH certificate
     # validation is enabled. These credentials are required to authenticate to the
     # platform's valid-serials endpoint and obtain bearer tokens for cert verification.
@@ -226,13 +246,16 @@
       cron:
         name: "authbox cert cache refresh"
         job: "/usr/local/bin/authbox-cert-cache-refresh.sh"
-        minute: "*/{{ ssh_cert_cache_interval | regex_replace('[^0-9]', '') }}"
+        minute: "*/{{ ssh_cert_cache_interval }}"
+        user: root
+        cron_file: authbox-cert-cache-refresh
       when: ssh_enforce_cert_validation
 
     # Remove the cert cache refresh cron job when disabled.
     - name: Remove cert cache refresh cron job when disabled
       cron:
         name: "authbox cert cache refresh"
+        cron_file: authbox-cert-cache-refresh
         state: absent
       when: not ssh_enforce_cert_validation
 
@@ -253,13 +276,16 @@
       cron:
         name: "authbox session check"
         job: "/usr/local/bin/authbox-session-check.sh"
-        minute: "*"
+        minute: "*/{{ ssh_session_check_interval }}"
+        user: root
+        cron_file: authbox-session-check
       when: ssh_kill_disabled_sessions
 
     # Remove the session check cron job when disabled.
     - name: Remove session check cron job when disabled
       cron:
         name: "authbox session check"
+        cron_file: authbox-session-check
         state: absent
       when: not ssh_kill_disabled_sessions
 
