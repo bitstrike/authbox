@@ -257,7 +257,7 @@ The included playbook configures all three layers. Requires Ansible on a control
 ansible-playbook ansible/playbooks/enroll-host.yml \
   -i "target-host," \
   -e platform_host=authbox.example.com \
-  -e ldap_base_dn=dc=example,dc=com \
+  -e base_dn=dc=example,dc=com \
   --become
 ```
 
@@ -267,11 +267,11 @@ ansible-playbook ansible/playbooks/enroll-host.yml \
   -i "remote-1," \
   -u root \
   -e platform_host=authbox.example.com \
-  -e ldap_base_dn=dc=example,dc=com \
+  -e base_dn=dc=example,dc=com \
   -e ansible_become=false
 ```
 
-Replace `target-host` with the hostname or IP, and adjust `platform_host` and `ldap_base_dn` for your environment.
+Replace `target-host` with the hostname or IP, and adjust `platform_host` and `base_dn` for your environment.
 
 To sync FIDO2 mappings (run periodically or after key enrollment):
 
@@ -282,6 +282,28 @@ ansible-playbook ansible/playbooks/sync-fido2-mappings.yml \
   -e platform_host=authbox.example.com \
   --become
 ```
+
+### Ansible Variables
+
+Variables consumed by `enroll-host.yml`. Required variables have no default and
+must be supplied via `-e` or inventory; the rest have defaults shown below.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `platform_host` | yes | - | Platform hostname/IP. Derives `platform_url` (`https://<host>:8443`) and `ldap_uri` (`ldap://<host>`). |
+| `base_dn` | yes | - | LDAP base DN (e.g. `dc=example,dc=com`). Sets `ldap_base_dn`. |
+| `ssh_enforce_cert_validation` | no | `false` | Enable SSH cert validation: deploys cert-check + cache-refresh scripts, `AuthorizedPrincipalsCommand`, and the cert-cache cron job. |
+| `ssh_cert_cache_interval` | no | `5` | Cert-cache refresh interval, minutes (integer 1-59). Used as the cron `*/N` minute field. |
+| `ssh_kill_disabled_sessions` | no | `false` | Enable session revocation: deploys the session-check script and cron job that terminates SSH sessions of disabled users. |
+| `ssh_session_check_interval` | no | `1` | Session-check interval, minutes (integer 1-59). Used as the cron `*/N` minute field. |
+
+Environment variables (read by the playbook, required only when
+`ssh_enforce_cert_validation: true`):
+
+| Env var | Purpose |
+| --- | --- |
+| `CERT_REFRESH_CLIENT_ID` | Viewer-role service account client ID, written to the host credentials file for the cache-refresh script. |
+| `CERT_REFRESH_CLIENT_SECRET` | Service account client secret, paired with the client ID. |
 
 ### Manual Verification
 

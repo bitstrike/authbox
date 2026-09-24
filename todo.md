@@ -136,9 +136,9 @@
 
 ## Phase 13: Ansible Playbooks
 
-- [ ] Verify enroll-host.yml works end-to-end
-- [ ] Verify sync-fido2-mappings.yml works end-to-end
-- [ ] Document required Ansible variables
+- [x] Verify enroll-host.yml works end-to-end (verified on abclient 10.17.34.151: validation assert passed, /etc/cron.d/authbox-{cert-cache-refresh,session-check} written with correct */5 and */1 minute fields, root user field, empty root crontab)
+- [x] Verify sync-fido2-mappings.yml works end-to-end (FIDO2 verified working in manual test)
+- [x] Document required Ansible variables (added "Ansible Variables" reference table to README: required vars, defaults, and CERT_REFRESH_* env vars)
 
 ## Phase 14: Testing
 
