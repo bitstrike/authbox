@@ -10,6 +10,44 @@ Centralized password authentication on Linux isn't great. There are a lot of opt
 
 All this being said, I thought building an interface around the most common features I've used OpenLDAP for seemed like a neet idea. Sun and Redhat tried this back in the 90s but they were slow and miserable java applications which I could never get running suitably on the hardware I had available. I guess this project is similar in theme but hopefully a lot less miserable. It is certainly a work in progress right now. I am running this in a homelab environment so most features are getting regular exercise. The primary/secondary feature is untested yet but this isn't terribly difficult to get working with OpenLDAP - I'm just opting to get all the features working/tested on the primary first.
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Secrets Directory](#secrets-directory)
+  - [Volumes](#volumes)
+- [Ports](#ports)
+- [TLS Certificates](#tls-certificates)
+- [Development](#development)
+- [Testing LDAP](#testing-ldap)
+- [Testing the API](#testing-the-api)
+- [Client Configuration](#client-configuration)
+  - [Files Modified](#files-modified)
+  - [What Each Layer Does](#what-each-layer-does)
+  - [Automated Setup (Ansible)](#automated-setup-ansible)
+  - [Ansible Variables](#ansible-variables)
+  - [Manual Verification](#manual-verification)
+  - [Notes](#notes)
+  - [SSH Login Roles: how they work and how to set one up](#ssh-login-roles-how-they-work-and-how-to-set-one-up)
+  - [Per-Host Access Control](#per-host-access-control)
+  - [FIDO2 Console Login](#fido2-console-login)
+- [Cert Expiration and Offboarding Automation](#cert-expiration-and-offboarding-automation)
+  - [The problem: certs can't be revoked, and sessions outlive the account](#the-problem-certs-cant-be-revoked-and-sessions-outlive-the-account)
+  - [Certificate revocation (valid-serials allowlist)](#certificate-revocation-valid-serials-allowlist)
+  - [Service account for the cache refresh](#service-account-for-the-cache-refresh)
+  - [Session termination for disabled users](#session-termination-for-disabled-users)
+  - [What to configure where (summary)](#what-to-configure-where-summary)
+- [Backup and Restore](#backup-and-restore)
+  - [Export](#export)
+  - [Restore via Web UI](#restore-via-web-ui)
+  - [Restore via CLI (manual)](#restore-via-cli-manual)
+  - [CA Key Backup](#ca-key-backup)
+- [Troubleshooting](#troubleshooting)
+  - [`redirect_uri_mismatch` on Google login](#redirect_uri_mismatch-on-google-login)
+  - [`invalid state` after OIDC callback](#invalid-state-after-oidc-callback)
+  - [`user not found in directory`](#user-not-found-in-directory)
+
 ## Quick Start
 
 ```bash
