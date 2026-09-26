@@ -162,12 +162,17 @@ Design (agreed):
 - [x] Remove `ldap://127.0.0.1:3389/` from `SLAPD_URLS` (and the debug-fallback line)
 
 ### 2. Go LDAP client (internal/ldap/client.go)
-- [x] Change `goldap.DialURL("ldap://127.0.0.1:3389")` to dial the Unix socket
-      (`localSocketURL = "ldapi://%2Fvar%2Frun%2Fopenldap%2Fldapi"`). go-ldap v3.4.8
-      confirmed to support `ldapi://` in DialURL (uses the explicit path, not its own
-      /var/run/slapd default).
-- [ ] RUNTIME VERIFY: admin bind succeeds over the socket (olcLocalSSF exempt) - needs
-      a run-clean boot; code builds but not yet run against a container
+- [x] Change `goldap.DialURL("ldap://127.0.0.1:3389")` to dial the Unix socket.
+      GOTCHA (found at runtime): the Go form is `ldapi:///var/run/openldap/ldapi`
+      (socket path in the URL PATH component), NOT the CLI's percent-encoded
+      `ldapi://%2Fvar%2F...` - Go's url.Parse rejects `%2F` in the host
+      ("invalid URL escape"), and go-ldap dials unix on u.Path. The entrypoint CLI
+      tools (ldapsearch/ldapmodify -H) DO use the %2F form and that is correct there;
+      only the Go client differs. go-ldap v3.4.8 confirmed.
+- [ ] RUNTIME VERIFY: app admin bind succeeds over the socket (olcLocalSSF exempt).
+      First boot attempt FAILED on the wrong URL form (now fixed); socket itself is
+      proven good (readiness probe + SSF migration succeeded over ldapi in the log).
+      Re-verify after rebuild that "failed to connect to LDAP" is gone.
 - [x] Confirm no other code path assumes the 3389 TCP port (grep clean; only docs
       referenced it, now updated in project.md + README)
 
