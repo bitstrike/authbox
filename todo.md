@@ -169,10 +169,9 @@ Design (agreed):
       ("invalid URL escape"), and go-ldap dials unix on u.Path. The entrypoint CLI
       tools (ldapsearch/ldapmodify -H) DO use the %2F form and that is correct there;
       only the Go client differs. go-ldap v3.4.8 confirmed.
-- [ ] RUNTIME VERIFY: app admin bind succeeds over the socket (olcLocalSSF exempt).
-      First boot attempt FAILED on the wrong URL form (now fixed); socket itself is
-      proven good (readiness probe + SSF migration succeeded over ldapi in the log).
-      Re-verify after rebuild that "failed to connect to LDAP" is gone.
+- [x] RUNTIME VERIFIED: app connects over the socket after the URL fix (no more
+      "failed to connect to LDAP"; app runs past database init). olcLocalSSF exempts
+      the socket so the app binds despite the ssf=128 floor.
 - [x] Confirm no other code path assumes the 3389 TCP port (grep clean; only docs
       referenced it, now updated in project.md + README)
 
@@ -247,11 +246,18 @@ configured before the server floor is enabled.
       `LDAP_ENFORCE_TLS=true` to confirm plaintext is rejected.
 
 ### 6. Verify
-- [ ] Off-box: `ldapsearch -x -H ldap://<host>:389 -b "" -s base` must fail with
-      confidentialityRequired (plaintext rejected) - the goal
-- [ ] Off-box: `ldapsearch -ZZ -x -H ldap://<host>:389 ...` (STARTTLS) succeeds
-- [ ] Container reaches "slapd ready" and the Go app connects/serves (local exemption works)
-- [ ] LDAPS :636 still works
+- [x] Off-box: plaintext search UNDER the base DN fails with confidentialityRequired
+      (13) - the goal. NOTE: must query the base DN, NOT rootDSE/base-"" - the rootDSE
+      is exempt from the SSF floor, so a base-"" probe falsely reports "plaintext works".
+      Fixed test-ldap-tls.sh to auto-discover and search under the base DN.
+- [x] Off-box: `ldapsearch -ZZ` (STARTTLS) succeeds with cert validation
+- [x] Container reaches "slapd ready" and the Go app connects/serves (socket exemption works)
+- [x] LDAPS :636 still works (TLS 1.3 / AES-256, cert verifies)
+- [x] Verified via `LDAP_ENFORCE_TLS=true ./tests/integration/test-ldap-tls.sh` -> 5/5 pass
+- [x] Confirmed on abclient: `getent passwd` resolves LDAP users (kirawafobi, alice,
+      tblader, ops) against the now-enforcing server, proving nslcd does STARTTLS with
+      cert validation (plaintext would be rejected, so resolution = TLS working). The
+      `ops` sshrole account resolves as a posix user - ready for `ssh ops@host`.
 - [ ] project.md claim is now true (no doc change needed; note it was aspirational until now)
 
 ## Phase 13: Ansible Playbooks
@@ -1563,3 +1569,33 @@ result-box TTL display - a deviation from the documented design.
 - [x] Result box TTL display derives from the configured TTL (was literal "12 hours")
 - [x] Replace the `43200` magic literals in `api.certTTLSeconds` with
       `constants.DefaultSSHCertTTLSeconds` (both the empty-config and parse-error paths)
+
+## Log Viewer: Color ERROR/WARN Lines (currently all green)
+
+The web console log viewer renders every line the same greenish color. ERROR lines
+should be reddish, WARN lines yellowish; INFO/DEBUG stay green.
+
+Current state (verified):
+- `templates/logs.html` line 41: `<pre id="log-content" class="... text-green-400 ...">`
+  applies one green color to the whole block.
+- `partialLogsView` (`internal/web/frontend/partials.go`) emits each line as plain
+  `escHTML(line) + "\n"` with no per-line markup, so nothing can be colored per level.
+- Log line format (from runtime logs) is `<ts> [INFO] msg ...` / `[ERROR]` / `[WARN]`.
+
+Tasks:
+- [ ] In `partialLogsView`, wrap each line in a `<span class="log-...">` chosen by the
+      level token in the line: `[ERROR]` -> red, `[WARN]` -> yellow, else -> green
+      (default). Match on the bracketed token to avoid false hits on the word "error"
+      in a message. Keep `escHTML` on the line content.
+- [ ] Keep the `<pre>` base color as the INFO/DEBUG green (or move color entirely to
+      the per-line spans and drop `text-green-400` from the `<pre>`) - pick one so INFO
+      lines aren't double-styled.
+- [ ] Add CSS classes readable on the dark `bg-gray-900` log background:
+      `.log-error` (reddish, e.g. #f87171 red-400), `.log-warn` (yellowish, e.g.
+      #facc15 yellow-400), `.log-info` (existing green #4ade80). Existing `text-red-600`
+      (#dc2626) is too dark on black - use a lighter 400-weight red.
+- [ ] Verify against live-tail mode too (the same partial feeds it) so streamed lines
+      are colored consistently.
+- [ ] Confirm the level FILTER dropdown still works (it matches `[level]` in the raw
+      line; the span wrapping must not break that server-side filter, which runs before
+      markup is added - it does, filter happens on raw lines then markup is applied).

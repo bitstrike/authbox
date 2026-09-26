@@ -24,7 +24,7 @@ set -u
 LDAP_HOST="${LDAP_HOST:-auth.cloud.bitcrash.net}"
 LDAP_PORT="${LDAP_PORT:-389}"
 LDAPS_PORT="${LDAPS_PORT:-636}"
-LDAP_BASE="${LDAP_BASE:-}"           # empty = root DSE base search
+LDAP_BASE="${LDAP_BASE:-}"           # directory base DN; auto-discovered if empty
 LDAP_ENFORCE_TLS="${LDAP_ENFORCE_TLS:-false}"
 TIMEOUT="${TIMEOUT:-20}"
 
@@ -45,10 +45,29 @@ for t in ldapsearch openssl; do
   command -v "$t" >/dev/null 2>&1 || { echo "MISSING required tool: $t"; exit 2; }
 done
 
-# Helper: run an anonymous base search, print exit code. Returns ldapsearch rc.
+# Discover the directory base DN from the rootDSE if not supplied. The rootDSE
+# itself is readable regardless of the SSF floor, so we only use it to LEARN the
+# base DN - the actual security checks below search UNDER that base.
+if [ -z "$LDAP_BASE" ]; then
+  LDAP_BASE=$(timeout "$TIMEOUT" ldapsearch -x -H "ldap://$LDAP_HOST:$LDAP_PORT" \
+    -b "" -s base -LLL namingContexts 2>/dev/null \
+    | awk -F': ' '/^namingContexts:/ {print $2; exit}')
+fi
+echo "Base DN: ${LDAP_BASE:-<none discovered>}"
+echo ""
+if [ -z "$LDAP_BASE" ]; then
+  echo "ERROR: could not determine base DN (host unreachable on $LDAP_PORT?)."
+  echo "The SSF floor gates searches UNDER the base DN; a rootDSE probe would give a"
+  echo "false result. Set LDAP_BASE explicitly and retry."
+  exit 2
+fi
+
+# Helper: search UNDER the base DN (an operation against the {1}mdb database),
+# which is what the ssf=128 floor actually gates. A rootDSE/base-"" search is NOT
+# gated and would wrongly report "plaintext works" even when enforcement is on.
 run_search() {
   # shellcheck disable=SC2086
-  timeout "$TIMEOUT" ldapsearch "$@" -x -b "$LDAP_BASE" -s base -LLL namingContexts >/tmp/ldaptls.out 2>&1
+  timeout "$TIMEOUT" ldapsearch "$@" -x -b "$LDAP_BASE" -s base -LLL dn >/tmp/ldaptls.out 2>&1
   return $?
 }
 
