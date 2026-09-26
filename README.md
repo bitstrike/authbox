@@ -6,8 +6,9 @@ Authbox is a centralized authentication and authorization container for Linux sy
 
 <img src="images/shot-1.png" alt="Dashboard" width="40%">
 
-If not already obvious, there was a bit of AI assistance used to create this.
-I'm still working out some of the details. Centralized password authentication on Linux isn't great. There are a lot of options but all of them have one drawback or another. Some options like SSSD work fine until they break for some reason. This project is intended to experiment with some other ways of maybe doing it. 
+Centralized password authentication on Linux isn't great. There are a lot of options but nothing that's really a drop-in auth package with a friendly way to manage the fiddly bits of OpenLDAP. This project is intended to experiment with some other ways of providing this. I've spent decades working with OpenLDAP in production environments and the documentation has always been the first groan. It's there, but it's terse and always leaves you with more questions. Second gron is the mailing list support. Sometimes you get an answer, most of the time not. Third groan is the configuration complexity. Punching out an LDIF for the right thing and then feeding it into `ldap*` commands to either add or modify is tedious and the error messages are hardly helpful when you have a typo or other. For all it's complexity however, I've never had it fall over once setup correctly. It just runs. It's likely one of the most stable pieces of software I've ever worked with. 
+
+All this being said, I thought building an interface around the most common features I've used OpenLDAP for seemed like a neet idea. Sun and Redhat tried this back in the 90s but they were slow and miserable java applications which I could never get running suitably on the hardware I had available. I guess this project is similar in theme but hopefully a lot less miserable. It is certainly a work in progress right now. I am running this in a homelab environment so most features are getting regular exercise. The primary/secondary feature is untested yet but this isn't terribly difficult to get working with OpenLDAP - I'm just opting to get all the features working/tested on the primary first.
 
 ## Quick Start
 
@@ -129,11 +130,14 @@ Single value. Shared secret for container-to-container sync authentication.
 
 ## Ports
 
-| Port | Protocol | Purpose |
-|---|---|---|
-| 389 | LDAP+STARTTLS | POSIX identity lookups (nslcd) |
-| 636 | LDAPS | Legacy LDAP over TLS |
-| 8443 | HTTPS | Web UI and REST API |
+| Port | Protocol | Exposure | Purpose |
+|---|---|---|---|
+| 389 | LDAP+STARTTLS | External | POSIX identity lookups (nslcd) |
+| 636 | LDAPS | External | Legacy LDAP over TLS |
+| 3389 | LDAP (plain) | Internal (127.0.0.1 only, not published) | Go app to local slapd communication |
+| 8443 | HTTPS | External | Web UI and REST API |
+
+In an HA deployment the replica container publishes these on different host ports to avoid collisions (`390`, `637`, `8444` -> container `389`, `636`, `8443`); see `docker/docker-compose.yml`.
 
 ## TLS Certificates
 
@@ -264,7 +268,7 @@ ansible-playbook ansible/playbooks/enroll-host.yml \
 Or.. if you have root access to the remote host over ssh already..
 ```bash
 ansible-playbook ansible/playbooks/enroll-host.yml \
-  -i "remote-1," \
+  -i "target-host," \
   -u root \
   -e platform_host=authbox.example.com \
   -e base_dn=dc=example,dc=com \
@@ -322,6 +326,254 @@ id someuser            # should resolve a provisioned user
 - PAM password authentication is not supported (authbox uses OIDC, not stored passwords). Use SSH certs or FIDO2.
 - Alpine Linux uses different package names (`nss-pam-ldapd`, `pam-u2f`, `openssh`). The playbook handles this automatically.
 
+### Per-Host Access Control
+
+By default, any provisioned user with a valid SSH certificate can log into any
+enrolled host (the certificate is trusted fleet-wide). To restrict which users may
+log into which hosts, gate login on the host using an LDAP group. This is a standard
+Linux login control using a `posixGroup` managed through the normal group UI/API.
+
+The model is one access group per host (or per host tier), holding the users allowed
+there. Example: `bob` may access `host-1`, `host-2`, `host-3`; `alice` may access
+`host-1` only.
+
+Create the access groups as **posixGroups** (they need a `gidNumber` and use
+`memberUid`, so they resolve via `getent group`):
+
+```
+cn=hostaccess-1,ou=groups   memberUid: bob, alice
+cn=hostaccess-2,ou=groups   memberUid: bob
+cn=hostaccess-3,ou=groups   memberUid: bob
+```
+
+Choose one of the two enforcement options below. Both produce the same result:
+
+| User  | host-1 | host-2 | host-3 |
+|-------|--------|--------|--------|
+| bob   | allow  | allow  | allow  |
+| alice | allow  | deny   | deny   |
+
+Prerequisite for either option: on each host, `getent group hostaccess-1` must list
+the members. If it does not, NSS is not resolving the group and neither mechanism can
+gate on it.
+
+#### Option 1: `sshd AllowGroups` (SSH-only, simplest)
+
+`AllowGroups` matches the user's Unix group membership and gates SSH login only.
+Set the host's own access group in `/etc/ssh/sshd_config`, and keep an admin group
+so you are not locked out:
+
+`host-1` `/etc/ssh/sshd_config`:
+```
+AllowGroups hostaccess-1 wheel
+```
+`host-2`:
+```
+AllowGroups hostaccess-2 wheel
+```
+`host-3`:
+```
+AllowGroups hostaccess-3 wheel
+```
+
+On `host-2`, sshd only admits members of `hostaccess-2` (bob), so alice is rejected at
+the SSH layer before a session starts. `wheel` (or your admin posixGroup) stays allowed
+so administrators keep access.
+
+#### Option 2: `pam_access` (gates all PAM logins: SSH, console, GDM)
+
+This option is necessary whenever a host has any login path other than SSH. In the
+authbox model, SSH is authenticated by certificate, but **local console login is
+authenticated by FIDO2 (`pam_u2f`)**, which `enroll-host.yml` wires into
+`/etc/pam.d/login`, and GDM desktop login is planned to use the same. Those are
+separate doors into the host that `sshd_config AllowGroups` (Option 1 above) does not touch.
+
+Option 1 restricts `ssh alice@host-2`, but if alice has physical or console access to host-2
+and a registered YubiKey, she can still log in at the text console because that path never goes
+through sshd. To actually keep alice off host-2, the gate must sit where every login path converges,
+whic ends up being pam_access.
+
+`pam_access` runs in the PAM **account** phase, which is evaluated on every PAM login
+(SSH, console/`login`, GDM) regardless of how the user authenticated.
+Authentication and authorization are separate phases: FIDO2 proves who the user is in
+the **auth** phase (the YubiKey touch), then `pam_access` independently decides in the
+**authorization** phase whether that identity is allowed on this host. A denied user still
+completes the touch, then the login is refused. Because the deny happens before the **session**
+phase, `pam_mkhomedir` never runs for a denied user, so no stray home directory is created.
+
+Use Option 2 (optionally alongside Option 1) when the host allows console or GDM login,
+which in the authbox FIDO2 model is every host with local access. Use Option 1 alone
+only for headless hosts where SSH is genuinely the sole login path.
+
+`pam_access` matches a group via the `(name)` syntax and applies to every PAM login
+path, not just SSH. Use the same posixGroups as Option 1.
+
+Because the goal is to cover console and GDM in addition to SSH, place the check in the
+shared account stack rather than only in `/etc/pam.d/sshd`. On Debian/Ubuntu that is
+`/etc/pam.d/common-account` (pulled in by `login`, `sshd`, and `gdm-password`); on
+RHEL-family it is `/etc/pam.d/system-auth`. Adding it there gates all login paths at
+once:
+```
+# /etc/pam.d/common-account (Debian)  or  /etc/pam.d/system-auth (RHEL)
+account required pam_access.so
+```
+If you prefer to gate only specific paths, add the same line to each of
+`/etc/pam.d/login` (text console), `/etc/pam.d/gdm-password` (GDM), and
+`/etc/pam.d/sshd` (SSH) instead. Adding it to `sshd` alone reproduces Option 1's
+SSH-only coverage and leaves the FIDO2 console door open.
+
+Add the check to the SSH PAM stack (account phase) in `/etc/pam.d/sshd`:
+```
+account required pam_access.so
+```
+
+Then write the host's `/etc/security/access.conf`. Rules are evaluated top-down,
+first match wins; the trailing deny-all rejects everyone not explicitly allowed.
+Keep `root` (and any local admin) allowed to avoid lockout.
+
+`host-1` `/etc/security/access.conf`:
+```
++ : root : ALL
++ : (hostaccess-1) : ALL
+- : ALL : ALL
+```
+`host-2`:
+```
++ : root : ALL
++ : (hostaccess-2) : ALL
+- : ALL : ALL
+```
+`host-3`:
+```
++ : root : ALL
++ : (hostaccess-3) : ALL
+- : ALL : ALL
+```
+
+On `host-2`, alice authenticates but the account phase denies her (she is not in
+`hostaccess-2`, so she hits `- : ALL : ALL`). bob matches `(hostaccess-2)` and is
+allowed.
+
+#### Choosing between them
+
+- **Option 1 (`AllowGroups`)**: one config line per host, SSH-only. Safe only on headless
+  hosts with no console or GDM access. On any host with local access it leaves the FIDO2
+  console/GDM login path ungated.
+- **Option 2 (`pam_access`)**: gates SSH, console, and GDM logins in the account phase, so
+  it covers the FIDO2 console path that Option 1 misses. Costs a PAM line plus a config
+  file. This is the option to use on any host a user could log into locally.
+
+Both gate *login*, not *name resolution*. A denied user is still resolvable by `getent`
+(so file ownership still shows names) but cannot log in - the same posture as a disabled
+account.
+
+#### Applying it with Ansible
+
+The access configuration lives in two different places. One in LDAP, the other in Ansible to setup
+pam_access and sshd_config.
+
+- **Who is allowed** lives in LDAP group membership (managed through the authbox group UI).
+- **Which groups a host honors** lives in the Ansible inventory as a per-host (or per-tier) variable.
+
+For the ansible part, on way to define things is as an allow list of groups plus a separate admin group that is always merged in. This way, a typo in the group list doesn't lock out admin (assuming they are in the wheel group).
+Leave the list empty to fail open so hosts already enrolled stay working.
+
+Ansible inventory for the `bob`/`alice`, `host-1`/`host-2`/`host-3` scenario (bob everywhere,
+alice on host-1 only):
+
+```ini
+# inventory.ini
+[host1]
+10.0.0.1 authbox_access_groups='["hostaccess-1"]'
+
+[host2]
+10.0.0.2 authbox_access_groups='["hostaccess-2"]'
+
+[host3]
+10.0.0.3 authbox_access_groups='["hostaccess-3"]'
+
+[all:vars]
+authbox_admin_group=wheel
+```
+
+Membership is set via LDAP posix groups:
+
+```
+cn=hostaccess-1,ou=groups   memberUid: bob, alice
+cn=hostaccess-2,ou=groups   memberUid: bob
+cn=hostaccess-3,ou=groups   memberUid: bob
+```
+
+**Option 1** (`AllowGroups`, SSH-only). `validate` runs `sshd -t` against the
+candidate file so a bad line fails the task instead of breaking sshd:
+
+```yaml
+- name: Restrict SSH logins to the host's access groups
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^AllowGroups\s'
+    line: "AllowGroups {{ (authbox_access_groups + [authbox_admin_group]) | join(' ') }}"
+    validate: "sshd -t -f %s"
+  notify: restart sshd
+  when: authbox_access_groups | length > 0
+```
+
+This renders per host from the same task: `host-1` gets
+`AllowGroups hostaccess-1 wheel`, `host-2` gets `AllowGroups hostaccess-2 wheel`, and so
+on. Groups OR-match, so listing several (e.g. `["web","platform-admins"]`) grants access
+to members of any of them.
+
+**Option 2 task** (`pam_access`, gates SSH + console + GDM). Template `access.conf` from
+the same variable and enable the module in the shared account stack:
+
+```yaml
+- name: Deploy pam_access rules for this host
+  ansible.builtin.template:
+    src: templates/access.conf.j2
+    dest: /etc/security/access.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: authbox_access_groups | length > 0
+
+- name: Enable pam_access in the shared account stack
+  ansible.builtin.lineinfile:
+    path: "{{ '/etc/pam.d/common-account' if ansible_os_family == 'Debian' else '/etc/pam.d/system-auth' }}"
+    line: "account required pam_access.so"
+    insertafter: EOF
+  notify: restart sshd
+  when: authbox_access_groups | length > 0
+```
+
+```jinja
+{# templates/access.conf.j2 #}
++ : {{ authbox_admin_group }} : ALL
+{% for grp in authbox_access_groups %}
++ : ({{ grp }}) : ALL
+{% endfor %}
+- : ALL : ALL
+```
+
+To scale, prefer grouping hosts by tier and setting the variable on the tier instead of
+each host, so adding a host is a one-line inventory change with no new group:
+
+```ini
+[web]
+10.0.0.1
+10.0.0.2
+[db]
+10.0.0.3
+
+[web:vars]
+authbox_access_groups='["web-team","platform-admins"]'
+[db:vars]
+authbox_access_groups='["db-team","platform-admins"]'
+```
+
+Note: these tasks are not yet part of `enroll-host.yml`; the snippets above are the
+reference implementation. Every group named must be a resolvable `posixGroup`
+(`memberUid`), or `AllowGroups`/`pam_access` will silently match nobody.
+
 ### FIDO2 Console Login
 
 FIDO2 lets a user log in at the physical console or GDM with a YubiKey. It is
@@ -356,7 +608,7 @@ token (see below for minting one):
 ```bash
 LINUX_AUTH_TOKEN=<service-account-token> \
 ansible-playbook ansible/playbooks/sync-fido2-mappings.yml \
-  -i "remote-1," \
+  -i "target-host," \
   -e platform_host=authbox.example.com \
   --become
 ```

@@ -39,9 +39,9 @@ The Go app manages OpenLDAP's `cn=config` directly via LDAP protocol on localhos
 - Platform holds an SSH CA private key
 - User authenticates via OIDC (browser flow) to the web UI or API
 - User submits their public key, platform signs it and returns a short-lived SSH certificate
-- Certificate encodes username as principal, has configurable TTL (e.g., 8-12h)
+- Certificate encodes the user's uid as a principal, plus any SSH login role principals the user holds (see [SSH Login Roles](#ssh-login-roles)), and has a configurable TTL (e.g., 8-12h)
 - All hosts trusting the CA accept the certificate - no per-host key management
-- Any user can obtain a cert for any host; access control is handled by other mechanisms (firewall, groups, host-level policy)
+- Any user can obtain a cert; which accounts that cert may log into is controlled by the principals it carries and the host's principal-to-account mapping (see [SSH Login Roles](#ssh-login-roles)). Network reachability is still gated by other mechanisms (firewall, bastion)
 - Works with `ssh -A` (agent forwarding) through bastion hosts
 - Works with `ssh -J` (ProxyJump) for direct connections through bastions
 - User's private key can live anywhere: YubiKey, 1Password, disk - platform only signs the public key
@@ -56,6 +56,35 @@ The Go app manages OpenLDAP's `cn=config` directly via LDAP protocol on localhos
 - Key registration: user runs `pamu2fcfg` on their workstation, pastes credential string into web UI
 - Platform stores credential, Ansible syncs to `/etc/u2f_mappings` on hosts
 - Key loss recovery: user boots a live Linux distro, connects to company VPN, contacts admin for re-enrollment
+
+### SSH Login Roles
+
+SSH login roles let a user log into a shared or elevated account on enrolled hosts based on directory group membership, without ever issuing a certificate that impersonates another human. The certificate always identifies the real user (via its `KeyId`) for audit; roles are expressed as additional principals on that same certificate.
+
+This is distinct from the [API Roles](#api-roles) (`viewer`/`operator`/`admin`), which govern access to the authbox web UI and API only. SSH login roles govern which OS accounts a user may assume over SSH. The two are deliberately decoupled: they use different directory groups and different names so that an app-management role never implicitly grants host login access.
+
+**Directory model**
+
+- SSH login roles are `groupOfNames` entries named `sshrole-<name>` under `ou=groups` (e.g. `cn=sshrole-ops`). Members are user DNs, the same structure as the `authbox-*` app-role groups.
+- The role name (the part after `sshrole-`) becomes an SSH certificate principal. Role names are constrained to characters valid as SSH principals and Unix account names (`[a-z0-9-]`).
+
+**Certificate issuance**
+
+- At signing time the platform resolves the caller's `sshrole-*` memberships and stamps each role name into the certificate's principal list, alongside the caller's own uid principal.
+- Example: a user `alice` who belongs to `sshrole-ops` receives a cert with principals `alice, ops`. The `alice` principal preserves normal self-login; `ops` is the role.
+- A user with no `sshrole-*` groups receives a cert with only their uid principal - identical to the base SSH access behavior.
+
+**Host authorization (principal to account mapping)**
+
+- A principal is a claim, not access. The host decides which principals may assume which local account, via the `AuthorizedPrincipalsCommand` (`authbox-cert-check.sh`).
+- The target login account (`ssh ops@host`) must be a real, resolvable account on the host. Preferred pattern: role accounts are LDAP posix users served via `nslcd`, so they exist identically on every enrolled host with no local account creation.
+- Default convention: a principal authorizes the account of the same name (principal `ops` authorizes account `ops`), plus self-login (a principal equal to the requested username is always allowed).
+
+**Security model**
+
+- Role to shared account (role `ops` -> account `ops`) is the preferred pattern: the cert `KeyId` still records the real human, so actions remain attributable even in a shared account.
+- Role to elevation (a role principal authorizing login as `root`) is higher blast radius and is treated as a deliberate, restricted grant rather than the default.
+- Roles do not extend certificate lifetime or bypass expiry; a role principal is only valid for the life of the certificate that carries it.
 
 ### API/Automation Access
 

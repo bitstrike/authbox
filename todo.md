@@ -1206,6 +1206,19 @@ confirming the asymmetry.
 - [x] Add service account credential validation assert block (CERT_REFRESH_CLIENT_ID / CERT_REFRESH_CLIENT_SECRET) when ssh_enforce_cert_validation (commit 86ab278)
 - [x] Add comprehensive inline documentation to enroll-host playbook (commit dbd712f)
 
+## Fix: authbox-cert-cache-refresh.sh.j2 used bash-only `source` under `#!/bin/sh`
+
+The refresh script sources the creds file with `source "$CREDS_FILE"`, but `source`
+is a bashism. Under the `#!/bin/sh` shebang (dash on Debian) it failed with
+`source: not found`, so CLIENT_ID/CLIENT_SECRET were never loaded and the script
+exited "CLIENT_ID or CLIENT_SECRET not set". The cron job would have silently failed
+the same way even once installed.
+
+- [x] Change shebang from `#!/bin/sh` to `#!/bin/bash` in authbox-cert-cache-refresh.sh.j2
+- [x] Re-deploy via enroll-host.yml; confirm `head -1` shows `#!/bin/bash` and manual run populates /var/cache/authbox/valid-certs
+- [x] Verified end-to-end: `ssh <principal>@remote-1` succeeds after refresh
+- [ ] Consider POSIX-compliant alternative (`. "$CREDS_FILE"` instead of `source`) so the script works under /bin/sh too (optional; bash is present on target hosts)
+
 ## Bug: cron interval regex_replace mangles non-minute units (enroll-host.yml)
 
 Both cron jobs derive the minute field from `ssh_cert_cache_interval` (and the
@@ -1220,3 +1233,114 @@ non-digits and drops the unit. This only works for minute values:
 - [~] Option B: parse value+unit and map to correct cron fields (m -> `*/N` minute, h -> `0 */N` hour), reject N>59 for minutes (not chosen; Option A implemented instead)
 - [x] Apply the same fix to the session-check cron job (now uses `*/{{ ssh_session_check_interval }}`, previously hardcoded `minute: "*"`)
 - [x] Add an assert/validation task that fails fast on an out-of-range or unparseable interval
+
+## Feature: SSH login roles (role principals -> account mapping)
+
+Goal: let a user SSH into a shared/role account (e.g. an `ops` LDAP posix account)
+on enrolled hosts, based on directory group membership, without minting a cert that
+impersonates another human. The user's cert keeps their own identity principal (for
+audit via KeyId) AND carries role principals; the host maps role principals to the
+local accounts they may assume.
+
+### Design summary (agreed)
+
+- New `groupOfNames` class `sshrole-<name>` under `ou=groups` (e.g. `sshrole-ops`).
+  Members are user DNs, same structure as the existing `authbox-*` groups.
+- At signing time, authbox resolves the caller's `sshrole-*` memberships and stamps
+  the role names as EXTRA principals alongside the caller's own uid principal.
+  Example cert: `Principals: alice, ops`.
+- The host decides which principals may assume which local account (principal is a
+  claim, not access). authbox uses AuthorizedPrincipalsCommand (authbox-cert-check.sh),
+  so the mapping lives there / in its cache.
+- The target account (`ssh ops@host`) must be a REAL resolvable account on the host.
+  Preferred: make role accounts LDAP posix users (served via nslcd) so they exist on
+  every enrolled host with no local account creation.
+
+### Naming collision (must resolve first)
+
+- Existing API roles are `self/viewer/operator/admin/system` (internal/auth/roles.go),
+  sourced from `authbox-admins/operators/viewers`. Those gate the web app/API only.
+- SSH login roles are a DIFFERENT concept. Do NOT reuse `operator`/`admin`/`viewer`
+  as SSH principal names or reuse the `authbox-*` groups. Use a distinct `sshrole-*`
+  prefix and distinct principal names (e.g. `ops`, `dba`, `deploy`) so app permissions
+  and SSH login authorization never couple accidentally.
+
+### Open decision (capture before building)
+
+- [ ] Role -> shared account (role `ops` -> account `ops`, clean audit via KeyId) vs
+      role -> elevation (role `ops` -> may become `root`, higher blast radius). Decide
+      whether elevation-to-root is even allowed, or roles only ever map to dedicated
+      shared accounts.
+
+### 1. Directory / LDAP
+
+- [ ] Define `sshrole-<name>` groupOfNames convention (document allowed name charset;
+      names become SSH principals so keep them `[a-z0-9-]`)
+- [ ] Add LDAP lookup `GetSSHRolesForUser(uid) ([]string, error)` in internal/ldap/
+      (filter `(&(objectClass=groupOfNames)(cn=sshrole-*)(member=<userDN>))`, strip the
+      `sshrole-` prefix to yield the principal name). Mirror roles.go but SEPARATE from
+      GetRolesForUser so app roles and SSH roles stay decoupled.
+- [ ] Web UI + API to manage `sshrole-*` groups (reuse existing group CRUD; they are
+      just groupOfNames, so this may already work - verify and document)
+
+### 2. Signing path (authbox)
+
+- [ ] Change `ca.SignPublicKey` to accept a principals slice instead of a single
+      principal (currently `ValidPrincipals: []string{principal}` in internal/ca/ca.go).
+      KeyId stays the human uid for audit.
+- [ ] `signSSHKey` (internal/web/api/ssh.go) and the frontend sign handler
+      (internal/web/frontend/actions.go): build principal list = [uid] + GetSSHRolesForUser(uid)
+- [ ] Record the full principal list on the issued cert audit row (db.SSHCert.Principal
+      currently a single string - decide: comma-join, or new column/table)
+- [ ] Backward compat: a user with no `sshrole-*` groups gets exactly `[uid]` (identical
+      to today's behavior)
+
+### 3. Serial cache + valid-serials endpoint
+
+- [ ] `validSerials` (internal/web/api/ssh.go) currently emits `serial:principal`
+      (one principal). Change to emit the full principal list, e.g.
+      `serial:alice,ops` (comma-separated) or `serial:alice:ops`. Pick a delimiter that
+      cannot collide with principal charset.
+- [ ] `ListValidSSHCerts` / repository: return all principals per cert (depends on the
+      audit-row storage decision above)
+
+### 4. Host authorization (authbox-cert-check.sh.j2)
+
+- [ ] Script currently does strict `[ "$PRINCIPAL" = "$USERNAME" ]` against a
+      `serial:principal` cache line. Rework to: look up the cert's serial, get its FULL
+      principal list, then decide whether `$USERNAME` (the requested login account) is
+      permitted for any of those principals.
+- [ ] Define the principal-to-account policy. Two options:
+      (a) self-login always allowed if a principal equals the username (preserves current
+          behavior for `ssh alice@host` when cert has principal `alice`), PLUS
+      (b) role mapping: a config file on the host (or a convention) maps principal `ops`
+          to allowed account(s). Simplest convention: principal name == account name
+          (principal `ops` authorizes account `ops`), which needs no extra host config.
+- [ ] Update the cache format parsing in the script to match #3
+- [ ] Keep fail-closed on missing/stale cache (see existing "fail-closed" todo item)
+
+### 5. Ansible / enroll-host.yml
+
+- [ ] If role accounts are LDAP posix users, confirm nslcd already resolves them
+      (no playbook change needed) - verify with `getent passwd ops`
+- [ ] If a host-side principal->account policy file is introduced (#4b), add a task to
+      deploy it
+- [ ] Document the new `sshrole-*` workflow in enroll-host readme
+
+### 6. Docs
+
+- [x] Add a "SSH Login Roles" section to project.md (NEW concept; per steering rule,
+      project.md must be updated when the design changes). Cover: sshrole-* groups,
+      identity + role principals on one cert, host principal->account mapping, role
+      accounts as LDAP posix users, and the shared-account-vs-elevation security tradeoff.
+- [x] Update project.md "SSH Access" section which currently stated access control is
+      "handled by other mechanisms (firewall, groups, host-level policy)" - now points to
+      principals + host mapping and cross-links the SSH Login Roles section.
+- [ ] README: user-facing "how to SSH as a role account" walkthrough
+
+### 7. Tests
+
+- [ ] Unit: GetSSHRolesForUser returns role names stripped of `sshrole-` prefix
+- [ ] Unit: SignPublicKey stamps [uid]+roles into ValidPrincipals; empty roles -> [uid]
+- [ ] Unit/script: cert-check authorizes `ssh ops@host` when cert has principal `ops`,
+      denies when it does not
