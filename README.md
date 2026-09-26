@@ -4,7 +4,7 @@
 
 Authbox is a centralized authentication and authorization container for Linux systems built on OpenLDAP and Go. A web frontend provides dashboard and management of users and groups through Google (tested) or Microsoft Entra ID (untested) OIDC authentication.
 
-<img src="images/shot-1.png" alt="Dashboard" width="40%">
+<img src="images/shot-1.png" alt="Dashboard" width="80%">
 
 Centralized password authentication on Linux isn't great. There are a lot of options but nothing that's really a drop-in auth package with a friendly way to manage the fiddly bits of OpenLDAP. This project is intended to experiment with some other ways of providing this. I've spent decades working with OpenLDAP in production environments and the documentation has always been the first groan. It's there, but it's terse and always leaves you with more questions. Second gron is the mailing list support. Sometimes you get an answer, most of the time not. Third groan is the configuration complexity. Punching out an LDIF for the right thing and then feeding it into `ldap*` commands to either add or modify is tedious and the error messages are hardly helpful when you have a typo or other. For all it's complexity however, I've never had it fall over once setup correctly. It just runs. It's likely one of the most stable pieces of software I've ever worked with. 
 

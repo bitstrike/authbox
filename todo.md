@@ -1097,6 +1097,76 @@ Docker daemon has a single /24 pool configured. Compose creating its own bridge 
 - [x] Expose toggle and interval in Settings UI (SSH CA section)
 - [x] Document: kill delay equals check interval + nslcd cache TTL (README "Cert Expiration and Offboarding Automation")
 
+## FIDO2 Mappings: Host-Side Cron Pull (mirror the SSH cert-cache pattern)
+
+Today `/etc/u2f_mappings` is refreshed only by an admin manually running
+`sync-fido2-mappings.yml`. A new key enrolled in the web UI does nothing at a
+host's console until that file is regenerated there, and (worse) a revoked key
+keeps working at the console until the next manual sync. FIDO2 login is offline
+by design, so freshness must be a background pull on each host, not a login-time
+network call. The playbook already uses a bearer token, which implies the host
+holds a service-account token and reaches out to authbox - so a host-side cron
+pull is the natural mechanism. Mirror the existing `authbox-cert-cache-refresh`
+pattern in `enroll-host.yml`.
+
+### Toggle and interval
+- [ ] Add Ansible var: `fido2_sync_enabled` (bool, default false) to `enroll-host.yml`
+- [ ] Add Ansible var: `fido2_sync_interval` (integer minutes, 1-59, default 15 -
+      enrollments are rare, so a longer interval than the SSH cert cache is fine)
+- [ ] Add `fido2_sync_interval` to the existing "Validate cron interval variables"
+      assert block (same 1-59 integer range check as the SSH intervals)
+- [ ] Require service-account credentials when `fido2_sync_enabled` (extend the
+      existing "Validate service account credentials" assert, or add a parallel one)
+
+### Thundering herd (spread the pull across the fleet)
+- [ ] Problem: `*/N` on N hosts makes all hosts hit the fido2 credentials endpoint
+      at the same interval boundary. At ~500 hosts this stampedes the API.
+- [ ] Approach: add a randomized sleep at the top of the refresh script,
+      `sleep $((RANDOM % (random_sleep*60)))`, with `random_sleep` up to 5 min, so
+      each run scatters its API call across a 0-5 min window.
+- [ ] Set `fido2_sync_interval` to 15 min (not 5) so the sleep window (max 5 min) is
+      comfortably smaller than the interval. This keeps late sleepers from still
+      being asleep when the next cron interval fires (3x margin: 5 min sleep vs 15
+      min interval). Never let `random_sleep` approach `fido2_sync_interval`.
+- [ ] Consider deterministic per-host jitter (hash of `inventory_hostname`) instead of
+      `$RANDOM` if we want a stable, idempotent offset that does not re-randomize each
+      run - decide before implementing.
+- [ ] Retrofit the same spread onto the existing SSH cert-cache and session-check
+      crons (`ssh_cert_cache_interval`, `ssh_session_check_interval`), which have the
+      same stampede exposure at fleet scale - separate task, do not couple to FIDO2.
+
+### Refresh script + credentials (reuse the cert-cache conventions)
+- [ ] Add template `ansible/templates/authbox-fido2-sync.sh.j2`: sources the client
+      creds file, obtains a bearer token, curls
+      `GET /api/v1/fido2/credentials?format=pam`, writes `/etc/u2f_mappings`
+      (owner root, mode 0644, matching the current playbook's copy task)
+- [ ] Fail closed: on non-2xx / empty body, do NOT overwrite `/etc/u2f_mappings`
+      (an empty file would lock everyone out of console login) - keep the last-good
+      file and log the failure
+- [ ] Reuse the existing client-creds file convention
+      (`/etc/secrets/authbox/authbox-client-creds` via `authbox-client-creds.j2`,
+      mode 0640) rather than inventing a second token file - confirm the same
+      service account has permission for the fido2 credentials endpoint
+- [ ] Deploy the script task (template -> /usr/local/bin/authbox-fido2-sync.sh,
+      mode 0755), gated `when: fido2_sync_enabled`
+
+### Cron add/remove (paired, gated on the toggle)
+- [ ] Add cron task: `cron_file: authbox-fido2-sync`, `minute: "*/{{ fido2_sync_interval }}"`,
+      user root, job `/usr/local/bin/authbox-fido2-sync.sh`, `when: fido2_sync_enabled`
+- [ ] Add remove-cron task with `state: absent` and the same `cron_file`,
+      `when: not fido2_sync_enabled` (mirrors the cert-cache enable/disable pair)
+
+### Docs + escape hatch
+- [ ] Keep `sync-fido2-mappings.yml` as the manual "apply now" escape hatch (run it
+      by hand after an enrollment/revocation, same as running the cert-cache script
+      manually) - document this alongside the cron
+- [ ] README: document the cron pull (freshness = interval; revocation lag = interval),
+      note it runs on each enrolled host, and that fail-closed preserves last-good mappings
+- [ ] project.md: update the Desktop/GDM Login section - "Ansible syncs to
+      `/etc/u2f_mappings`" should mention the host-side cron pull as the steady-state
+      mechanism, with the manual playbook as the on-demand path
+- [ ] Add `fido2_sync_*` vars to the README "Ansible Variables" table
+
 ## Fix: pamu2fcfg -n Leading Colon Breaks u2f_mappings (double colon)
 
 The FIDO page instructs operators to run `pamu2fcfg -n`, which blanks the username
