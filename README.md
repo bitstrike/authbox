@@ -313,6 +313,19 @@ ansible-playbook ansible/playbooks/enroll-host.yml \
   -e ansible_become=false
 ```
 
+Or.. another example with cert validation and session expiration
+```bash
+$ export ANSIBLE_NOCOWS=1
+$ ansible-playbook -i '10.0.0.1,' \
+  -u root \
+  -e platform_host=authbox.example.com \
+  -e base_dn="dc=example,dc=com" \
+  -e ssh_kill_disabled_sessions=true \
+  -e ssh_enforce_cert_validation=true \
+  playbooks/enroll-host.yml
+
+```
+
 Replace `target-host` with the hostname or IP, and adjust `platform_host` and `base_dn` for your environment.
 
 To sync FIDO2 mappings (run periodically or after key enrollment):
