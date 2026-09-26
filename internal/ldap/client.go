@@ -28,8 +28,14 @@ func NewClient(baseDN, adminPassword string) (*Client, error) {
 	return c, nil
 }
 
+// localSocketURL is the ldapi:// Unix socket the app uses to reach the local
+// slapd. The socket path is percent-encoded per RFC 4516. Connecting over the
+// socket (rather than TCP loopback) is treated as high-SSF via olcLocalSSF, so
+// the app is exempt from the olcSecurity ssf floor that gates external 389.
+const localSocketURL = "ldapi://%2Fvar%2Frun%2Fopenldap%2Fldapi"
+
 func (c *Client) connect() error {
-	conn, err := goldap.DialURL("ldap://127.0.0.1:3389")
+	conn, err := goldap.DialURL(localSocketURL)
 	if err != nil {
 		return fmt.Errorf("ldap dial: %w", err)
 	}

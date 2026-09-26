@@ -21,6 +21,17 @@
     platform_url: "https://{{ platform_host }}:8443"
     ldap_uri: "ldap://{{ platform_host }}"
     ldap_base_dn: "{{ base_dn }}"
+    # LDAP client TLS. When enabled, nslcd uses STARTTLS on 389 with cert
+    # validation, and an OpenLDAP client ldap.conf is written so ad-hoc
+    # ldapsearch -ZZ / ldaps:// validate too. Required before the server-side
+    # SSF floor is enabled (see todo "Enforce STARTTLS / Minimum SSF on LDAP").
+    ldap_tls_enabled: true
+    # CA bundle that contains the platform's cert chain (Let's Encrypt by default).
+    # Path is the same on Debian/Ubuntu and Alpine (ca-certificates package).
+    ldap_client_cacert: /etc/ssl/certs/ca-certificates.crt
+    # OpenLDAP client config path differs by distro. Debian/Ubuntu use
+    # /etc/ldap/ldap.conf; Alpine's openldap-clients uses /etc/openldap/ldap.conf.
+    ldap_conf_path: "{{ '/etc/openldap/ldap.conf' if ansible_os_family == 'Alpine' else '/etc/ldap/ldap.conf' }}"
     ssh_enforce_cert_validation: false
     # Cron intervals are plain minute counts (integers, 1-59). Cron granularity is
     # per-minute, so sub-minute values are not representable; 1 means every minute.
@@ -111,6 +122,32 @@
         group: nslcd
         mode: "0640"
       notify: restart nslcd
+
+    # Ensure the OpenLDAP client config directory exists before writing ldap.conf.
+    # Debian/Ubuntu ships /etc/ldap via libldap; Alpine ships /etc/openldap via
+    # openldap-clients. The package install task runs earlier, but create the dir
+    # defensively so the template task cannot fail on a missing parent.
+    - name: Ensure OpenLDAP client config directory exists
+      file:
+        path: "{{ ldap_conf_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: ldap_tls_enabled
+
+    # Deploy an OpenLDAP client ldap.conf so ad-hoc ldapsearch -ZZ / ldaps:// on the
+    # host validate the platform cert against the CA bundle (same trust nslcd uses).
+    # force: no so an existing operator-managed ldap.conf is never clobbered.
+    - name: Deploy OpenLDAP client ldap.conf (if not already present)
+      template:
+        src: ../templates/ldap.conf.j2
+        dest: "{{ ldap_conf_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        force: false
+      when: ldap_tls_enabled
 
     # Start the nslcd service and ensure it starts automatically on boot.
     - name: Enable and start nslcd

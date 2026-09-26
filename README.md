@@ -170,10 +170,11 @@ Single value. Shared secret for container-to-container sync authentication.
 
 | Port | Protocol | Exposure | Purpose |
 |---|---|---|---|
-| 389 | LDAP+STARTTLS | External | POSIX identity lookups (nslcd) |
+| 389 | LDAP+STARTTLS | External | POSIX identity lookups (nslcd). Plaintext binds rejected (`ssf=128`); clients must STARTTLS |
 | 636 | LDAPS | External | Legacy LDAP over TLS |
-| 3389 | LDAP (plain) | Internal (127.0.0.1 only, not published) | Go app to local slapd communication |
 | 8443 | HTTPS | External | Web UI and REST API |
+
+The Go app talks to the local slapd over a Unix socket (`ldapi:///`), not a TCP port, so there is no internal plaintext LDAP port to publish. The socket is exempt from the SSF floor via `olcLocalSSF`.
 
 In an HA deployment the replica container publishes these on different host ports to avoid collisions (`390`, `637`, `8444` -> container `389`, `636`, `8443`); see `docker/docker-compose.yml`.
 

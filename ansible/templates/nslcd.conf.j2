@@ -3,3 +3,11 @@ gid nslcd
 
 uri {{ ldap_uri }}
 base {{ ldap_base_dn }}
+{% if ldap_tls_enabled | default(true) %}
+
+# Transport security: STARTTLS on 389 with mandatory cert validation.
+# Required once the platform enforces a minimum SSF (plaintext binds rejected).
+ssl start_tls
+tls_reqcert demand
+tls_cacertfile {{ ldap_client_cacert }}
+{% endif %}

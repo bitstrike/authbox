@@ -290,9 +290,9 @@ See [webui.md](webui.md) for full page-by-page interface documentation.
 - groupOfNames objects for role/access group membership
 - Schema managed via `cn=config` by the Go app
 - Replication configurable for multi-container deployments
-- Port 389 exposed externally with mandatory STARTTLS (plaintext rejected)
+- Port 389 exposed externally with mandatory STARTTLS (plaintext rejected via `olcSecurity: ssf=128`)
 - Port 636 LDAPS supported for legacy applications
-- Internal localhost port (3389) for Go app communication (plain, not exposed externally)
+- Go app communicates with local slapd over a Unix domain socket (`ldapi:///`), exempt from the SSF floor via `olcLocalSSF: 256` (no plaintext TCP loopback port)
 
 ## Host-Side Stack
 

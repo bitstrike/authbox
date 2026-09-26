@@ -134,6 +134,121 @@
 - [ ] Web UI for LDAP settings (API wired, frontend uses Settings page)
 - [x] Configure replication settings via API/UI
 
+## Security: Enforce STARTTLS / Minimum SSF on LDAP
+
+project.md states "Port 389 exposed externally with mandatory STARTTLS (plaintext
+rejected)", but this was never implemented - slapd only sets the TLS cert paths, so
+plaintext binds on 389 (including the `cn=admin` password) are currently honored.
+There was no task tracking this enforcement; the Phase 2 "Set LDAP ACLs" item was
+completed without it. This section closes that gap.
+
+Design (agreed):
+- Enforcement floor: `olcSecurity: ssf=128` on `olcDatabase={1}mdb` (rejects plaintext
+  and weak ciphers on 389; accepts any modern TLS. AES-128 is a current standards-
+  accepted floor - confirmed. 128 is the rejection floor, not the negotiated cipher).
+- Loopback exemption: `olcLocalSSF: 256` on `cn=config` so the local app path is trusted.
+- Internal app transport: switch from TCP `ldap://127.0.0.1:3389` to a Unix socket
+  `ldapi:///` (definitionally covered by olcLocalSSF; no build-dependent loopback-SSF
+  assumption). Drop the `127.0.0.1:3389` TCP listener entirely.
+- LDAPS :636 is unaffected (already TLS, satisfies ssf=128 inherently). Only 389 changes.
+
+### 1. slapd config (entrypoint.sh init-config LDIF, first boot)
+- [x] Add `olcLocalSSF: 256` to the `cn=config` (olcGlobal) entry
+- [x] Add `olcSecurity: ssf=128` to the `olcDatabase={1}mdb` entry
+- [x] Add explicit ldapi socket to `SLAPD_URLS` (`ldapi://%2Fvar%2Frun%2Fopenldap%2Fldapi`,
+      path `/var/run/openldap/ldapi`; used a literal path in a `$LDAPI_URL` var so slapd,
+      the probe, the migration, and the Go client all reference the SAME socket rather
+      than the distro-varying compiled default)
+- [x] Remove `ldap://127.0.0.1:3389/` from `SLAPD_URLS` (and the debug-fallback line)
+
+### 2. Go LDAP client (internal/ldap/client.go)
+- [x] Change `goldap.DialURL("ldap://127.0.0.1:3389")` to dial the Unix socket
+      (`localSocketURL = "ldapi://%2Fvar%2Frun%2Fopenldap%2Fldapi"`). go-ldap v3.4.8
+      confirmed to support `ldapi://` in DialURL (uses the explicit path, not its own
+      /var/run/slapd default).
+- [ ] RUNTIME VERIFY: admin bind succeeds over the socket (olcLocalSSF exempt) - needs
+      a run-clean boot; code builds but not yet run against a container
+- [x] Confirm no other code path assumes the 3389 TCP port (grep clean; only docs
+      referenced it, now updated in project.md + README)
+
+### 3. Existing-install migration (idempotent startup)
+- [x] entrypoint.sh: on every boot, run an idempotent `ldapmodify` against `cn=config`
+      (bind cn=admin,cn=config over the socket) that `replace`s `olcLocalSSF` and
+      `olcSecurity` (replace is a no-op if already set) so existing volumes get the
+      enforcement without a re-bootstrap
+- [x] Tolerant of failure: `|| echo note; continue` - a non-zero modify never blocks boot
+
+### 4. Readiness probe (entrypoint.sh)
+- [x] Wait loop now probes `ldapsearch -x -H "$LDAPI_URL" ...` over the socket
+      (the 3389 TCP listener is gone)
+
+### 5. Replica / syncrepl (required once the floor is on)
+- [ ] Replica-to-primary sync must use STARTTLS (`starttls=critical`) or an `ldaps://`
+      provider URI, or replication is rejected by the ssf floor
+- [ ] Currently primary-only and untested, so this is a dependency to wire when replicas
+      are enabled - flag, do not block the primary-side enforcement
+
+### 0. PREREQUISITE - client TLS trust config (must land BEFORE the floor)
+
+Diagnosed live against auth.cloud.bitcrash.net: the server, LE cert, and chain are
+all valid (openssl verifies STARTTLS-389 and LDAPS-636). The `-ZZ` failure was a
+CLIENT trust-store gap: the test box has no `ldap.conf`, so OpenLDAP's client had no
+`TLS_CACERT` and could not validate. Setting `LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt`
+made both STARTTLS-389 and LDAPS-636 succeed. Implication: enabling ssf=128 while
+clients lack CA/TLS config will break every client that isn't configured for TLS.
+
+Verified fix (this session): adding `/etc/ldap/ldap.conf` with
+`TLS_CACERT /etc/ssl/certs/ca-certificates.crt` made `ldapsearch -ZZ` (389) and
+`ldaps://` (636) both succeed WITH validation, no env var. nslcd needs the
+equivalent (`tls_cacertfile`). Both must be Ansible-managed so the whole fleet is
+configured before the server floor is enabled.
+
+#### 0a. nslcd TLS (enroll-host.yml + nslcd.conf.j2)
+- [x] `nslcd.conf.j2` was PLAINTEXT-ONLY (`uri {{ ldap_uri }}`, no ssl/tls_*).
+      Every enrolled host does NSS over cleartext 389 today. Enabling the ssf floor
+      without fixing this locks the whole fleet out of NSS (getent fails -> logins,
+      SSH principals, role accounts all break).
+- [x] Add to `nslcd.conf.j2`: `ssl start_tls`, `tls_reqcert demand`,
+      `tls_cacertfile {{ ldap_client_cacert }}`, gated on `ldap_tls_enabled`
+      (subsumes the old unchecked "Add TLS config to nslcd.conf.j2" todo)
+- [x] CA path is a var `ldap_client_cacert` (default `/etc/ssl/certs/ca-certificates.crt`).
+      TODO(verify): confirm the LE root is present in the Alpine ca-certificates bundle
+      (Debian confirmed via live test this session)
+- [x] Restart nslcd on config change (existing `restart nslcd` handler via notify)
+
+#### 0b. OpenLDAP client config (enroll-host.yml)
+- [x] Added task to `enroll-host.yml` (right after "Configure nslcd") that templates
+      `ldap.conf.j2` -> `{{ ldap_conf_path }}` with `TLS_CACERT {{ ldap_client_cacert }}`
+      and `TLS_REQCERT demand`, so ad-hoc `ldapsearch -ZZ` / `ldaps://` on enrolled
+      hosts validate without `LDAPTLS_CACERT`.
+- [x] Per-distro path via `dest:`, not the template: var
+      `ldap_conf_path: "{{ '/etc/openldap/ldap.conf' if ansible_os_family == 'Alpine' else '/etc/ldap/ldap.conf' }}"`
+      (Debian/Ubuntu -> /etc/ldap/ldap.conf; Alpine -> /etc/openldap/ldap.conf).
+- [x] Parent dir ensured via a `file: state=directory` task on `{{ ldap_conf_path | dirname }}`.
+- [x] `force: false` so an existing operator-managed ldap.conf is never clobbered.
+- [ ] TODO(verify): confirm `ansible_os_family` reports 'Alpine' / 'Debian' as expected
+      on the target Ansible version (the pam_mkhomedir task already relies on this fact,
+      so it should be consistent - verify on a real Alpine run).
+- [x] New templates: `ansible/templates/nslcd.conf.j2` (updated), `ansible/templates/ldap.conf.j2` (new).
+      Verified: `ansible-playbook --syntax-check` passes; Jinja render of both templates
+      produces correct output for tls_enabled true/false.
+
+#### 0c. Sequencing + verify (mandatory order)
+- [ ] Deploy 0a + 0b to the fleet and verify `getent passwd` and `getent group`
+      still work over TLS BEFORE flipping the server-side floor. Order is mandatory:
+      client TLS everywhere -> verify -> then ssf=128.
+- [ ] Verify with `tests/integration/test-ldap-tls.sh` (default mode shows plaintext
+      still open pre-floor; STARTTLS/LDAPS validate). After the floor, re-run with
+      `LDAP_ENFORCE_TLS=true` to confirm plaintext is rejected.
+
+### 6. Verify
+- [ ] Off-box: `ldapsearch -x -H ldap://<host>:389 -b "" -s base` must fail with
+      confidentialityRequired (plaintext rejected) - the goal
+- [ ] Off-box: `ldapsearch -ZZ -x -H ldap://<host>:389 ...` (STARTTLS) succeeds
+- [ ] Container reaches "slapd ready" and the Go app connects/serves (local exemption works)
+- [ ] LDAPS :636 still works
+- [ ] project.md claim is now true (no doc change needed; note it was aspirational until now)
+
 ## Phase 13: Ansible Playbooks
 
 - [x] Verify enroll-host.yml works end-to-end (verified on remote-1: validation assert passed, /etc/cron.d/authbox-{cert-cache-refresh,session-check} written with correct */5 and */1 minute fields, root user field, empty root crontab)

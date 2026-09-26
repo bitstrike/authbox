@@ -50,6 +50,7 @@ cn: config
 olcPidFile: /var/run/openldap/slapd.pid
 olcTLSCertificateFile: ${TLS_CERT}
 olcTLSCertificateKeyFile: ${TLS_KEY}
+olcLocalSSF: 256
 
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
@@ -79,6 +80,7 @@ olcDatabase: {1}mdb
 olcSuffix: ${LDAP_BASE_DN:-dc=example,dc=com}
 olcRootDN: cn=admin,${LDAP_BASE_DN:-dc=example,dc=com}
 olcRootPW: ${HASHED_PASS}
+olcSecurity: ssf=128
 olcDbDirectory: ${SLAPD_DATA_DIR}
 olcDbMaxSize: 1073741824
 olcDbIndex: objectClass eq
@@ -196,7 +198,13 @@ echo "Starting slapd..."
 mkdir -p /var/run/openldap
 chown ldap:ldap /var/run/openldap
 
-SLAPD_URLS="ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/ ldaps://0.0.0.0:636/"
+# Explicit ldapi socket path so slapd, the entrypoint tools, and the Go app client
+# (internal/ldap/client.go localSocketURL) all reference the SAME socket, rather
+# than relying on the OpenLDAP compiled-in default (which differs across distro
+# builds: /var/run/openldap vs /var/run/slapd). URL-encode the path for -h.
+LDAPI_URL="ldapi://%2Fvar%2Frun%2Fopenldap%2Fldapi"
+
+SLAPD_URLS="ldap://0.0.0.0:389/ ldaps://0.0.0.0:636/ $LDAPI_URL"
 
 slapd -u ldap -g ldap -h "$SLAPD_URLS" -F "$SLAPD_CONF_DIR" -d 0 2>&1 &
 SLAPD_PID=$!
@@ -204,14 +212,15 @@ sleep 2
 
 if ! kill -0 "$SLAPD_PID" 2>/dev/null; then
     echo "ERROR: slapd exited immediately. Trying with debug:" >&2
-    slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ ldap://127.0.0.1:3389/" -F "$SLAPD_CONF_DIR" -d 1 2>&1 | head -50
+    slapd -u ldap -g ldap -h "ldap://0.0.0.0:389/ $LDAPI_URL" -F "$SLAPD_CONF_DIR" -d 1 2>&1 | head -50
     exit 1
 fi
 
-# Wait for slapd to be ready
+# Wait for slapd to be ready. Probe over the ldapi:// socket (the app path);
+# the TCP loopback listener (3389) no longer exists.
 echo "Waiting for slapd..."
 for i in $(seq 1 30); do
-    if ldapsearch -x -H ldap://127.0.0.1:3389 -b "" -s base namingContexts >/dev/null 2>&1; then
+    if ldapsearch -x -H "$LDAPI_URL" -b "" -s base namingContexts >/dev/null 2>&1; then
         echo "slapd ready"
         break
     fi
@@ -221,6 +230,25 @@ for i in $(seq 1 30); do
     fi
     sleep 1
 done
+
+# Enforce LDAP transport security on already-initialized installs.
+# First boot writes olcLocalSSF/olcSecurity via the init-config LDIF, but existing
+# volumes (created before this feature) will not have them. Apply idempotently on
+# every boot: olcModify "replace" is a no-op if the value already matches, and we
+# tolerate any failure (e.g. "no such object" on odd layouts) without blocking boot.
+# cn=config is written via the config rootDN (cn=admin,cn=config) over the socket.
+echo "Ensuring LDAP SSF enforcement (olcLocalSSF / olcSecurity)..."
+ldapmodify -x -H "$LDAPI_URL" -D "cn=admin,cn=config" -w "$LDAP_ADMIN_PASS" >/dev/null 2>&1 <<LDIF || echo "  note: SSF enforcement modify returned non-zero (may already be set); continuing"
+dn: cn=config
+changetype: modify
+replace: olcLocalSSF
+olcLocalSSF: 256
+
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+replace: olcSecurity
+olcSecurity: ssf=128
+LDIF
 
 # Start the Go application
 echo "Starting authbox..."

@@ -1,0 +1,5 @@
+# OpenLDAP client configuration (managed by authbox enroll-host.yml).
+# Points ldapsearch / libldap at the CA bundle so STARTTLS (-ZZ) and ldaps://
+# validate the platform's certificate without needing LDAPTLS_CACERT.
+TLS_CACERT {{ ldap_client_cacert }}
+TLS_REQCERT demand
