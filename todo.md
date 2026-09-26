@@ -205,6 +205,11 @@
 - [ ] Ensure secrets mount is readable by `authbox` (group read via `chgrp`)
 - [ ] Verify LDAP client operations still work as unprivileged user
 - [ ] Verify TLS cert renewal still works (writes to /data/tls/)
+- [ ] Ensure `/data/tls` is owned by (or writable by) `authbox` so the non-root Go
+      process can write/renew certs. First boot generates the cert in the root
+      entrypoint and `chown ldap:ldap`s it, but later ACME renewals run in the Go
+      process; entrypoint must `chown authbox /data/tls` (and existing cert/key)
+      before the privilege drop, or renewal fails with EACCES.
 
 ## Reusable Table Component
 
