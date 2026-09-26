@@ -55,7 +55,7 @@ Without OIDC configured, the app runs in dev mode with auto-login as admin.
 
 Secrets are plain files on the **Docker host** at `/etc/secrets/authbox/`. The container bind-mounts this directory read-only (see `docker-compose.yml`). We don't pass these to docker as arguments since that can expose the secrets to docker inspect or other processes within the container.
 
-Create the directory and populate it before starting the container. The container currently runs as root but planned TODO is dropping privs from the entrypoint so group read may be needed. For now, `root:root` is best:
+Create the directory and populate it before starting the container. The container currently runs as root but planned TODO is dropping privs from the entrypoint so group read may be needed. For now, `root:root` is where it's at.  `slapd` will drop privs to the ldap user on startup so that part we get for free. The authbox process is running as `root` currently but this shoudl get dropped privs on it too.  There are some setup tasks before doing this to make sure the Go process can access the tls directory as well as read the needed files.  I haven't thought through all this yet because this whole project started as this nebulous PoC and it's slowly evolving into something possibly usable so the privs are on the roadmap.
 
 ```bash
 sudo mkdir -p /etc/secrets/authbox
