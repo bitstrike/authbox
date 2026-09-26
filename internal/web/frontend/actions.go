@@ -643,6 +643,21 @@ func (h *handlers) actionRemoveMember(w http.ResponseWriter, r *http.Request) {
 	h.renderMemberList(w, cn, updated)
 }
 
+// certTTLSeconds resolves the configured SSH certificate TTL (SSH_CERT_TTL),
+// falling back to the shared default when unset or unparseable. Mirrors
+// api.certTTLSeconds so the web UI and API issue certs with the same lifetime.
+func (h *handlers) certTTLSeconds() uint64 {
+	ttl := h.deps.Config.SSHCertTTL
+	if ttl == "" {
+		return constants.DefaultSSHCertTTLSeconds
+	}
+	d, err := time.ParseDuration(ttl)
+	if err != nil {
+		return constants.DefaultSSHCertTTLSeconds
+	}
+	return uint64(d.Seconds())
+}
+
 func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	pubkey := r.FormValue("pubkey")
@@ -672,10 +687,24 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build principal list: caller's uid first (KeyId/self-login), then any
+	// SSH login role principals from sshrole-* group membership.
+	principals := []string{principal}
+	roles, err := h.deps.LDAP.GetSSHRolesForUser(principal)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Failed to resolve SSH roles</div>`))
+		return
+	}
+	principals = append(principals, roles...)
+
+	// Use configured TTL (SSH_CERT_TTL), matching the API sign path.
+	ttlSeconds := h.certTTLSeconds()
+
 	// Generate serial (use UnixNano for consistency with API)
 	serial := uint64(time.Now().UnixNano())
 
-	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principal, 43200, serial) // 12h default
+	cert, err := h.deps.CA.SignPublicKey([]byte(pubkey), principals, ttlSeconds, serial)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(fmt.Sprintf(`<div class="p-3 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">Signing failed: %s</div>`, escHTML(err.Error()))))
@@ -684,12 +713,12 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 
 	certStr := strings.TrimSpace(string(cert))
 
-	// Record in audit log
+	// Record in audit log. Principal stores the full comma-joined list.
 	h.deps.Repo.CreateSSHCert(&db.SSHCert{
 		Username:  principal,
 		Serial:    fmt.Sprintf("%d", serial),
-		Principal: principal,
-		ExpiresAt: time.Now().Add(12 * time.Hour),
+		Principal: strings.Join(principals, ","),
+		ExpiresAt: time.Now().Add(time.Duration(ttlSeconds) * time.Second),
 	})
 	h.signLimiter.record(principal)
 	remaining = h.signLimiter.remaining(principal)
@@ -700,8 +729,8 @@ func (h *handlers) actionSignSSH(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(`<div class="p-4 border rounded dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-3">`)
 	sb.WriteString(`<h3 class="font-semibold text-sm">Certificate Issued</h3>`)
 	sb.WriteString(`<div class="grid grid-cols-2 gap-2 text-sm">`)
-	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">Principal:</span> <strong>%s</strong></div>`, escHTML(principal)))
-	sb.WriteString(`<div><span class="text-gray-500">TTL:</span> <strong>12 hours</strong></div>`)
+	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">Principals:</span> <strong>%s</strong></div>`, escHTML(strings.Join(principals, ", "))))
+	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">TTL:</span> <strong>%s</strong></div>`, escHTML((time.Duration(ttlSeconds) * time.Second).String())))
 	sb.WriteString(fmt.Sprintf(`<div><span class="text-gray-500">Type:</span> <strong>%s</strong></div>`, escHTML(strings.SplitN(certStr, " ", 2)[0])))
 	sb.WriteString(`</div>`)
 	sb.WriteString(`<div><label class="label">Signed Certificate</label>`)

@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/authbox/authbox/internal/auth"
+	"github.com/authbox/authbox/internal/constants"
 	"github.com/authbox/authbox/internal/db"
 )
 
@@ -48,30 +50,42 @@ func (a *API) signSSHKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build principal list: caller's uid first (KeyId/self-login), then any
+	// SSH login role principals from sshrole-* group membership.
+	principals := []string{principal}
+	roles, err := a.ldap.GetSSHRolesForUser(principal)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "INTERNAL", "failed to resolve ssh roles")
+		return
+	}
+	principals = append(principals, roles...)
+
 	// Use configured TTL
 	ttlSeconds := a.certTTLSeconds()
 
 	// Generate serial (use UnixNano for uniqueness)
 	serial := uint64(time.Now().UnixNano())
 
-	certBytes, err := a.ca.SignPublicKey([]byte(body.PublicKey), principal, ttlSeconds, serial)
+	certBytes, err := a.ca.SignPublicKey([]byte(body.PublicKey), principals, ttlSeconds, serial)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "BAD_REQUEST", "failed to sign key: "+err.Error())
 		return
 	}
 
-	// Record the issued cert
+	// Record the issued cert. Principal stores the full comma-joined list so the
+	// valid-serials cache and host cert-check can authorize role logins.
 	expiresAt := time.Now().Add(time.Duration(ttlSeconds) * time.Second)
 	a.repo.CreateSSHCert(&db.SSHCert{
 		Username:  principal,
 		Serial:    fmt.Sprintf("%d", serial),
-		Principal: principal,
+		Principal: strings.Join(principals, ","),
 		ExpiresAt: expiresAt,
 	})
 
 	respondJSON(w, http.StatusOK, map[string]any{
 		"certificate": string(certBytes),
 		"principal":   principal,
+		"principals":  principals,
 		"serial":      serial,
 		"expires_at":  expiresAt.Format(time.RFC3339),
 	})
@@ -89,11 +103,11 @@ func (a *API) listSSHCerts(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) certTTLSeconds() uint64 {
 	if a.sshCertTTL == "" {
-		return 43200 // 12h default
+		return constants.DefaultSSHCertTTLSeconds
 	}
 	d, err := time.ParseDuration(a.sshCertTTL)
 	if err != nil {
-		return 43200
+		return constants.DefaultSSHCertTTLSeconds
 	}
 	return uint64(d.Seconds())
 }
@@ -114,6 +128,9 @@ func (a *API) validSerials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
+	// c.Principal is the comma-joined principal list (e.g. "alice,ops"), so each
+	// line is "serial:alice,ops". The host cert-check script splits on the first
+	// colon, then on commas. Principal charset [a-z0-9-] never collides with ','.
 	for _, c := range certs {
 		fmt.Fprintf(w, "%s:%s\n", c.Serial, c.Principal)
 	}

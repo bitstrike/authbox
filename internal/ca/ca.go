@@ -42,7 +42,16 @@ func (ca *CA) Fingerprint() string {
 	return ssh.FingerprintSHA256(ca.publicKey)
 }
 
-func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uint64, serial uint64) ([]byte, error) {
+// SignPublicKey signs a user public key. The first entry of principals is the
+// caller's own uid, which is also recorded as the cert KeyId for audit; any
+// additional entries are SSH login role principals (see internal/ldap/sshroles.go).
+// All entries are stamped into ValidPrincipals so a single cert both self-logs
+// and assumes role accounts.
+func (ca *CA) SignPublicKey(pubKeyBytes []byte, principals []string, ttlSeconds uint64, serial uint64) ([]byte, error) {
+	if len(principals) == 0 {
+		return nil, fmt.Errorf("at least one principal is required")
+	}
+
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("parsing public key: %w", err)
@@ -56,9 +65,9 @@ func (ca *CA) SignPublicKey(pubKeyBytes []byte, principal string, ttlSeconds uin
 	cert := &ssh.Certificate{
 		Key:             pubKey,
 		CertType:        ssh.UserCert,
-		KeyId:           principal,
+		KeyId:           principals[0],
 		Serial:          serial,
-		ValidPrincipals: []string{principal},
+		ValidPrincipals: principals,
 		ValidAfter:      uint64(0),
 		ValidBefore:     ssh.CertTimeInfinity,
 		Permissions: ssh.Permissions{

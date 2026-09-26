@@ -326,6 +326,54 @@ id someuser            # should resolve a provisioned user
 - PAM password authentication is not supported (authbox uses OIDC, not stored passwords). Use SSH certs or FIDO2.
 - Alpine Linux uses different package names (`nss-pam-ldapd`, `pam-u2f`, `openssh`). The playbook handles this automatically.
 
+### SSH Login Roles: how they work and how to set one up
+
+An SSH login role lets a user log into a shared account (e.g. `ops`) on enrolled
+hosts, while the certificate still records the real human in its `KeyId` for audit.
+There is no new step for the user: the role rides along as an extra principal on
+their normal certificate.
+
+**How it works (the invisible chain)**
+
+- Membership in a `sshrole-<name>` group causes `<name>` to be stamped onto the
+  user's certificate as an extra principal, alongside their own uid principal.
+  Example: a member of `sshrole-ops` gets a cert with principals `alice, ops`.
+- On the host, `AuthorizedPrincipalsCommand` (`authbox-cert-check.sh`) authorizes
+  login as an account only if the cert carries a principal equal to that account
+  name (same-name convention). Self-login (`ssh alice@host` with principal `alice`)
+  always works.
+
+**How to set one up (admin)**
+
+- Create a `groupOfNames` named `sshrole-<name>` (e.g. `sshrole-ops`) under
+  `ou=groups` using the existing Groups UI/API.
+- Name constraint: `[a-z0-9-]` only. The name becomes both an SSH principal and a
+  Unix account name; a name outside this charset silently never becomes a principal.
+- Ensure the target account exists and resolves on every host. Preferred: create it
+  as an LDAP posix user (served by `nslcd`) so it exists fleet-wide with no local
+  account creation.
+- Add users (member DNs) to the group. The change takes effect on their next
+  certificate issuance - roles are only valid for the life of the cert that carries
+  them.
+
+**Using it (user)**
+
+- Get added to the role group by an admin.
+- Sign your key as usual (no extra step).
+- `ssh <role>@host` (e.g. `ssh ops@host`). `ssh <you>@host` still works too.
+
+**Security notes and gotchas**
+
+- Roles map to same-name shared accounts only. There is no mapping to `root` by
+  design - use `sudo` to elevate after login. Root SSH-key login for automated
+  backups is a separate path, untouched by roles.
+- App/API roles (`authbox-admins`/`operators`/`viewers`) are unrelated and
+  deliberately decoupled: being an app admin grants no host login.
+- Certificates are short-lived. Removing someone from a role takes effect when their
+  current cert expires (there is no live revocation).
+- If `ssh_enforce_cert_validation` is enabled, the host's valid-serials cache must
+  have refreshed since issuance, or the new serial is not yet authorized.
+
 ### Per-Host Access Control
 
 By default, any provisioned user with a valid SSH certificate can log into any

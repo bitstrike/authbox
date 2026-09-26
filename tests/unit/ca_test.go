@@ -77,8 +77,8 @@ func TestCASignsPublicKey(t *testing.T) {
 	}
 	userPubBytes := ssh.MarshalAuthorizedKey(userPub)
 
-	// Sign with 12h TTL
-	certBytes, err := sshCA.SignPublicKey(userPubBytes, "testuser", 43200)
+	// Sign with 12h TTL, single principal (no SSH roles)
+	certBytes, err := sshCA.SignPublicKey(userPubBytes, []string{"testuser"}, 43200, 1)
 	if err != nil {
 		t.Fatalf("failed to sign public key: %v", err)
 	}
@@ -115,6 +115,63 @@ func TestCASignsPublicKey(t *testing.T) {
 	}
 }
 
+func TestCAStampsRolePrincipals(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+
+	_, userPriv, _ := ed25519.GenerateKey(rand.Reader)
+	userPub, _ := ssh.NewPublicKey(userPriv.Public())
+	userPubBytes := ssh.MarshalAuthorizedKey(userPub)
+
+	// uid + two SSH login roles
+	certBytes, err := sshCA.SignPublicKey(userPubBytes, []string{"alice", "ops", "dba"}, 43200, 2)
+	if err != nil {
+		t.Fatalf("failed to sign: %v", err)
+	}
+
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(certBytes)
+	if err != nil {
+		t.Fatalf("failed to parse cert: %v", err)
+	}
+	cert := pubKey.(*ssh.Certificate)
+
+	// KeyId stays the human uid (first principal) for audit.
+	if cert.KeyId != "alice" {
+		t.Fatalf("expected KeyId 'alice', got '%s'", cert.KeyId)
+	}
+
+	want := []string{"alice", "ops", "dba"}
+	if len(cert.ValidPrincipals) != len(want) {
+		t.Fatalf("expected %d principals, got %v", len(want), cert.ValidPrincipals)
+	}
+	for i, p := range want {
+		if cert.ValidPrincipals[i] != p {
+			t.Fatalf("principal %d: expected %q, got %q", i, p, cert.ValidPrincipals[i])
+		}
+	}
+}
+
+func TestCARejectsEmptyPrincipals(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+
+	_, userPriv, _ := ed25519.GenerateKey(rand.Reader)
+	userPub, _ := ssh.NewPublicKey(userPriv.Public())
+	userPubBytes := ssh.MarshalAuthorizedKey(userPub)
+
+	if _, err := sshCA.SignPublicKey(userPubBytes, nil, 43200, 3); err == nil {
+		t.Fatal("expected error for empty principals")
+	}
+}
+
 func TestCASignsWithInfiniteTTL(t *testing.T) {
 	dir := t.TempDir()
 
@@ -128,7 +185,7 @@ func TestCASignsWithInfiniteTTL(t *testing.T) {
 	userPubBytes := ssh.MarshalAuthorizedKey(userPub)
 
 	// TTL of 0 means no expiry
-	certBytes, err := sshCA.SignPublicKey(userPubBytes, "admin", 0)
+	certBytes, err := sshCA.SignPublicKey(userPubBytes, []string{"admin"}, 0, 4)
 	if err != nil {
 		t.Fatalf("failed to sign: %v", err)
 	}
@@ -149,7 +206,7 @@ func TestCARejectsInvalidPublicKey(t *testing.T) {
 		t.Fatalf("failed to create CA: %v", err)
 	}
 
-	_, err = sshCA.SignPublicKey([]byte("not a valid key"), "user", 3600)
+	_, err = sshCA.SignPublicKey([]byte("not a valid key"), []string{"user"}, 3600, 5)
 	if err == nil {
 		t.Fatal("expected error for invalid public key")
 	}

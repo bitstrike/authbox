@@ -1276,48 +1276,51 @@ local accounts they may assume.
 
 - [ ] Define `sshrole-<name>` groupOfNames convention (document allowed name charset;
       names become SSH principals so keep them `[a-z0-9-]`)
-- [ ] Add LDAP lookup `GetSSHRolesForUser(uid) ([]string, error)` in internal/ldap/
+- [x] Add LDAP lookup `GetSSHRolesForUser(uid) ([]string, error)` in internal/ldap/
       (filter `(&(objectClass=groupOfNames)(cn=sshrole-*)(member=<userDN>))`, strip the
       `sshrole-` prefix to yield the principal name). Mirror roles.go but SEPARATE from
       GetRolesForUser so app roles and SSH roles stay decoupled.
+      (internal/ldap/sshroles.go, method on *ldap.Client)
 - [ ] Web UI + API to manage `sshrole-*` groups (reuse existing group CRUD; they are
       just groupOfNames, so this may already work - verify and document)
 
 ### 2. Signing path (authbox)
 
-- [ ] Change `ca.SignPublicKey` to accept a principals slice instead of a single
+- [x] Change `ca.SignPublicKey` to accept a principals slice instead of a single
       principal (currently `ValidPrincipals: []string{principal}` in internal/ca/ca.go).
-      KeyId stays the human uid for audit.
-- [ ] `signSSHKey` (internal/web/api/ssh.go) and the frontend sign handler
+      KeyId stays the human uid for audit. (KeyId = principals[0])
+- [x] `signSSHKey` (internal/web/api/ssh.go) and the frontend sign handler
       (internal/web/frontend/actions.go): build principal list = [uid] + GetSSHRolesForUser(uid)
-- [ ] Record the full principal list on the issued cert audit row (db.SSHCert.Principal
+- [x] Record the full principal list on the issued cert audit row (db.SSHCert.Principal
       currently a single string - decide: comma-join, or new column/table)
-- [ ] Backward compat: a user with no `sshrole-*` groups gets exactly `[uid]` (identical
+      (decided: comma-join into existing Principal column)
+- [x] Backward compat: a user with no `sshrole-*` groups gets exactly `[uid]` (identical
       to today's behavior)
 
 ### 3. Serial cache + valid-serials endpoint
 
-- [ ] `validSerials` (internal/web/api/ssh.go) currently emits `serial:principal`
+- [x] `validSerials` (internal/web/api/ssh.go) currently emits `serial:principal`
       (one principal). Change to emit the full principal list, e.g.
-      `serial:alice,ops` (comma-separated) or `serial:alice:ops`. Pick a delimiter that
-      cannot collide with principal charset.
-- [ ] `ListValidSSHCerts` / repository: return all principals per cert (depends on the
-      audit-row storage decision above)
+      `serial:alice,ops` (comma-separated). Pick a delimiter that
+      cannot collide with principal charset. (comma chosen; charset [a-z0-9-])
+- [x] `ListValidSSHCerts` / repository: return all principals per cert (depends on the
+      audit-row storage decision above) (no change needed - Principal column now holds
+      the comma-joined list)
 
 ### 4. Host authorization (authbox-cert-check.sh.j2)
 
-- [ ] Script currently does strict `[ "$PRINCIPAL" = "$USERNAME" ]` against a
+- [x] Script currently does strict `[ "$PRINCIPAL" = "$USERNAME" ]` against a
       `serial:principal` cache line. Rework to: look up the cert's serial, get its FULL
       principal list, then decide whether `$USERNAME` (the requested login account) is
       permitted for any of those principals.
-- [ ] Define the principal-to-account policy. Two options:
-      (a) self-login always allowed if a principal equals the username (preserves current
-          behavior for `ssh alice@host` when cert has principal `alice`), PLUS
-      (b) role mapping: a config file on the host (or a convention) maps principal `ops`
-          to allowed account(s). Simplest convention: principal name == account name
-          (principal `ops` authorizes account `ops`), which needs no extra host config.
-- [ ] Update the cache format parsing in the script to match #3
-- [ ] Keep fail-closed on missing/stale cache (see existing "fail-closed" todo item)
+- [x] Define the principal-to-account policy. Chosen: same-name convention only -
+      principal name == account name (principal `ops` authorizes account `ops`), which
+      includes self-login (principal `alice` authorizes `alice`). No host-side policy
+      file. No root mapping (sudo handles elevation post-login; root SSH-key login for
+      automated backups is a separate path untouched by roles).
+- [x] Update the cache format parsing in the script to match #3
+      (splits on first colon, then commas)
+- [x] Keep fail-closed on missing/stale cache (see existing "fail-closed" todo item)
 
 ### 5. Ansible / enroll-host.yml
 
@@ -1336,11 +1339,32 @@ local accounts they may assume.
 - [x] Update project.md "SSH Access" section which currently stated access control is
       "handled by other mechanisms (firewall, groups, host-level policy)" - now points to
       principals + host mapping and cross-links the SSH Login Roles section.
-- [ ] README: user-facing "how to SSH as a role account" walkthrough
+- [x] README: "SSH Login Roles: how they work and how to set one up" section
+      (added near Per-Host Access Control; covers the invisible chain, admin setup,
+      user usage, and security gotchas)
 
 ### 7. Tests
 
 - [ ] Unit: GetSSHRolesForUser returns role names stripped of `sshrole-` prefix
-- [ ] Unit: SignPublicKey stamps [uid]+roles into ValidPrincipals; empty roles -> [uid]
-- [ ] Unit/script: cert-check authorizes `ssh ops@host` when cert has principal `ops`,
-      denies when it does not
+      (deferred: needs a live/mock LDAP server; no LDAP test harness exists yet)
+- [x] Unit: SignPublicKey stamps [uid]+roles into ValidPrincipals; empty roles -> [uid]
+      (tests/unit/ca_test.go: TestCAStampsRolePrincipals, TestCARejectsEmptyPrincipals,
+      updated TestCASignsPublicKey to new []string signature)
+- [x] Unit/script: cert-check authorizes `ssh ops@host` when cert has principal `ops`,
+      denies when it does not (verified via shell test: self-login, role login, denials,
+      unknown serial, missing cache all fail-closed correctly)
+
+## Fix: Frontend SSH Sign Handler Ignores Configured TTL
+
+project.md documents a single configurable cert TTL (`SSH_CERT_TTL`, Settings > SSH CA).
+The API sign path honors it via `certTTLSeconds()`, but the frontend sign handler
+(`actionSignSSH`) hardcoded `43200` / `12h` for signing, the audit expiry, and the
+result-box TTL display - a deviation from the documented design.
+
+- [x] Add `handlers.certTTLSeconds()` mirroring `api.certTTLSeconds` (uses
+      `constants.DefaultSSHCertTTLSeconds` fallback, parses `Config.SSHCertTTL`)
+- [x] Use configured TTL for `SignPublicKey` in `actionSignSSH`
+- [x] Use configured TTL for the `SSHCert.ExpiresAt` audit row (was `12 * time.Hour`)
+- [x] Result box TTL display derives from the configured TTL (was literal "12 hours")
+- [x] Replace the `43200` magic literals in `api.certTTLSeconds` with
+      `constants.DefaultSSHCertTTLSeconds` (both the empty-config and parse-error paths)

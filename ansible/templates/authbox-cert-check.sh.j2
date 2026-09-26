@@ -1,8 +1,18 @@
 #!/bin/sh
 # authbox-cert-check.sh - AuthorizedPrincipalsCommand script
-# Called by sshd with arguments: %u (username) %i (key ID / cert serial)
-# Outputs the principal if the serial is found in the cache, nothing otherwise.
+# Called by sshd with arguments: %u (requested login account) %i (cert serial)
 # Deployed by Ansible. Do not edit manually.
+#
+# Cache format (one line per valid cert): serial:principal[,principal...]
+#   e.g.  1737039876543210000:alice,ops
+# The principal list holds the caller's own uid plus any SSH login role names.
+#
+# Authorization convention (principal name == account name, plus self-login):
+#   sshd asks "which principals authorize login as $USERNAME?". We echo
+#   $USERNAME back only if the cert carries a principal equal to $USERNAME.
+#   So `ssh alice@host` needs principal `alice`; `ssh ops@host` needs `ops`.
+# Fail closed: missing cache, unknown serial, or no matching principal -> no
+# output -> sshd denies the certificate.
 
 CACHE_FILE="/var/cache/authbox/valid-certs"
 USERNAME="$1"
@@ -13,9 +23,22 @@ if [ ! -f "$CACHE_FILE" ]; then
   exit 0
 fi
 
-# Look up serial in cache (format: serial:principal)
-PRINCIPAL=$(grep "^${SERIAL}:" "$CACHE_FILE" | cut -d: -f2)
+# Extract the principal list for this serial (everything after the first colon).
+PRINCIPALS=$(grep "^${SERIAL}:" "$CACHE_FILE" | head -n1 | cut -d: -f2-)
 
-if [ -n "$PRINCIPAL" ] && [ "$PRINCIPAL" = "$USERNAME" ]; then
-  echo "$PRINCIPAL"
+if [ -z "$PRINCIPALS" ]; then
+  # Serial not in cache - fail closed
+  exit 0
 fi
+
+# Authorize if the requested account matches any principal on the cert.
+IFS=','
+for p in $PRINCIPALS; do
+  if [ "$p" = "$USERNAME" ]; then
+    echo "$USERNAME"
+    exit 0
+  fi
+done
+
+# No matching principal - fail closed (no output)
+exit 0
