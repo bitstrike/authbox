@@ -412,6 +412,51 @@ SQLite keeps the stack to two components (Go app + OpenLDAP). Postgres adds a th
 ### Single IdP at a Time
 Supporting both Google and Entra simultaneously adds identity mapping complexity. One active IdP keeps user identity unambiguous.
 
+### No RDN Rename (groups or users) - deferred, not a bug
+There is intentionally no operation to rename a group's `cn` or a user's `uid`. The
+edit paths only replace attributes (membership, `gidNumber`, `uidNumber`, profile
+fields); they never change the RDN. This is a deliberate deferral, not an oversight.
+Anyone revisiting "why can't I rename X in edit mode?" should read this before adding
+an LDAP `ModifyDN`/ModRDN call.
+
+Why it is hard here:
+
+- **Stale member back-references (the core issue).** `groupOfNames` stores full member
+  DNs, not uids (see `actionAddMember` -> `UserDN`, and `entryToGroup` reading `member`).
+  LDAP `ModifyDN` renames only the target entry; it does NOT rewrite references held by
+  other entries. Renaming a user orphans that user's DN in every `groupOfNames` and
+  `sshrole-*` group; renaming a group orphans any stored DN pointing at it, including
+  the self-referential placeholder member that `bootstrap.go` seeds and `entryToGroup`
+  filters by matching `e.DN`. There is no referential-integrity cleanup anywhere in the
+  codebase.
+- **`cn`/`uid` are load-bearing identity keys, not labels.** API roles resolve on literal
+  `cn` (`IsUserAdmin` compares `authbox-admins`; `roles.go` matches `authbox-*`), and SSH
+  login roles turn the `cn` suffix of `sshrole-*` into an SSH certificate principal
+  (`sshroles.go`). Renaming changes or destroys a user's role or host-login principal.
+  DNs are also built by string-formatting these keys, and HTTP routes key on them
+  (`/groups/{cn}`, `/users/{uid}`), so a rename changes the object's URL identity too.
+- **Attribute number vs RDN.** Changing `uidNumber`/`gidNumber` (a `Replace`, already
+  supported) is safe and must not be conflated with changing the RDN (`uid=`/`cn=`),
+  which is the risky part.
+- **Safety guards don't cover renames.** Last-admin and self-protection guards are built
+  around disable/delete. A rename of `authbox-admins` or of the last admin's `uid` would
+  bypass them and could lock out admin access.
+- **Replication timing.** Under syncrepl, the ModRDN and the follow-up reference-rewrite
+  modifies are separate operations; a replica can briefly observe the rename before the
+  fixups and resolve stale membership.
+
+Where a rename would apply if implemented: user `uid`, `sshrole-*` groups (renaming
+changes the granted SSH principal). App-role groups (`authbox-*`) should be BLOCKED from
+rename since their names are contract constants. OUs are structural and not candidates.
+
+Potential path forward (if we decide to build it): prefer create-new + copy-members +
+repoint-all-referencing-DNs + delete-old, wrapped in guards, over a raw `ModifyDN`, so
+the reference rewrite is explicit and non-optional. Required steps: guard-check (block
+`authbox-*`, enforce last-admin/self rules) -> create/rename target -> enumerate and
+rewrite every referencing `member` DN across all groups -> update route/redirect/audit
+assumptions. Treat it as a transactional multi-write feature, which is exactly what the
+current membership-only model deliberately sidesteps.
+
 ## UI Components
 
 Custom utility CSS (`internal/web/frontend/static/style.css`) with no build step. Dark mode via `.dark` class on `<html>`.
