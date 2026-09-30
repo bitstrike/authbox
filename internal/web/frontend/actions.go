@@ -1328,3 +1328,68 @@ func (h *handlers) actionSaveSSHSettings(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"SSH settings updated"}}`)
 	h.partialSettingsSSHCA(w, r)
 }
+
+// actionRotateCA generates a new SSH CA signing key while keeping the previous
+// public key in the trusted set (dual-trust overlap). Certificates signed before
+// the rotation stay valid until they expire; the operator must re-run host
+// enrollment to distribute the new key. Requires yesiagree confirmation.
+func (h *handlers) actionRotateCA(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if r.FormValue("confirm") != "yesiagree" {
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"Confirmation required to rotate the CA key"}}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	actor := ""
+	if claims := auth.GetClaims(r.Context()); claims != nil {
+		actor = claims.Email
+	}
+
+	if err := h.deps.CA.Rotate(); err != nil {
+		h.deps.Log.Error("CA rotation failed", "by", actor, "err", err.Error())
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"CA rotation failed: `+escHTML(err.Error())+`"}}`)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	h.deps.Log.Info("CA key rotated", "by", actor, "fingerprint", h.deps.CA.Fingerprint())
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"CA key rotated. Re-run host enrollment to distribute the new key; old certificates remain valid until they expire."}}`)
+	h.partialSettingsSSHCA(w, r)
+}
+
+// actionDeleteRetiredKey removes a rotated-out CA key from the trusted set,
+// identified by its SHA256 fingerprint (form field, since fingerprints contain
+// '/' and '+'). Guarded by a yesiagree confirm: deleting a key whose certs have
+// not yet expired can break in-flight logins. After deletion, re-running host
+// enrollment drops the key from each host's TrustedUserCAKeys.
+func (h *handlers) actionDeleteRetiredKey(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if r.FormValue("confirm") != "yesiagree" {
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"Confirmation required to delete a retired key"}}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	fingerprint := r.FormValue("fingerprint")
+	if fingerprint == "" {
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"No key fingerprint provided"}}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	actor := ""
+	if claims := auth.GetClaims(r.Context()); claims != nil {
+		actor = claims.Email
+	}
+
+	if err := h.deps.CA.DeleteRetiredKey(fingerprint); err != nil {
+		h.deps.Log.Error("retired CA key delete failed", "by", actor, "fingerprint", fingerprint, "err", err.Error())
+		w.Header().Set("HX-Trigger", `{"showFlash":{"type":"error","text":"Delete failed: `+escHTML(err.Error())+`"}}`)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	h.deps.Log.Info("retired CA key deleted", "by", actor, "fingerprint", fingerprint)
+	w.Header().Set("HX-Trigger", `{"showFlash":{"type":"success","text":"Retired CA key deleted. Re-run host enrollment to drop it from the fleet."}}`)
+	h.partialSettingsSSHCA(w, r)
+}

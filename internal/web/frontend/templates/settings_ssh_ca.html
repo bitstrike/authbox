@@ -2,9 +2,54 @@
 <h2 class="text-lg font-semibold mb-4">SSH CA</h2>
 <div class="space-y-3">
   <div>
-    <label class="label">CA Public Key</label>
+    <label class="label">CA Public Key (current signing key)</label>
     <textarea class="input font-mono text-xs" rows="3" readonly>{{.CAPublicKey}}</textarea>
   </div>
+
+  <div class="card p-4 border-red-300 dark:border-red-800">
+    <h3 class="text-md font-semibold mb-2">Rotate CA Key</h3>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+      Generates a new signing key. The previous key stays trusted (dual-trust) so
+      certificates signed before rotation remain valid until they expire (see
+      Certificate TTL below). After rotating, re-run host enrollment to distribute
+      the new key to <span class="font-mono">/etc/ssh/trusted_ca.pub</span> across the fleet.
+    </p>
+    {{if .RetiredKeys}}
+    <div class="mb-3">
+      <label class="label text-xs">Retired keys still trusted</label>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        Delete a retired key only after one Certificate TTL window has passed since it was
+        rotated out, so no outstanding certificate is still signed by it. Then re-run host
+        enrollment to drop it from the fleet.
+      </p>
+      <div class="space-y-2">
+        {{range .RetiredKeys}}
+        <div class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
+          <div class="text-xs">
+            <div class="font-mono text-gray-600 dark:text-gray-300">{{.Fingerprint}}</div>
+            <div class="text-gray-500 dark:text-gray-400">Rotated out {{.RotatedAtUTC}} ({{.RotatedAgo}})</div>
+          </div>
+          <form hx-post="/settings/ssh-ca/retired/delete" hx-target="#settings-panel" hx-swap="innerHTML"
+            class="flex items-end space-x-2">
+            <input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
+            <input type="text" name="confirm" class="input w-32 text-xs" placeholder="yesiagree" required
+              aria-label="Type yesiagree to confirm deleting this retired key">
+            <button type="submit" class="btn btn-danger text-xs">Delete</button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+    <form hx-post="/settings/ssh-ca/rotate" hx-target="#settings-panel" hx-swap="innerHTML">
+      <div class="mb-3">
+        <label class="label text-xs" for="rotate-confirm">Type "yesiagree" to confirm</label>
+        <input type="text" id="rotate-confirm" name="confirm" class="input w-48" placeholder="yesiagree" required>
+      </div>
+      <button type="submit" class="btn btn-danger">Rotate CA Key</button>
+    </form>
+  </div>
+
   <form method="POST" action="/settings/ssh-ttl">
     <label class="label" for="cert-ttl">Default Certificate TTL</label>
     <div class="flex space-x-2">
@@ -41,7 +86,7 @@
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary">Save Host Enforcement</button>
+    <button type="submit" class="btn btn-primary">Save Changes</button>
   </div>
 </form>
 {{end}}

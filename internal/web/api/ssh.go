@@ -16,9 +16,13 @@ import (
 	"github.com/authbox/authbox/internal/db"
 )
 
+// getCAPublicKey serves the full trusted CA key set (current signing key plus
+// any retired-but-still-trusted keys) so hosts deploy all of them to
+// TrustedUserCAKeys. During a rotation overlap window this returns multiple
+// keys; certs signed before the rotation keep verifying until they expire.
 func (a *API) getCAPublicKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(a.ca.PublicKey())
+	w.Write(a.ca.TrustedKeys())
 }
 
 func (a *API) signSSHKey(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/authbox/authbox/internal/ca"
 	"golang.org/x/crypto/ssh"
@@ -209,5 +211,229 @@ func TestCARejectsInvalidPublicKey(t *testing.T) {
 	_, err = sshCA.SignPublicKey([]byte("not a valid key"), []string{"user"}, 3600, 5)
 	if err == nil {
 		t.Fatal("expected error for invalid public key")
+	}
+}
+
+func TestCARotateChangesSigningKeyAndRetainsOld(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+	before := sshCA.PublicKeyString()
+
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("rotate failed: %v", err)
+	}
+	after := sshCA.PublicKeyString()
+
+	if before == after {
+		t.Fatal("signing key did not change after rotation")
+	}
+
+	// TrustedKeys must contain both the new (current) and the old (retired) key.
+	trusted := string(sshCA.TrustedKeys())
+	if !strings.Contains(trusted, strings.TrimSpace(after)) {
+		t.Fatal("trusted set missing new key")
+	}
+	if !strings.Contains(trusted, strings.TrimSpace(before)) {
+		t.Fatal("trusted set missing retired key")
+	}
+
+	// The retired private key file must be gone (only the current one remains).
+	retiredDir := filepath.Join(dir, "ca", "retired")
+	entries, err := os.ReadDir(retiredDir)
+	if err != nil {
+		t.Fatalf("reading retired dir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 retired pub, got %d", len(entries))
+	}
+	if !strings.HasSuffix(entries[0].Name(), ".pub") {
+		t.Fatalf("retired entry should be public-only, got %s", entries[0].Name())
+	}
+}
+
+func TestCARetiredKeysSurviveReload(t *testing.T) {
+	dir := t.TempDir()
+
+	ca1, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("first init failed: %v", err)
+	}
+	oldPub := strings.TrimSpace(ca1.PublicKeyString())
+	if err := ca1.Rotate(); err != nil {
+		t.Fatalf("rotate failed: %v", err)
+	}
+
+	// A fresh instance on the same dir must reload the retired pub.
+	ca2, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("reload failed: %v", err)
+	}
+	if !strings.Contains(string(ca2.TrustedKeys()), oldPub) {
+		t.Fatal("retired key not reloaded into trusted set after restart")
+	}
+}
+
+func TestCACertSignedBeforeRotationVerifiesAgainstRetiredKey(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+
+	_, userPriv, _ := ed25519.GenerateKey(rand.Reader)
+	userPub, _ := ssh.NewPublicKey(userPriv.Public())
+	userPubBytes := ssh.MarshalAuthorizedKey(userPub)
+
+	certBytes, err := sshCA.SignPublicKey(userPubBytes, []string{"alice"}, 43200, 10)
+	if err != nil {
+		t.Fatalf("sign failed: %v", err)
+	}
+
+	// Rotate after signing.
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("rotate failed: %v", err)
+	}
+
+	pubKey, _, _, _, _ := ssh.ParseAuthorizedKey(certBytes)
+	cert := pubKey.(*ssh.Certificate)
+
+	// Build a checker that trusts the full published set (old + new).
+	trusted := map[string]bool{}
+	rest := sshCA.TrustedKeys()
+	for len(rest) > 0 {
+		var k ssh.PublicKey
+		k, _, _, rest, err = ssh.ParseAuthorizedKey(rest)
+		if err != nil {
+			break
+		}
+		trusted[string(k.Marshal())] = true
+	}
+
+	checker := &ssh.CertChecker{
+		IsUserAuthority: func(auth ssh.PublicKey) bool {
+			return trusted[string(auth.Marshal())]
+		},
+	}
+	if err := checker.CheckCert("alice", cert); err != nil {
+		t.Fatalf("pre-rotation cert should still verify against retired key: %v", err)
+	}
+}
+
+func TestCADeleteRetiredKey(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+
+	// Rotate twice so there are two retired keys.
+	firstPub := strings.TrimSpace(sshCA.PublicKeyString())
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("first rotate failed: %v", err)
+	}
+	secondPub := strings.TrimSpace(sshCA.PublicKeyString())
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("second rotate failed: %v", err)
+	}
+
+	retired := sshCA.RetiredKeys()
+	if len(retired) != 2 {
+		t.Fatalf("expected 2 retired keys, got %d", len(retired))
+	}
+
+	// Delete one retired key by its fingerprint.
+	deletedFP := retired[0].Fingerprint
+	keptFP := retired[1].Fingerprint
+	if err := sshCA.DeleteRetiredKey(deletedFP); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+
+	remaining := sshCA.RetiredKeys()
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 retired key after delete, got %d", len(remaining))
+	}
+	if remaining[0].Fingerprint != keptFP {
+		t.Fatalf("expected kept fingerprint %s, got %s", keptFP, remaining[0].Fingerprint)
+	}
+
+	// The deleted key's fingerprint must be gone from the parsed trusted set,
+	// while the still-retired second key remains present.
+	trustedFPs := fingerprintsOf(t, sshCA.TrustedKeys())
+	if trustedFPs[deletedFP] {
+		t.Fatal("deleted key should not appear in trusted set")
+	}
+	if !trustedFPs[keptFP] {
+		t.Fatal("kept retired key missing from trusted set")
+	}
+
+	// Its file must be removed from disk (one retired pub left).
+	retiredDir := filepath.Join(dir, "ca", "retired")
+	entries, _ := os.ReadDir(retiredDir)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 retired pub file on disk, got %d", len(entries))
+	}
+	_ = firstPub
+	_ = secondPub
+}
+
+// fingerprintsOf parses an authorized_keys blob and returns the set of SHA256
+// fingerprints it contains.
+func fingerprintsOf(t *testing.T, blob []byte) map[string]bool {
+	t.Helper()
+	out := map[string]bool{}
+	rest := blob
+	for len(rest) > 0 {
+		k, _, _, r, err := ssh.ParseAuthorizedKey(rest)
+		if err != nil {
+			break
+		}
+		out[ssh.FingerprintSHA256(k)] = true
+		rest = r
+	}
+	return out
+}
+
+func TestCADeleteRetiredKeyUnknownFingerprint(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("rotate failed: %v", err)
+	}
+
+	if err := sshCA.DeleteRetiredKey("SHA256:doesnotexist"); err == nil {
+		t.Fatal("expected error deleting unknown fingerprint")
+	}
+	if len(sshCA.RetiredKeys()) != 1 {
+		t.Fatal("retired set should be unchanged after failed delete")
+	}
+}
+
+func TestCARetiredKeyHasRotatedAt(t *testing.T) {
+	dir := t.TempDir()
+
+	sshCA, err := ca.New(dir)
+	if err != nil {
+		t.Fatalf("failed to create CA: %v", err)
+	}
+	before := time.Now().Add(-time.Second)
+	if err := sshCA.Rotate(); err != nil {
+		t.Fatalf("rotate failed: %v", err)
+	}
+	retired := sshCA.RetiredKeys()
+	if len(retired) != 1 {
+		t.Fatalf("expected 1 retired key, got %d", len(retired))
+	}
+	if retired[0].RotatedAt.Before(before) {
+		t.Fatalf("RotatedAt %v is before rotation time %v", retired[0].RotatedAt, before)
 	}
 }

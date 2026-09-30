@@ -1596,3 +1596,112 @@ Tasks:
 - [x] Live-tail uses the same partial, so streamed lines get the same span markup.
 - [x] Level FILTER dropdown still works: filter runs on raw lines before span markup is
       applied, so the `[level]` match is unaffected. Build passes (`go build ./...`).
+
+## Rotate CA (dual-trust key rotation, AWS-access-key style)
+
+The SSH CA signing key (`/data/ca/ca_ed25519`) is generated once on first boot and never
+rotated. Rotation is needed on key compromise, crypto/policy change, or lost-key recovery
+(see project.md "No RDN Rename" sibling reasoning and the Security Model). Because every
+enrolled host trusts the CA public key offline (`sshd TrustedUserCAKeys`), rotation must be
+a dual-trust operation modeled on AWS access-key rotation: create the new key while the old
+public key stays trusted, cut over signing to the new key, let outstanding certs expire
+(bounded by `SSH_CERT_TTL`), then retire the old public key.
+
+Offline-validation caveat (differs from AWS): certs are validated by each host against its
+trusted-CA list, not live at an API. "Deactivate" is not instant - a cert already signed by
+the old key stays valid on any host that still trusts the old pub until the cert expires.
+The old pub is retired by removing it from hosts after the TTL window, not by an active
+revoke. Short TTL keeps the window small.
+
+### CA package (`internal/ca/ca.go`)
+- [x] Keep the current signing key at `ca/ca_ed25519` (+ `.pub`). No change to `PublicKey()`
+      / `PublicKeyString()` (still return the CURRENT signing key's pub) for compatibility.
+- [x] On rotate: copy the current `.pub` to `ca/retired/ca_ed25519.<unixts>.pub` (public
+      ONLY - a compromise rotation must not keep the old private key), generate a fresh
+      ed25519 keypair, overwrite `ca/ca_ed25519`(+`.pub`) with the new key. Mode 0700 dir,
+      0600 priv, 0644 pub (match existing `loadOrGenerate`).
+- [x] Load retained pubs from `ca/retired/*.pub` at startup so they survive restarts
+      (`loadRetiredPubs`, called from `New`).
+- [x] Add `TrustedKeys() []byte` returning current pub + all retained pubs (newline-joined,
+      each a valid authorized_keys line) for host distribution.
+- [x] Add `Rotate() error` that performs the move-aside + regenerate, guarding with a mutex
+      (in-memory state committed only after all file writes succeed).
+- [x] Add `RetiredFingerprints() []string` for the UI status readout.
+
+### Distribution (API + Ansible)
+- [x] `GET /api/v1/ssh/ca.pub` serves `TrustedKeys()` (the full trusted set) instead of only
+      the current key, so hosts trust old+new during the overlap window.
+- [x] No host-side Ansible change required: `enroll-host.yml` already `copy`s the fetched
+      content verbatim to `/etc/ssh/trusted_ca.pub`, and `TrustedUserCAKeys` accepts multiple
+      keys (one per line). Re-running enroll after rotation refreshes the trusted set.
+- [ ] TODO(doc): operator runbook - rotate, re-run enroll fleet-wide to push the new pub,
+      wait one `SSH_CERT_TTL`, then (future) prune retired pubs and re-run enroll to drop old.
+
+### Settings > SSH CA UI
+- [x] Add "Rotate CA Key" button (`btn btn-danger`) in the TOP "SSH CA" block, under the CA
+      Public Key textarea (acts on the key, NOT in the Host Enforcement form's submit row).
+- [x] `yesiagree` typed-confirm before POST (reuses the user-delete / backup-import pattern).
+- [x] Warning copy: new signing key generated; hosts must trust old+new during overlap; old
+      certs remain valid until they expire (see Certificate TTL); re-run host enrollment to
+      distribute the new key. Also lists retired-but-still-trusted key fingerprints.
+- [x] Admin only (registered in the admin route group). `POST /settings/ssh-ca/rotate` ->
+      `actionRotateCA`; on success flashes the rotation notice and re-renders the panel;
+      logs the rotation with actor + new fingerprint.
+
+### Still open (pre-existing)
+- [ ] Phase 9 "CA key backup documentation" (project.md excludes the CA key from exports;
+      rotation makes the external-backup story more important - document backup + rotate).
+- [x] Future: UI/action to PRUNE retired pubs after the TTL window - DONE via the "SSH CA
+      Retired Key Management" section below (operator-triggered per-row delete, guarded).
+      Keys still accumulate by default (no cap, by decision); the operator deletes them.
+
+### Verify
+- [x] `go build ./...`, `go vet`, and `go test ./tests/unit/...` all pass.
+- [x] Added CA rotation tests: signing key changes + old key retained in `TrustedKeys`;
+      retired private key is NOT kept on disk (only `.pub`); retired pubs survive reload;
+      a cert signed pre-rotate still verifies against the retired key via `ssh.CertChecker`.
+
+## SSH CA Retired Key Management (rotated-out keys)
+
+Follow-ups to the Rotate CA feature. Retired keys are the public-only keys left in
+`ca/retired/` by `Rotate()`; they stay in the trusted set (`TrustedKeys()` / `ca.pub`) so
+certs signed before a rotation keep verifying until they expire. These items give the
+operator visibility (when was it rotated out?) and control (delete when the TTL window has
+passed), without a hard cap on how many can accumulate.
+
+### Design decision: no numeric cap
+- [x] No numeric limit on retained/retired keys. Retired keys are trust anchors tied to
+      still-unexpired certs, NOT interchangeable signing credentials (only the current key
+      signs), so an AWS-style hard cap (e.g. 2) could force auto-untrusting a key whose
+      certs are still live mid-window. Growth is bounded in practice by the operator
+      deleting old keys after the TTL window (see delete below), not by a ceiling.
+      No max-retired constant added (decision documented here).
+
+### Rotated-out timestamp display
+- [x] CA package: replaced `RetiredFingerprints() []string` with a richer
+      `RetiredKeys() []RetiredKey` where `RetiredKey{ Fingerprint string; RotatedAt time.Time }`.
+      `RotatedAt` parsed from the timestamp in `ca/retired/ca_ed25519.<unixnano>.pub`
+      (`rotatedAtFromName`, file-mtime fallback).
+- [x] `partialSettingsSSHCA`: passes `RetiredKeys` (as `retiredKeyView` with preformatted
+      absolute-UTC + relative strings) instead of bare fingerprints.
+- [x] `settings_ssh_ca.html`: each retired key shows fingerprint + rotated-out time as
+      absolute UTC AND a relative hint (`humanizeSince`, e.g. "3 days ago").
+- [x] `PublicKey()`/`TrustedKeys()` behavior unchanged.
+- [x] BUGFIX found via test: retired filename used whole-second `Unix()`, so two rotations
+      in the same second collided and clobbered an earlier retired key file. Switched to
+      `UnixNano()` (parse updated to match). Timestamp display still correct.
+
+### Per-row retired key delete (operator-triggered, guarded)
+- [x] CA package: added `DeleteRetiredKey(fingerprint string) error` (mutex-guarded): finds
+      the retired key whose parsed public key matches the fingerprint, `os.Remove`s its file,
+      drops it from the in-memory set. Lookup by FINGERPRINT (not a client path) - no traversal.
+      Unknown fingerprint returns an error (no-op).
+- [x] Route: admin-only `POST /settings/ssh-ca/retired/delete` -> `actionDeleteRetiredKey`.
+      Fingerprint passed as a FORM field (SHA256 fingerprints contain `/` and `+`).
+- [x] Guard: `yesiagree` typed-confirm (same pattern as Rotate / user-delete).
+- [x] Handler: logs actor + deleted fingerprint, flashes success, re-renders the panel.
+- [x] Template: per-row "Delete" button (`btn btn-danger`) next to each retired key's
+      fingerprint + rotated-out timestamp, with the typed confirm.
+- [x] Tests: rotate twice, delete one retired key by fingerprint - gone from `TrustedKeys()`
+      (parsed fingerprint set) and from disk, other remains; unknown fingerprint errors;
+      `RotatedAt` populated. Full unit suite + `go vet` + build pass.

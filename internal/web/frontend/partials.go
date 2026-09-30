@@ -801,15 +801,26 @@ func (h *handlers) partialSettingsSSHCA(w http.ResponseWriter, r *http.Request) 
 		sessionCheckInterval = constants.DefaultSSHSessionCheckInterval
 	}
 
+	retired := make([]retiredKeyView, 0)
+	for _, k := range h.deps.CA.RetiredKeys() {
+		retired = append(retired, retiredKeyView{
+			Fingerprint: k.Fingerprint,
+			RotatedAtUTC: k.RotatedAt.UTC().Format("2006-01-02 15:04 MST"),
+			RotatedAgo:  humanizeSince(k.RotatedAt),
+		})
+	}
+
 	data := struct {
-		CAPublicKey            string
-		SSHCertTTL             string
-		EnforceCertValidation  bool
-		CertCacheInterval      string
-		KillDisabledSessions   bool
-		SessionCheckInterval   string
+		CAPublicKey           string
+		RetiredKeys           []retiredKeyView
+		SSHCertTTL            string
+		EnforceCertValidation bool
+		CertCacheInterval     string
+		KillDisabledSessions  bool
+		SessionCheckInterval  string
 	}{
 		CAPublicKey:           h.deps.CA.PublicKeyString(),
+		RetiredKeys:           retired,
 		SSHCertTTL:            h.deps.Config.SSHCertTTL,
 		EnforceCertValidation: enforceCert == "true",
 		CertCacheInterval:     certCacheInterval,
@@ -817,6 +828,33 @@ func (h *handlers) partialSettingsSSHCA(w http.ResponseWriter, r *http.Request) 
 		SessionCheckInterval:  sessionCheckInterval,
 	}
 	h.renderer.renderPartial(w, "settings_ssh_ca", data)
+}
+
+// retiredKeyView is the template-facing shape of a retired CA key: its
+// fingerprint plus the rotated-out time as absolute UTC and a relative hint.
+type retiredKeyView struct {
+	Fingerprint  string
+	RotatedAtUTC string
+	RotatedAgo   string
+}
+
+// humanizeSince renders a coarse "N units ago" string for display next to a
+// retired key so an operator can judge whether one SSH_CERT_TTL window has passed.
+func humanizeSince(t time.Time) string {
+	if t.IsZero() {
+		return "unknown"
+	}
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%d min ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d hr ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+	}
 }
 
 func (h *handlers) partialSettingsLDAP(w http.ResponseWriter, r *http.Request) {
