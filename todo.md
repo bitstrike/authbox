@@ -1583,19 +1583,16 @@ Current state (verified):
 - Log line format (from runtime logs) is `<ts> [INFO] msg ...` / `[ERROR]` / `[WARN]`.
 
 Tasks:
-- [ ] In `partialLogsView`, wrap each line in a `<span class="log-...">` chosen by the
-      level token in the line: `[ERROR]` -> red, `[WARN]` -> yellow, else -> green
-      (default). Match on the bracketed token to avoid false hits on the word "error"
-      in a message. Keep `escHTML` on the line content.
-- [ ] Keep the `<pre>` base color as the INFO/DEBUG green (or move color entirely to
-      the per-line spans and drop `text-green-400` from the `<pre>`) - pick one so INFO
-      lines aren't double-styled.
-- [ ] Add CSS classes readable on the dark `bg-gray-900` log background:
-      `.log-error` (reddish, e.g. #f87171 red-400), `.log-warn` (yellowish, e.g.
-      #facc15 yellow-400), `.log-info` (existing green #4ade80). Existing `text-red-600`
-      (#dc2626) is too dark on black - use a lighter 400-weight red.
-- [ ] Verify against live-tail mode too (the same partial feeds it) so streamed lines
-      are colored consistently.
-- [ ] Confirm the level FILTER dropdown still works (it matches `[level]` in the raw
-      line; the span wrapping must not break that server-side filter, which runs before
-      markup is added - it does, filter happens on raw lines then markup is applied).
+- [x] In `partialLogsView`, wrap each line in a `<span class="log-...">` chosen by the
+      level token in the line via `logLineClass`: `[ERROR]` -> red, `[WARN]` -> yellow,
+      `[DEBUG]` -> gray, else -> INFO green. Matches bracketed tokens (named constants
+      `logTokenError`/`logTokenWarn`/`logTokenDebug`) to avoid false hits on the word
+      "error" in a message. `escHTML` still applied to line content.
+- [x] Moved color entirely to per-line spans: dropped `text-green-400` from the `<pre>`
+      and set its base class to `log-info` so INFO lines aren't double-styled.
+- [x] Added CSS classes on the dark `bg-gray-900` background: `.log-error` (#f87171),
+      `.log-warn` (#facc15), `.log-info` (#4ade80), `.log-debug` (#9ca3af). Used the
+      lighter 400-weight red instead of the too-dark #dc2626.
+- [x] Live-tail uses the same partial, so streamed lines get the same span markup.
+- [x] Level FILTER dropdown still works: filter runs on raw lines before span markup is
+      applied, so the `[level]` match is unaffected. Build passes (`go build ./...`).

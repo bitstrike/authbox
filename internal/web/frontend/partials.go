@@ -574,6 +574,35 @@ func (h *handlers) partialServiceAccountList(w http.ResponseWriter, r *http.Requ
 	tr.RenderFooter()
 }
 
+// Log level tokens as they appear (bracketed) in a log line, and the CSS class
+// applied to a line matching each. Matching the bracketed token avoids false
+// hits on the word "error"/"warn" appearing in a message body.
+const (
+	logTokenError = "[ERROR]"
+	logTokenWarn  = "[WARN]"
+	logTokenDebug = "[DEBUG]"
+
+	logClassError = "log-error"
+	logClassWarn  = "log-warn"
+	logClassDebug = "log-debug"
+	logClassInfo  = "log-info"
+)
+
+// logLineClass returns the CSS class for a log line based on its level token.
+// Lines with no recognized level token fall through to the INFO class.
+func logLineClass(line string) string {
+	switch {
+	case strings.Contains(line, logTokenError):
+		return logClassError
+	case strings.Contains(line, logTokenWarn):
+		return logClassWarn
+	case strings.Contains(line, logTokenDebug):
+		return logClassDebug
+	default:
+		return logClassInfo
+	}
+}
+
 // partialLogsView returns log content HTML fragment.
 func (h *handlers) partialLogsView(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
@@ -612,8 +641,11 @@ func (h *handlers) partialLogsView(w http.ResponseWriter, r *http.Request) {
 		sb.WriteString("No log entries matching filter")
 	} else {
 		for _, line := range filtered {
+			sb.WriteString(`<span class="`)
+			sb.WriteString(logLineClass(line))
+			sb.WriteString(`">`)
 			sb.WriteString(escHTML(line))
-			sb.WriteString("\n")
+			sb.WriteString("</span>\n")
 		}
 	}
 	w.Write([]byte(sb.String()))
