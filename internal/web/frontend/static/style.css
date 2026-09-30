@@ -401,3 +401,35 @@ pre { margin: 0; }
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator { display: block; }
 .htmx-request.htmx-indicator { display: block; }
+
+/* Confirm modal (typed-phrase confirmation dialog) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+.modal-overlay[hidden] { display: none; }
+.modal {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 32rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+.dark .modal {
+  background: #1f2937;
+  border-color: #374151;
+}
+.modal-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; }
+.modal-body { font-size: 0.875rem; color: #4b5563; margin-bottom: 1rem; }
+.dark .modal-body { color: #9ca3af; }
+.modal-phrase { margin-bottom: 1rem; }
+.modal-phrase[hidden] { display: none; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }

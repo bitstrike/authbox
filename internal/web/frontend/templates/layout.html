@@ -64,6 +64,23 @@
     </main>
   </div>
 
+  <!-- Reusable confirm modal (typed-phrase confirmation). Hidden by default;
+       opened via: document.body.dispatchEvent(new CustomEvent('openConfirm', {detail: {...}})) -->
+  <div id="confirm-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="modal">
+      <h3 id="confirm-modal-title" class="modal-title"></h3>
+      <div id="confirm-modal-body" class="modal-body"></div>
+      <div id="confirm-modal-phrase-wrap" class="modal-phrase">
+        <label class="label text-xs" id="confirm-modal-phrase-label" for="confirm-modal-input"></label>
+        <input type="text" id="confirm-modal-input" class="input w-full" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="confirm-modal-cancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="confirm-modal-confirm" class="btn btn-primary" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function toggleTheme() {
       var html = document.documentElement;
@@ -106,6 +123,109 @@
         setTimeout(function() { el.remove(); }, 300);
       }, 5000);
     });
+
+    // Reusable confirm modal. Fire:
+    //   document.body.dispatchEvent(new CustomEvent('openConfirm', {detail: {
+    //     title, body, phrase, confirmLabel, danger, onConfirm
+    //   }}))
+    // - phrase (optional): if set, the confirm button stays disabled until the
+    //   input matches it exactly. If omitted, it's a plain yes/no confirm.
+    // - onConfirm: callback invoked when the user confirms.
+    (function() {
+      var overlay = document.getElementById('confirm-modal');
+      var titleEl = document.getElementById('confirm-modal-title');
+      var bodyEl = document.getElementById('confirm-modal-body');
+      var phraseWrap = document.getElementById('confirm-modal-phrase-wrap');
+      var phraseLabel = document.getElementById('confirm-modal-phrase-label');
+      var input = document.getElementById('confirm-modal-input');
+      var cancelBtn = document.getElementById('confirm-modal-cancel');
+      var confirmBtn = document.getElementById('confirm-modal-confirm');
+      var current = null;      // pending config
+      var lastTrigger = null;  // element to restore focus to on close
+
+      function close() {
+        overlay.hidden = true;
+        current = null;
+        input.value = '';
+        confirmBtn.classList.remove('btn-danger');
+        confirmBtn.classList.add('btn-primary');
+        document.removeEventListener('keydown', onKey);
+        if (lastTrigger && lastTrigger.focus) { lastTrigger.focus(); }
+        lastTrigger = null;
+      }
+
+      function armState() {
+        if (current && current.phrase) {
+          confirmBtn.disabled = (input.value !== current.phrase);
+        } else {
+          confirmBtn.disabled = false;
+        }
+      }
+
+      function onKey(e) {
+        if (e.key === 'Escape') { close(); }
+      }
+
+      input.addEventListener('input', armState);
+      cancelBtn.addEventListener('click', close);
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) { close(); }
+      });
+      confirmBtn.addEventListener('click', function() {
+        if (confirmBtn.disabled) { return; }
+        var cb = current && current.onConfirm;
+        close();
+        if (cb) { cb(); }
+      });
+
+      document.body.addEventListener('openConfirm', function(e) {
+        current = e.detail || {};
+        lastTrigger = document.activeElement;
+        titleEl.textContent = current.title || 'Confirm';
+        bodyEl.innerHTML = current.body || '';
+        if (current.phrase) {
+          phraseWrap.hidden = false;
+          phraseLabel.textContent = 'Type "' + current.phrase + '" to confirm';
+        } else {
+          phraseWrap.hidden = true;
+        }
+        confirmBtn.textContent = current.confirmLabel || 'Confirm';
+        if (current.danger) {
+          confirmBtn.classList.remove('btn-primary');
+          confirmBtn.classList.add('btn-danger');
+        }
+        input.value = '';
+        armState();
+        overlay.hidden = false;
+        document.addEventListener('keydown', onKey);
+        if (current.phrase) { input.focus(); } else { confirmBtn.focus(); }
+      });
+
+      // Delegated binding: any button with data-confirm-form opens the modal and,
+      // on confirm, sets that form's hidden "confirm" field to the phrase and
+      // submits it (htmx intercepts the submit for hx-post forms). Delegation on
+      // document handles content swapped in via HTMX partials.
+      var CONFIRM_PHRASE = 'yesiagree';
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest ? e.target.closest('[data-confirm-form]') : null;
+        if (!btn) { return; }
+        e.preventDefault();
+        var form = document.getElementById(btn.getAttribute('data-confirm-form'));
+        if (!form) { return; }
+        document.body.dispatchEvent(new CustomEvent('openConfirm', {detail: {
+          title: btn.getAttribute('data-confirm-title') || 'Confirm',
+          body: btn.getAttribute('data-confirm-body') || '',
+          phrase: CONFIRM_PHRASE,
+          confirmLabel: btn.textContent.trim() || 'Confirm',
+          danger: true,
+          onConfirm: function() {
+            var hidden = form.querySelector('input[name="confirm"]');
+            if (hidden) { hidden.value = CONFIRM_PHRASE; }
+            if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+          }
+        }}));
+      });
+    })();
   </script>
 </body>
 </html>

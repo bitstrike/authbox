@@ -30,23 +30,25 @@
             <div class="text-gray-500 dark:text-gray-400">Rotated out {{.RotatedAtUTC}} ({{.RotatedAgo}})</div>
           </div>
           <form hx-post="/settings/ssh-ca/retired/delete" hx-target="#settings-panel" hx-swap="innerHTML"
-            class="flex items-end space-x-2">
+            id="retired-delete-{{.Fingerprint}}">
             <input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
-            <input type="text" name="confirm" class="input w-32 text-xs" placeholder="yesiagree" required
-              aria-label="Type yesiagree to confirm deleting this retired key">
-            <button type="submit" class="btn btn-danger text-xs">Delete</button>
+            <input type="hidden" name="confirm" value="">
+            <button type="button" class="btn btn-danger text-xs"
+              data-confirm-form="retired-delete-{{.Fingerprint}}"
+              data-confirm-title="Delete retired CA key"
+              data-confirm-body="This permanently removes the retired key <span class='font-mono'>{{.Fingerprint}}</span> (rotated out {{.RotatedAtUTC}}) from the trusted set. If any certificate signed by it has not yet expired, logins using that certificate will break. Re-run host enrollment afterward to drop it from the fleet.">Delete</button>
           </form>
         </div>
         {{end}}
       </div>
     </div>
     {{end}}
-    <form hx-post="/settings/ssh-ca/rotate" hx-target="#settings-panel" hx-swap="innerHTML">
-      <div class="mb-3">
-        <label class="label text-xs" for="rotate-confirm">Type "yesiagree" to confirm</label>
-        <input type="text" id="rotate-confirm" name="confirm" class="input w-48" placeholder="yesiagree" required>
-      </div>
-      <button type="submit" class="btn btn-danger">Rotate CA Key</button>
+    <form hx-post="/settings/ssh-ca/rotate" hx-target="#settings-panel" hx-swap="innerHTML" id="rotate-ca-form">
+      <input type="hidden" name="confirm" value="">
+      <button type="button" class="btn btn-danger"
+        data-confirm-form="rotate-ca-form"
+        data-confirm-title="Rotate CA key"
+        data-confirm-body="This generates a new signing key. The current key is retired but stays trusted so existing certificates keep working until they expire. Hosts must trust the new key: re-run host enrollment across the fleet after rotating.">Rotate CA Key</button>
     </form>
   </div>
 

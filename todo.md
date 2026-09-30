@@ -1705,3 +1705,48 @@ passed), without a hard cap on how many can accumulate.
 - [x] Tests: rotate twice, delete one retired key by fingerprint - gone from `TrustedKeys()`
       (parsed fingerprint set) and from disk, other remains; unknown fingerprint errors;
       `RotatedAt` populated. Full unit suite + `go vet` + build pass.
+
+## AWS-style Confirm Modal (replace inline "yesiagree" text fields)
+
+Destructive actions currently arm confirmation with an always-visible inline `yesiagree`
+text input next to the button (retired-key Delete, Rotate CA, user delete, backup import).
+AWS instead opens a modal ON CLICK that names the specific object, explains the consequence,
+and instructs the operator to type a phrase into a field inside the dialog; the confirm
+button stays disabled until the typed value matches. Adopt that pattern with one reusable
+modal so confirmation isn't inline and is consistent app-wide.
+
+No modal component exists today. Confirmations are either inline typed fields (user delete,
+backup import, retired-key delete) or the native one-line `hx-confirm` (remove member, remove
+employee type). `hx-confirm` is only OK/Cancel - it CANNOT host a "type this phrase" field -
+so a real typed-phrase popup needs a small custom modal, not `hx-confirm`.
+
+### Reusable modal component
+- [x] Added a single global confirm-modal to `layout.html` (alongside the `showFlash`
+      handler). Hidden by default; one instance reused by all callers.
+- [x] CSS in `static/style.css`: `.modal-overlay` (fixed dimmed backdrop, z-index 50),
+      `.modal` (centered card, light/dark matching `.card`), title/body/phrase/actions regions.
+- [x] JS `openConfirm` CustomEvent on `document.body` with `{title, body, phrase, confirmLabel,
+      danger, onConfirm}`: renders title + body, shows "Type <phrase> to confirm", keeps confirm
+      disabled until input === phrase, invokes `onConfirm` on confirm, Esc + backdrop cancel,
+      `role="dialog"` + `aria-modal`, confirm button `btn-danger` when danger, focus moves to the
+      input and returns to the trigger on close.
+- [x] Delegated `data-confirm-form` binding on `document` so buttons in HTMX-swapped partials
+      work: click opens the modal; on confirm it sets the form's hidden `confirm` field to
+      `yesiagree` and `requestSubmit()`s the form (htmx intercepts the hx-post).
+
+### Wire destructive actions to the modal
+- [x] Retired-key Delete (`settings_ssh_ca.html`): inline `confirm` text input removed; Delete
+      is now a `type=button` that opens the modal naming the fingerprint + rotated-out time,
+      submitting the existing hidden-`fingerprint` form. Modal injects `confirm=yesiagree`.
+- [x] Rotate CA (`settings_ssh_ca.html`): inline input removed; same modal treatment with
+      dual-trust / re-enrollment warning copy.
+- [ ] User delete (`user_form.html`) and Backup import (`backup_import.html`): NOT yet migrated
+      off their inline `yesiagree` inputs. Do in a follow-up pass for a single confirmation
+      style (deferred; not required for the SSH CA work).
+- [x] Left the lightweight `hx-confirm` yes/no popups (remove member, remove employee type) as-is.
+
+### Backstop + verify
+- [x] Server-side handlers unchanged - still reject anything != `yesiagree` (defense in depth).
+- [x] Verified templates parse and the partial renders the modal-wired buttons (inline input
+      gone) via a throwaway package test; `go build`, `go vet`, and the unit suite pass.
+      Interactive click-through (keyboard/backdrop/dark mode) still worth a manual smoke test.
