@@ -475,6 +475,7 @@ Custom utility CSS (`internal/web/frontend/static/style.css`) with no build step
 - `.status-dot` + `.green` / `.yellow` / `.red` - colored circle indicators
 - `.bulk-bar` - bulk action toolbar (shown when rows selected)
 - `.detail-layout` - responsive 2-column grid (form left, info panels right)
+- `.modal-overlay` + `.modal` - centered confirm dialog over a dimmed backdrop (see Confirm Modal below)
 
 ### Disabled-Until-Changed Pattern
 
@@ -487,6 +488,36 @@ For settings forms where accidental saves are risky, buttons start `disabled` an
 ```
 
 For multi-input forms, use a shared `checkChanged()` function that compares all inputs to their `data-original` values. Applied to: settings pages, Save GID button on group edit.
+
+### Confirm Modal (reusable typed-phrase dialog)
+
+A single global confirmation dialog lives in `layout.html` (markup + JS, styled by `.modal-overlay` / `.modal`). It is the AWS-style pattern: destructive actions open a modal that names the object, explains the consequence, and requires typing a phrase (default `yesiagree`) before the confirm button enables. Prefer this over inline confirm text inputs. Do NOT rebuild a modal - reuse this one. Currently used by: Rotate CA and retired-key Delete on Settings > SSH CA.
+
+Two ways to invoke it:
+
+- Declarative (simplest, for a form that posts): put the trigger attributes on a `type="button"` inside a form that has a hidden `confirm` field. A delegated handler (works for HTMX-swapped partials) opens the modal and, on confirm, sets `confirm=yesiagree` and submits the form.
+
+```html
+<form hx-post="/thing/delete" hx-target="#panel" hx-swap="innerHTML" id="del-form">
+  <input type="hidden" name="id" value="{{.ID}}">
+  <input type="hidden" name="confirm" value="">
+  <button type="button" class="btn btn-danger"
+    data-confirm-form="del-form"
+    data-confirm-title="Delete thing"
+    data-confirm-body="This permanently removes <span class='font-mono'>{{.ID}}</span>. This cannot be undone.">Delete</button>
+</form>
+```
+
+- Programmatic (for custom flows): dispatch the `openConfirm` event with `{title, body, phrase, confirmLabel, danger, onConfirm}`. `phrase` optional (omit for a plain yes/no); `onConfirm` is the callback run when confirmed.
+
+```js
+document.body.dispatchEvent(new CustomEvent('openConfirm', {detail: {
+  title: 'Rotate CA key', body: 'Explains the consequence...',
+  phrase: 'yesiagree', danger: true, onConfirm: function() { /* do it */ }
+}}));
+```
+
+Server-side handlers still independently reject anything other than the phrase - the modal is UX only, not the security boundary.
 
 ### Go Render Helpers
 

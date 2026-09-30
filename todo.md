@@ -1634,8 +1634,9 @@ revoke. Short TTL keeps the window small.
 - [x] No host-side Ansible change required: `enroll-host.yml` already `copy`s the fetched
       content verbatim to `/etc/ssh/trusted_ca.pub`, and `TrustedUserCAKeys` accepts multiple
       keys (one per line). Re-running enroll after rotation refreshes the trusted set.
-- [ ] TODO(doc): operator runbook - rotate, re-run enroll fleet-wide to push the new pub,
-      wait one `SSH_CERT_TTL`, then (future) prune retired pubs and re-run enroll to drop old.
+- [x] Operator runbook documented in README "SSH CA Key Rotation" section: rotate ->
+      re-run enroll fleet-wide -> wait one `SSH_CERT_TTL` -> delete retired key -> re-run
+      enroll to drop it. Includes how-it-works, the offline-validation caveat, and notes.
 
 ### Settings > SSH CA UI
 - [x] Add "Rotate CA Key" button (`btn btn-danger`) in the TOP "SSH CA" block, under the CA

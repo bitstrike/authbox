@@ -38,6 +38,10 @@ All this being said, I thought building an interface around the most common feat
   - [Service account for the cache refresh](#service-account-for-the-cache-refresh)
   - [Session termination for disabled users](#session-termination-for-disabled-users)
   - [What to configure where (summary)](#what-to-configure-where-summary)
+- [SSH CA Key Rotation](#ssh-ca-key-rotation)
+  - [How it works](#how-it-works)
+  - [Rotation procedure](#rotation-procedure)
+  - [Notes](#notes)
 - [Backup and Restore](#backup-and-restore)
   - [Export](#export)
   - [Restore via Web UI](#restore-via-web-ui)
@@ -1018,6 +1022,70 @@ certs and keeps active sessions alive.
 See [project.md](project.md) for full architecture documentation.
 See [webstack.md](webstack.md) for web framework details.
 See [webui.md](webui.md) for UI page specifications.
+
+## SSH CA Key Rotation
+
+The SSH CA signing key is generated once on first boot and stored in `/data/ca/`.
+You can rotate it from **Settings > SSH CA** ("Rotate CA Key"). Rotation follows a
+dual-trust model similar to AWS access-key rotation: a new signing key is created
+while the old public key stays trusted, so certificates already issued keep working
+until they expire. Rotate when the key may be compromised, on a crypto/policy change,
+or as periodic hygiene.
+
+### How it works
+
+- Rotating generates a fresh key and makes it the **current signing key**. New
+  certificates are signed by it immediately.
+- The previous key's **public** part is retained (the old private key is discarded)
+  and continues to be published by `GET /api/v1/ssh/ca.pub` alongside the new key.
+  Hosts that trust both keys still accept certificates signed by the old key until
+  those certificates expire.
+- `TrustedUserCAKeys` accepts multiple keys, so a host's `/etc/ssh/trusted_ca.pub`
+  holds the whole trusted set. Re-running enrollment refreshes it.
+
+Because SSH certificates are validated offline by each host (not against a live
+endpoint), a rotated-out key is only truly untrusted once it is removed from every
+host. That is why the old public key is kept during an overlap window rather than
+dropped instantly.
+
+### Rotation procedure
+
+1. **Rotate.** In Settings > SSH CA, click *Rotate CA Key* and confirm. The new key
+   is now signing.
+2. **Distribute the new key.** Re-run host enrollment across the fleet so every host
+   pulls the updated CA set into `/etc/ssh/trusted_ca.pub`:
+
+   ```bash
+   ansible-playbook ansible/playbooks/enroll-host.yml \
+     -i "target-host," \
+     -e platform_host=authbox.example.com
+   ```
+
+   Until a host is re-enrolled, certificates signed by the new key will not validate
+   there. Run this against **every** host an authbox user can reach.
+3. **Wait out one certificate lifetime.** Leave the old key trusted for at least one
+   `SSH_CERT_TTL` window (default `12h`) so every certificate signed before the
+   rotation has expired. The Settings > SSH CA page shows each retired key's
+   fingerprint and when it was rotated out to help you judge this.
+4. **Delete the retired key.** Once the window has passed, use the *Delete* button
+   next to the retired key on Settings > SSH CA. This removes it from the trusted
+   set the server publishes.
+5. **Drop it from hosts.** Re-run `enroll-host.yml` again so hosts refresh
+   `/etc/ssh/trusted_ca.pub` and stop trusting the deleted key.
+
+If you are rotating because the key is compromised, minimize step 3: revoke access
+by other means if needed (see [Cert Expiration and Offboarding Automation](#cert-expiration-and-offboarding-automation)),
+then delete and re-distribute as soon as outstanding certificates are no longer
+acceptable.
+
+### Notes
+
+- Retired keys are not capped and do not expire automatically; they accumulate until
+  an operator deletes them. Deleting before the TTL window elapses can break logins
+  that still rely on a certificate signed by that key.
+- The CA private key is never included in backups. Back it up separately (see
+  [CA Key Backup](#ca-key-backup)); a lost key with no backup can only be recovered
+  by rotating to a new key and re-enrolling the fleet.
 
 ## Backup and Restore
 
