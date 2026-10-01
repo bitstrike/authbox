@@ -46,7 +46,7 @@
             hx-swap="none"
             hx-on::after-request="var f=document.getElementById('gidNumber');f.value=event.detail.xhr.responseText;document.getElementById('gid-save').disabled=(f.value===f.dataset.original)">Auto</button>
           <button type="submit" id="gid-save" class="btn btn-primary text-sm" disabled>Save GID</button>
-          <span class="text-xs text-gray-500 dark:text-gray-400">Changing GID affects file ownership on hosts using this group.</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">NOTE: This can alter file perms!</span>
         </div>
       </div>
       {{end}}
