@@ -455,6 +455,27 @@ func (h *handlers) actionCreateGroup(w http.ResponseWriter, r *http.Request) {
 		Type:      r.FormValue("type"),
 		GIDNumber: gidNum,
 	}
+	// For posixGroups, a blank/0 GID must auto-assign the next available GID.
+	// strconv.Atoi("") returns 0, so without this a blank field would persist
+	// gidNumber=0 (root). groupOfNames have no gidNumber and are unaffected.
+	if group.Type == "posixGroup" && group.GIDNumber <= 0 {
+		rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+		rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+		nextGID, err := h.deps.LDAP.NextAvailableGID(rangeStart, rangeEnd)
+		if err != nil {
+			content := struct {
+				IsEdit  bool
+				Action  string
+				Group   ldap.Group
+				Members []string
+				Error   string
+			}{false, "/groups", *group, nil, "No available GID: " + err.Error()}
+			data := pageDataFromRequest(w, r, "Create Group", content)
+			h.renderer.renderPage(w, "group_form", data)
+			return
+		}
+		group.GIDNumber = nextGID
+	}
 	if err := h.deps.LDAP.CreateGroup(group); err != nil {
 		content := struct {
 			IsEdit  bool

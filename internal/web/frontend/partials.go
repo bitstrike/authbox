@@ -25,6 +25,8 @@ func (f *Frontend) registerPartials(r chi.Router) {
 	r.Get("/partials/dashboard/activity", f.h.partialDashboardActivity)
 	r.Get("/partials/users/list", f.h.partialUserList)
 	r.Get("/partials/groups/list", f.h.partialGroupList)
+	r.Get("/partials/groups/gid-reference", f.h.partialGroupGIDReference)
+	r.Get("/partials/groups/next-gid", f.h.partialGroupNextGID)
 	r.Get("/partials/ssh/certs", f.h.partialSSHCerts)
 	r.Get("/partials/fido2/list", f.h.partialFIDO2List)
 	r.Get("/partials/service-accounts/list", f.h.partialServiceAccountList)
@@ -340,8 +342,99 @@ func (h *handlers) partialGroupList(w http.ResponseWriter, r *http.Request) {
 				editLink = fmt.Sprintf(`<a href="/groups/%s/edit" class="text-blue-600 text-sm">Edit</a>`, escHTML(g.CN))
 			}
 			fmt.Fprintf(w, `<tr><td><input type="checkbox" class="bulk-check" value="%s" onchange="toggleRow(this)"></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`,
-				escHTML(g.CN), escHTML(g.CN), g.Type, gid, g.Members, editLink,
+				escHTML(g.CN), escHTML(g.CN), groupTypeBadge(g.Type), gid, g.Members, editLink,
 			)
+		}
+	}
+
+	tr.RenderFooter()
+}
+
+// partialGroupNextGID returns the next available GID as a bare number, for the
+// green "Auto" button on the group form to fill the GID input via HTMX.
+func (h *handlers) partialGroupNextGID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	rangeStart, _ := strconv.Atoi(h.deps.Config.UIDRangeStart)
+	rangeEnd, _ := strconv.Atoi(h.deps.Config.UIDRangeEnd)
+	gid, err := h.deps.LDAP.NextAvailableGID(rangeStart, rangeEnd)
+	if err != nil {
+		w.Write([]byte(""))
+		return
+	}
+	fmt.Fprintf(w, "%d", gid)
+}
+
+// partialGroupGIDReference returns a read-only posixGroup GID reference table
+// (Name + GID) via TableRenderer, shown in the sidebar of the group form.
+// posixGroups only; groupOfNames (GID 0) are filtered out.
+func (h *handlers) partialGroupGIDReference(w http.ResponseWriter, r *http.Request) {
+	cfg := TableConfig{
+		Columns: []Column{
+			{Key: "cn", Label: "Name", Sortable: true},
+			{Key: "gidNumber", Label: "GID", Sortable: true},
+		},
+		PartialURL: "/partials/groups/gid-reference",
+		Filterable: true,
+	}
+
+	state := ParseTableState(r, "gidNumber")
+
+	groups, _, err := h.deps.LDAP.ListGroups(0, 500)
+	if err != nil {
+		w.Write([]byte(`<p class="text-sm text-red-600">Failed to load groups</p>`))
+		return
+	}
+
+	q := strings.ToLower(state.Query)
+	type gidRow struct {
+		CN        string
+		GIDNumber int
+	}
+	var filtered []gidRow
+	for _, g := range groups {
+		if g.Type != "posixGroup" || g.GIDNumber <= 0 {
+			continue
+		}
+		if q != "" && !strings.Contains(strings.ToLower(g.CN), q) && !strings.Contains(strconv.Itoa(g.GIDNumber), q) {
+			continue
+		}
+		filtered = append(filtered, gidRow{g.CN, g.GIDNumber})
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		var less bool
+		switch state.Sort {
+		case "cn":
+			less = strings.ToLower(filtered[i].CN) < strings.ToLower(filtered[j].CN)
+		default:
+			less = filtered[i].GIDNumber < filtered[j].GIDNumber
+		}
+		if state.Order == "desc" {
+			return !less
+		}
+		return less
+	})
+
+	total := len(filtered)
+	end := state.Offset + state.Limit
+	if end > total {
+		end = total
+	}
+	if state.Offset > total {
+		state.Offset = total
+	}
+	page := filtered[state.Offset:end]
+	state.Total = total
+
+	w.Header().Set("Content-Type", "text/html")
+	tr := NewTableRenderer(w, cfg, state)
+	tr.RenderHeader()
+
+	if len(page) == 0 {
+		tr.RenderEmpty("No posix groups")
+	} else {
+		for _, g := range page {
+			fmt.Fprintf(w, `<tr><td>%s</td><td>%d</td></tr>`, escHTML(g.CN), g.GIDNumber)
 		}
 	}
 
@@ -703,6 +796,17 @@ func statusBadge(ok bool) string {
 		return `<span class="text-green-800 dark:text-green-400 text-sm font-medium">Healthy</span>`
 	}
 	return `<span class="text-red-600 dark:text-red-400 text-sm font-medium">Error</span>`
+}
+
+// groupTypeBadge renders a group's type as the same pill badge used on the
+// create/edit pages: blue for posixGroup, purple for groupOfNames. Type is a
+// fixed enum from entryToGroup, so no escaping is needed.
+func groupTypeBadge(groupType string) string {
+	class := "badge-purple"
+	if groupType == "posixGroup" {
+		class = "badge-blue"
+	}
+	return fmt.Sprintf(`<span class="badge %s">%s</span>`, class, groupType)
 }
 
 func escHTML(s string) string {

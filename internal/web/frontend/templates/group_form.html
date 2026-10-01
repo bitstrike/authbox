@@ -6,7 +6,9 @@
   {{end}}
 </h1>
 
-<div class="card max-w-2xl">
+<div class="detail-layout">
+
+<div class="card">
   <form method="POST" action="{{.Content.Action}}">
     <div class="space-y-4">
       <div>
@@ -23,7 +25,14 @@
       </div>
       <div>
         <label class="label" for="gidNumber">GID Number (blank for auto, posixGroup only)</label>
-        <input type="number" id="gidNumber" name="gidNumber" class="input">
+        <div class="flex items-center space-x-2">
+          <input type="number" id="gidNumber" name="gidNumber" class="input w-32">
+          <button type="button" class="btn btn-green text-sm"
+            hx-get="/partials/groups/next-gid"
+            hx-target="#gidNumber"
+            hx-swap="none"
+            hx-on::after-request="document.getElementById('gidNumber').value=event.detail.xhr.responseText">Auto</button>
+        </div>
       </div>
       {{end}}
       {{if .Content.IsEdit}}
@@ -32,6 +41,10 @@
         <label class="label" for="gidNumber">GID Number</label>
         <div class="flex items-center space-x-2">
           <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input w-32" data-original="{{.Content.Group.GIDNumber}}" oninput="document.getElementById('gid-save').disabled=(this.value===this.dataset.original)">
+          <button type="button" class="btn btn-green text-sm"
+            hx-get="/partials/groups/next-gid"
+            hx-swap="none"
+            hx-on::after-request="var f=document.getElementById('gidNumber');f.value=event.detail.xhr.responseText;document.getElementById('gid-save').disabled=(f.value===f.dataset.original)">Auto</button>
           <button type="submit" id="gid-save" class="btn btn-primary text-sm" disabled>Save GID</button>
           <span class="text-xs text-gray-500 dark:text-gray-400">Changing GID affects file ownership on hosts using this group.</span>
         </div>
@@ -86,5 +99,16 @@
       <a href="/groups" class="btn btn-secondary">{{if .Content.IsEdit}}Back{{else}}Cancel{{end}}</a>
     </div>
   </form>
+</div>
+
+<!-- Right column: read-only posixGroup GID reference (TableRenderer partial) -->
+<div class="card">
+  <h3 class="font-semibold text-sm mb-1">GID Reference</h3>
+  <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">posixGroups and their GIDs, for reference.</p>
+  <div class="table-container" hx-get="/partials/groups/gid-reference" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
+  </div>
+</div>
+
 </div>
 {{end}}

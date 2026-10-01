@@ -130,6 +130,64 @@ func (c *Client) DeleteGroup(cn string) error {
 	return c.conn.Del(del)
 }
 
+// NextAvailableGID finds the next unused gidNumber within the given range.
+// Mirrors NextAvailableUID: the used-set spans existing posixGroup gidNumbers
+// AND posixAccount uidNumber/gidNumber, so an assigned GID never collides with
+// an existing user's UID=GID mapping. GID and UID share one configured range.
+func (c *Client) NextAvailableGID(rangeStart, rangeEnd int) (int, error) {
+	used := make(map[int]bool)
+
+	// Existing posixGroup gidNumbers
+	groupDN := fmt.Sprintf("ou=groups,%s", c.baseDN)
+	greq := goldap.NewSearchRequest(
+		groupDN,
+		goldap.ScopeSingleLevel,
+		goldap.NeverDerefAliases,
+		0, 0, false,
+		"(objectClass=posixGroup)",
+		[]string{"gidNumber"},
+		nil,
+	)
+	gresult, err := c.Search(greq)
+	if err != nil {
+		return 0, err
+	}
+	for _, entry := range gresult.Entries {
+		gid, _ := strconv.Atoi(entry.GetAttributeValue("gidNumber"))
+		if gid > 0 {
+			used[gid] = true
+		}
+	}
+
+	// Also avoid collision with posixAccount uid/gid
+	peopleDN := fmt.Sprintf("ou=people,%s", c.baseDN)
+	preq := goldap.NewSearchRequest(
+		peopleDN,
+		goldap.ScopeSingleLevel,
+		goldap.NeverDerefAliases,
+		0, 0, false,
+		"(objectClass=posixAccount)",
+		[]string{"uidNumber", "gidNumber"},
+		nil,
+	)
+	presult, err := c.Search(preq)
+	if err == nil {
+		for _, entry := range presult.Entries {
+			uid, _ := strconv.Atoi(entry.GetAttributeValue("uidNumber"))
+			used[uid] = true
+			gid, _ := strconv.Atoi(entry.GetAttributeValue("gidNumber"))
+			used[gid] = true
+		}
+	}
+
+	for i := rangeStart; i <= rangeEnd; i++ {
+		if !used[i] {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("no available GID in range %d-%d", rangeStart, rangeEnd)
+}
+
 func (c *Client) GIDExists(gidNumber int) (bool, error) {
 	dn := fmt.Sprintf("ou=groups,%s", c.baseDN)
 	req := goldap.NewSearchRequest(

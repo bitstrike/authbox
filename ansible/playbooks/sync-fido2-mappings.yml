@@ -1,5 +1,15 @@
 ---
 # Syncs FIDO2 credential mappings from platform to hosts
+#
+# read -s CLIENT_ID
+# read -s CLIENT_SECRET
+#
+#  export LINUX_AUTH_TOKEN=$(curl -sk -X POST \
+#   https://authbox.example.com:8443/oauth/token \
+#   -d grant_type=client_credentials \
+#   -d client_id=$CLIENT_ID \
+#   -d client_secret=$CLIENT_SECRET | jq -r .access_token)
+
 - hosts: all
   become: true
   vars:

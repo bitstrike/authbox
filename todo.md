@@ -1751,3 +1751,74 @@ so a real typed-phrase popup needs a small custom modal, not `hx-confirm`.
 - [x] Verified templates parse and the partial renders the modal-wired buttons (inline input
       gone) via a throwaway package test; `go build`, `go vet`, and the unit suite pass.
       Interactive click-through (keyboard/backdrop/dark mode) still worth a manual smoke test.
+
+### fix: GID assignment + Groups create/edit layout
+
+Combined scope: the GID-assignment bug/UX items and the new "GID reference
+sidebar" layout (Variant A from mockup/group.htm) converge on one shared source
+of truth for posixGroup GIDs. Design them together so the blank-GID fix, the
+"Auto" button, and the reference table all read the same next-free / in-use GID
+logic rather than three divergent lookups.
+
+#### Shared backend: single posix-GID source
+- [x] Add `NextAvailableGID(rangeStart, rangeEnd int) (int, error)` to the LDAP
+      client (mirror `NextAvailableUID` in internal/ldap/users.go, which already
+      scans posixAccount uid/gid AND posixGroup gidNumber for collisions). Reuse
+      the same used-set logic so a new GID never collides with an existing
+      UID=GID user mapping. DONE: added in internal/ldap/groups.go.
+- [x] GID range source: reuse the configured UID/GID range (Config.UIDRangeStart
+      / UIDRangeEnd) - the system already treats UID and GID as one range (see
+      NextAvailableUID). Do NOT introduce a second range.
+- [x] Reference-table data: posixGroups only. `ListGroups` returns both types;
+      groupOfNames have GIDNumber==0. Filter those out so the GID reference isn't
+      noise. `GIDExists` already covers uniqueness checks - reuse it.
+
+#### Bug: blank GID writes 0 (root) on create
+- [x] `actionCreateGroup` (internal/web/frontend/actions.go): `strconv.Atoi("")`
+      returns 0 with the error ignored, so a blank GID on a posixGroup is written
+      as gidNumber=0 (root). Fix: for type==posixGroup with blank/0 GID, call
+      `NextAvailableGID` server-side before `CreateGroup` and never write 0. DONE.
+- [x] groupOfNames path unchanged (no gidNumber attribute).
+- [x] Belt-and-suspenders: even if the Auto button pre-filled the field, re-resolve
+      blank/0 server-side so a manually-cleared field can't persist 0. DONE: the
+      server-side check runs regardless of what the Auto button filled.
+
+#### Green "Auto" button (next-available GID)
+- [x] Place a green "Auto" button immediately right of the "GID Number" input on
+      the group form (create mode; and edit mode for posixGroups).
+- [x] On click, hx-get a small handler that returns `NextAvailableGID` and fills
+      the GID input (fill the value, don't submit). New partial route
+      `GET /partials/groups/next-gid` (partialGroupNextGID). Fill via
+      hx-on::after-request setting the input value from responseText.
+- [x] Button styled green: added `.btn-green` to style.css (no green btn variant
+      existed; mirrors the existing btn-primary/danger pattern with a hover).
+
+#### GID reference sidebar (Variant A layout, uses TableRenderer)
+- [x] Wrap group_form.html in `.detail-layout` (2fr form left, 1fr reference
+      right), matching the Edit User page pattern. Applies to BOTH create and
+      edit modes (reference is useful while creating too).
+- [x] New partial handler `partialGroupGIDReference` modeled on `partialGroupList`
+      in partials.go: `TableConfig` columns [{cn,"Name",sortable},{gidNumber,"GID",
+      sortable}], `PartialURL:"/partials/groups/gid-reference"`, `Filterable:true`,
+      NO Selectable, NO BulkActions, NO _actions column. posixGroups only. DONE.
+- [x] Register `GET /partials/groups/gid-reference` in registerPartials.
+- [x] Right column `.table-container` with hx-get on load. Distinct container /
+      PartialURL from the member list block (member list uses id="member-list",
+      not a TableRenderer, so no cross-targeting).
+- [ ] Layout note: TableRenderer's footer (filter + pagination + page-size) is
+      heavy chrome for a 1fr column. Use a small default page size; accept the
+      busier look vs the trimmed mockup, or widen the column. Design call, not a
+      blocker. (Left as default page size for now - revisit after visual review.)
+
+#### Groups list: badge the Type column
+- [x] Groups list Type column renders plain text ("posixGroup"/"groupOfNames").
+      Replace with the same pill badges used on the create/edit pages
+      (badge-blue for posixGroup, badge-purple for groupOfNames). CSS classes
+      already exist; display-only change in `partialGroupList` (partials.go).
+      DONE: added `groupTypeBadge` helper in partials.go; build+vet pass.
+
+#### Replaces the old "View" button idea
+- [ ] The original cut-off item ("Add View button left of Create that uses the
+      re[usable table]") is superseded: the reference table is now always-visible
+      in the sidebar (Variant A) rather than behind a View toggle. If a toggle is
+      still wanted later, it would just show/hide the same partial.
