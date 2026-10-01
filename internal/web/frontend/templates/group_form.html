@@ -26,7 +26,7 @@
       <div>
         <label class="label" for="gidNumber">GID Number (blank for auto, posixGroup only)</label>
         <div class="flex items-center space-x-2">
-          <input type="number" id="gidNumber" name="gidNumber" class="input w-32">
+          <input type="number" id="gidNumber" name="gidNumber" class="input" style="width:8rem">
           <button type="button" class="btn btn-green text-sm"
             hx-get="/partials/groups/next-gid"
             hx-target="#gidNumber"
@@ -40,7 +40,7 @@
       <div>
         <label class="label" for="gidNumber">GID Number <span class="text-xs text-gray-500 dark:text-gray-400">(NOTE: Changing GID affects file ownership where this group is in use.)</span></label>
         <div class="flex items-center space-x-2">
-          <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input w-32" data-original="{{.Content.Group.GIDNumber}}" oninput="document.getElementById('gid-save').disabled=(this.value===this.dataset.original)">
+          <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input" style="width:8rem" data-original="{{.Content.Group.GIDNumber}}" oninput="document.getElementById('gid-save').disabled=(this.value===this.dataset.original)">
           <button type="button" class="btn btn-green text-sm"
             hx-get="/partials/groups/next-gid"
             hx-swap="none"
