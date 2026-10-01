@@ -38,7 +38,7 @@
       {{if .Content.IsEdit}}
       {{if eq .Content.Group.Type "posixGroup"}}
       <div>
-        <label class="label" for="gidNumber">GID Number</label>
+        <label class="label" for="gidNumber">GID Number <span class="text-xs text-gray-500 dark:text-gray-400">(NOTE: Changing GID affects file ownership where this group is in use.)</span></label>
         <div class="flex items-center space-x-2">
           <input type="number" id="gidNumber" name="gidNumber" value="{{.Content.Group.GIDNumber}}" class="input w-32" data-original="{{.Content.Group.GIDNumber}}" oninput="document.getElementById('gid-save').disabled=(this.value===this.dataset.original)">
           <button type="button" class="btn btn-green text-sm"
@@ -46,7 +46,6 @@
             hx-swap="none"
             hx-on::after-request="var f=document.getElementById('gidNumber');f.value=event.detail.xhr.responseText;document.getElementById('gid-save').disabled=(f.value===f.dataset.original)">Auto</button>
           <button type="submit" id="gid-save" class="btn btn-primary text-sm" disabled>Save GID</button>
-          <span class="text-xs text-gray-500 dark:text-gray-400">NOTE: This can alter file perms!</span>
         </div>
       </div>
       {{end}}
